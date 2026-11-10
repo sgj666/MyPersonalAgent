@@ -385,6 +385,8 @@ knowledge/
 
 - 切片测试：`pytest tests/test_web_account_tenant.py tests/test_task_board_*.py tests/test_pptx_builder.py tests/test_teaching_skills.py tests/test_knowledge_import_convert.py tests/test_web_console_assets.py tests/test_web_menu.py tests/test_web_console_routing.py -q` → 124 passed，1 个失败为本机子进程缺少 web.py 的既有环境问题。
 - 全量 web 套件：389 passed / 12 failed，失败集合与 master 完全一致（本机环境问题：子进程无 web.py、SSE 日志捕获、等等）。
+- Python 3.11（uv 环境）复验：账号/看板/pptx 切片 39 passed；全量 5588 passed，仅剩 macOS `os.waitid` 既有失败。
+- 顺手修掉一个客户端可见缺陷：logout 与账号模式下的 login 拒绝不读 POST body，服务器会以 RST 关闭并让客户端丢掉响应；现在先 drain body 再返回。
 - 跨切片冒烟 `scripts/teacher_smoke.py`（真实 WSGI）：注册两位教师 → 登录 → 建任务 → 跨租户隔离（B 的看板为空）→ `/home` 外壳 → 知识库导入 → 离线生成 pptx，11 项全过。
 - 浏览器实测（`scripts/teacher_dev_server.py`）：`/home`、`/board`、`/teaching?tool=courseware` 渲染正常；UI 建任务后 `/api/tasks` 计数为 todo:1；教学工具提交后 `POST /message` 返回 200 且对话里出现完整提示词（模型回复因沙箱无 API Key 而报鉴权错误，属预期）。
 
