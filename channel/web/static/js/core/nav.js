@@ -7,6 +7,9 @@
 // =====================================================================
 // `nav` names the sidebar entry to light when the view has none of its own.
 const VIEW_META = {
+    home:     { group: 'nav_teach',   page: 'menu_home' },
+    board:    { group: 'nav_teach',   page: 'menu_board' },
+    teaching: { group: 'nav_teach',   page: 'menu_teaching' },
     chat:     { group: 'nav_chat',    page: 'menu_chat' },
     artifacts:{ group: 'nav_chat',    page: 'menu_artifacts', nav: 'chat' },
     agents:   { group: 'nav_manage',  page: 'menu_agents' },
@@ -204,7 +207,10 @@ function navigateTo(viewId, tab) {
     routeEnterView(viewId, tab);
 
     // Lazy-load view data
-    if (viewId === 'config') { loadConfigView(); switchConfigTab(tab || 'basic'); }
+    if (viewId === 'home') loadHomeView();
+    else if (viewId === 'board') loadBoardView();
+    else if (viewId === 'teaching') loadTeachingView();
+    else if (viewId === 'config') { loadConfigView(); switchConfigTab(tab || 'basic'); }
     else if (viewId === 'skills') { resetSkillViewer(); loadSkillsView(); }
     else if (viewId === 'memory') {
         memoryEditor.forget();

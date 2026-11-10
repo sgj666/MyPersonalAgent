@@ -579,7 +579,7 @@ function openKnowledgeImportDialog(files) {
         title: currentLang === 'zh' ? '导入文档' : 'Import documents',
         subtitle: currentLang === 'zh' ? `已选择 ${files.length} 个文件` : `${files.length} file(s) selected`,
         label: currentLang === 'zh' ? '目标分类' : 'Destination category',
-        hint: choices.length ? (currentLang === 'zh' ? '支持 Markdown 和 TXT，TXT 会转成 Markdown 文档' : 'Markdown and TXT are supported. TXT is converted to Markdown.') :
+        hint: choices.length ? (currentLang === 'zh' ? '支持 Markdown、TXT、PDF 与 Word；都会转成 Markdown 文档' : 'Markdown, TXT, PDF and Word are supported; each becomes a Markdown page.') :
             (currentLang === 'zh' ? '请先创建一个分类' : 'Create a category first'),
         type: 'select',
         choices,
@@ -594,9 +594,9 @@ async function importKnowledgeDocuments(files, targetCategory) {
         _setKnowledgeStatus(validationError, true);
         return null;
     }
-    const supported = files.filter(file => /\.(md|txt)$/i.test(file.name || ''));
+    const supported = files.filter(file => /\.(md|txt|pdf|docx)$/i.test(file.name || ''));
     if (!supported.length) {
-        _setKnowledgeStatus(currentLang === 'zh' ? '请选择 .md 或 .txt 文件' : 'Choose .md or .txt files', true);
+        _setKnowledgeStatus(currentLang === 'zh' ? '请选择 .md、.txt、.pdf 或 .docx 文件' : 'Choose .md, .txt, .pdf or .docx files', true);
         return null;
     }
     const formData = new FormData();

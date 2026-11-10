@@ -10,6 +10,9 @@
 
 // The pages of this console that a menu can lead to.
 const MENU_BUILTINS = {
+    home:      { icon: 'fa-house',            label: 'menu_home' },
+    board:     { icon: 'fa-table-columns',    label: 'menu_board' },
+    teaching:  { icon: 'fa-pen-ruler',        label: 'menu_teaching' },
     chat:      { icon: 'fa-message',          label: 'menu_chat' },
     artifacts: { icon: 'fa-layer-group',      label: 'menu_artifacts' },
     agents:    { icon: 'fa-people-group',     label: 'menu_agents' },
@@ -24,13 +27,14 @@ const MENU_BUILTINS = {
 
 // The built-in menu, as sidebar.html draws it before any script runs.
 const MENU_DEFAULT = [
+    { id: 'teach',   views: ['home', 'board', 'teaching'] },
     { id: 'chat',    views: ['chat', 'artifacts'] },
     { id: 'manage',  views: ['agents', 'config', 'skills', 'memory', 'knowledge', 'channels', 'tasks'] },
     { id: 'monitor', views: ['logs'] },
 ];
 // Built-in pages that start hidden, so only the menu editor offers them.
 const MENU_DEFAULT_HIDDEN = new Set(['artifacts']);
-const MENU_GROUP_LABELS = { chat: 'nav_chat', manage: 'nav_manage', monitor: 'nav_monitor' };
+const MENU_GROUP_LABELS = { teach: 'nav_teach', chat: 'nav_chat', manage: 'nav_manage', monitor: 'nav_monitor' };
 // Pages a menu must always lead to; mirrors REQUIRED_VIEWS in api/menu.py.
 const MENU_REQUIRED = ['chat', 'config'];
 // Artifacts that can be a page of the menu; mirrors MENU_KINDS in api/menu.py.

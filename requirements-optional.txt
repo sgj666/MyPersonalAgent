@@ -21,6 +21,9 @@ python-docx
 openpyxl
 python-pptx
 
+# knowledge import: PDF textbooks → markdown (agent/knowledge/convert.py)
+pdfminer.six
+
 # memory rerank: install on demand for rerank_provider=local (pulls in torch)
 # sentence-transformers
 

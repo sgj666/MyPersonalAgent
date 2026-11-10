@@ -6,7 +6,26 @@
                 <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">CowAgent</h1>
                 <p class="text-sm text-slate-500 dark:text-slate-400 mt-1" id="login-subtitle">请输入密码以访问控制台</p>
             </div>
+            <!-- Teacher accounts: 登录 / 注册. Hidden until /auth/check says the
+                 instance runs on accounts, so a single-password install looks
+                 exactly as it did before. -->
+            <div id="login-tabs" class="flex items-center justify-center gap-1 mb-5 hidden">
+                <button type="button" id="login-tab-login" class="px-4 py-2 rounded-lg text-sm font-medium transition-colors"></button>
+                <button type="button" id="login-tab-register" class="px-4 py-2 rounded-lg text-sm font-medium transition-colors"></button>
+            </div>
             <form id="login-form" class="space-y-4" onsubmit="return false;">
+                <input id="login-username" type="text" autocomplete="username" placeholder="用户名"
+                       class="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-white/10
+                              bg-panel text-slate-800 dark:text-slate-200 placeholder-slate-400
+                              dark:placeholder-slate-500 focus:outline-none focus:ring-2
+                              focus:ring-primary-400/50 focus:border-primary-400 transition-all
+                              duration-150 text-sm hidden">
+                <input id="login-name" type="text" autocomplete="name" placeholder="姓名（选填）"
+                       class="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-white/10
+                              bg-panel text-slate-800 dark:text-slate-200 placeholder-slate-400
+                              dark:placeholder-slate-500 focus:outline-none focus:ring-2
+                              focus:ring-primary-400/50 focus:border-primary-400 transition-all
+                              duration-150 text-sm hidden">
                 <div class="relative">
                     <input id="login-password" type="password" autocomplete="current-password"
                            placeholder="Password"

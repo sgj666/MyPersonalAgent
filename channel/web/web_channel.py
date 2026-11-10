@@ -10,6 +10,9 @@ URLS against this module's globals; see build_app at the bottom.
 
 import web
 
+from channel.web.api.account import (  # noqa: F401
+    AccountLoginHandler, AccountLogoutHandler, AccountMeHandler, AccountRegisterHandler,
+)
 from channel.web.api.agents import (  # noqa: F401
     AgentAvatarHandler, AgentCoreFileHandler, AgentsHandler,
 )
@@ -76,6 +79,9 @@ from channel.web.api.skills import (  # noqa: F401
     SkillsHandler, SkillUploadHandler, ToolsHandler,
     _install_skill_for_agent,
 )
+from channel.web.api.tasks import (  # noqa: F401
+    TaskDeleteHandler, TaskUpdateHandler, TasksHandler,
+)
 from channel.web.api.themes import (  # noqa: F401
     ThemeAssetHandler, ThemeImportHandler, ThemesHandler,
 )
@@ -105,6 +111,10 @@ URLS = (
     *GUEST_URLS,
     '/api/integrations', 'IntegrationsHandler',
     '/auth/login', 'AuthLoginHandler',
+    '/api/account/register', 'AccountRegisterHandler',
+    '/api/account/login', 'AccountLoginHandler',
+    '/api/account/logout', 'AccountLogoutHandler',
+    '/api/account/me', 'AccountMeHandler',
     '/auth/check', 'AuthCheckHandler',
     '/auth/logout', 'AuthLogoutHandler',
     '/message', 'MessageHandler',
@@ -173,6 +183,9 @@ URLS = (
     '/api/scheduler/create', 'SchedulerCreateHandler',
     '/api/scheduler/recipients', 'SchedulerRecipientsHandler',
     '/api/scheduler/instances', 'SchedulerInstancesHandler',
+    '/api/tasks', 'TasksHandler',
+    '/api/tasks/update', 'TaskUpdateHandler',
+    '/api/tasks/delete', 'TaskDeleteHandler',
     '/api/agents', 'AgentsHandler',
     '/api/agents/([^/]+)/avatar', 'AgentAvatarHandler',
     '/api/agents/([^/]+)/files/([^/]+)', 'AgentCoreFileHandler',
@@ -202,7 +215,7 @@ URLS = (
     # can ever shadow an API route above -- which is also why the
     # settings view is /settings and not /config, a path the config
     # API already owns.
-    '/(?:agents|artifacts|settings|skills|memory|knowledge|channels|scheduler|logs)'
+    '/(?:home|board|teaching|agents|artifacts|settings|skills|memory|knowledge|channels|scheduler|logs)'
     '(?:/[a-z]+)?/?', 'ChatHandler',
     # A page the user put in the menu: /m/<item id>.
     '/m/[A-Za-z0-9_-]{1,40}/?', 'ChatHandler',

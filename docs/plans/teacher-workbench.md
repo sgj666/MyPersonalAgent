@@ -362,3 +362,35 @@ knowledge/
 - 默认浅色；深色、背景图与主题切换保留
 
 **待落地**：字体需自托管（本地安装不应依赖 Google Fonts）；色板与组件 token 落到 `channel/web/static/css` 与 `themes.js`。
+
+---
+
+## 12 实施记录（feature/teacher-workbench）
+
+工作树：`/Users/sgj/orca/workspaces/MyPersonalAgent/teacher-workbench`，分支 `feature/teacher-workbench`。四个后端切片 + 一个前端切片并行完成后由协调层接线。
+
+### 12.1 已落地
+
+| 切片 | 内容 | 关键文件 |
+|---|---|---|
+| P0 账号与租户 | PBKDF2-HMAC-SHA256（本机 Python 无 `hashlib.scrypt`）、HMAC token、按会话强制 `agent_id`、注册建私有 knowledge/skills、旧口令模式兼容、登录页注册入口 | `channel/web/api/account.py`、`auth.py`、`core/_common.py`、`common/state_dir.py`、登录页 |
+| P1 控制台前端 | 首页 / 任务看板 / 教学工具三视图，真实 API；教学工具生成中文 prompt 并交给现有对话流 | `templates/views/{home,board,teaching}.html`、`static/js/views/*.js`、`static/css/*.css`、`core/{nav,router,menu,i18n}.js` |
+| P2 任务看板 | `board.json` 存储、4 列模型、`/api/tasks*`、`task_board` Agent 工具 | `agent/board/**`、`agent/tools/task_board/**`、`channel/web/api/tasks.py` |
+| P3 教学能力 | 5 个 Skill + 离线 pptx 渲染器（3 母版、16:9、不嵌字体） | `skills/{lesson-plan,courseware-ppt,card…}/**`、`agent/tools/pptx/**` |
+| P4 教材导入 | PDF/Word → Markdown、扫描件显式报错、控制台白名单放宽 | `agent/knowledge/convert.py`、`service.py`、知识库视图 |
+
+协调层负责：路由表（`/api/account/*`、`/api/tasks*`、`/home|/board|/teaching`）、外壳 include、默认浅色、看板空态四列、旧测试假 registry 签名、PDF/DOCX 上传白名单。
+
+### 12.2 验收证据
+
+- 切片测试：`pytest tests/test_web_account_tenant.py tests/test_task_board_*.py tests/test_pptx_builder.py tests/test_teaching_skills.py tests/test_knowledge_import_convert.py tests/test_web_console_assets.py tests/test_web_menu.py tests/test_web_console_routing.py -q` → 124 passed，1 个失败为本机子进程缺少 web.py 的既有环境问题。
+- 全量 web 套件：389 passed / 12 failed，失败集合与 master 完全一致（本机环境问题：子进程无 web.py、SSE 日志捕获、等等）。
+- 跨切片冒烟 `scripts/teacher_smoke.py`（真实 WSGI）：注册两位教师 → 登录 → 建任务 → 跨租户隔离（B 的看板为空）→ `/home` 外壳 → 知识库导入 → 离线生成 pptx，11 项全过。
+- 浏览器实测（`scripts/teacher_dev_server.py`）：`/home`、`/board`、`/teaching?tool=courseware` 渲染正常；UI 建任务后 `/api/tasks` 计数为 todo:1；教学工具提交后 `POST /message` 返回 200 且对话里出现完整提示词（模型回复因沙箱无 API Key 而报鉴权错误，属预期）。
+
+### 12.3 已知限制
+
+- 真实生成（教案/课件）依赖配置模型；沙箱无 Key，只验证到「提示词送入对话」。
+- 控制台侧栏维持原有深色 chrome；三个新视图使用浅色 clay 视觉，二者并列呈现。
+- 控制台字体回退到 PingFang；ZCOOL QingKe HuangYou 仅存在于原型，正式包若要使用需自托管。
+- 深色主题默认改为浅色，仅影响未保存偏好的新用户。

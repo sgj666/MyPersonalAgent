@@ -25,6 +25,7 @@ from common.log import logger
 from config import conf
 from agent.memory.config import MemoryConfig
 from agent.memory.manager import MemoryManager
+from agent.knowledge.convert import convert_to_markdown
 
 
 class KnowledgeService:
@@ -39,7 +40,7 @@ class KnowledgeService:
     # by _link(), so the path never contains ")", which lets the summary be
     # matched non-greedily up to the end of the line.
     INDEX_SUMMARY_RE = re.compile(r'\]\(([^)\s]+)\)\s*(?:—|–|--?)\s*(.+?)\s*$')
-    IMPORT_EXTENSIONS = {".md", ".txt"}
+    IMPORT_EXTENSIONS = {".md", ".txt", ".pdf", ".docx"}
     MAX_IMPORT_FILES = 100
     MAX_IMPORT_FILE_SIZE = 10 * 1024 * 1024
     MAX_IMPORT_TOTAL_SIZE = 200 * 1024 * 1024
@@ -456,7 +457,18 @@ class KnowledgeService:
                     continue
 
                 old_exists = destination.exists()
-                content = self._decode_document_content(content_bytes)
+                if content_bytes is None:
+                    raise ValueError("document content is required")
+                # A textbook PDF or Word file becomes markdown here; text types
+                # keep the exact bytes they were uploaded with.
+                if os.path.splitext(filename or "")[1].lower() in (".md", ".txt"):
+                    content = self._decode_document_content(content_bytes)
+                else:
+                    raw = (content_bytes.encode("utf-8") if isinstance(content_bytes, str)
+                           else bytes(content_bytes))
+                    content = convert_to_markdown(filename, raw)
+                if len(content.encode("utf-8")) > self.MAX_IMPORT_FILE_SIZE:
+                    raise ValueError("file too large")
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 # newline="" saves the file's line breaks as uploaded; on
                 # Windows, text mode turns each CRLF into CR CR LF.

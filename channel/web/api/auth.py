@@ -15,6 +15,7 @@ from agent.guest.access import LoginLimiter
 from channel.web.core._common import (
     _check_auth,
     _client_ip,
+    _discard_request_body,
     _get_web_password,
     _is_password_enabled,
     _session_expire_seconds,
@@ -106,17 +107,36 @@ class McpOAuthCallbackHandler:
 class AuthCheckHandler:
     def GET(self):
         web.header('Content-Type', 'application/json; charset=utf-8')
-        if not _is_password_enabled():
+        # Account mode asks for a username and password even when no console
+        # password is configured, so the login page has to know which mode is
+        # live. The key is present only when accounts exist: a single-password
+        # install keeps answering exactly what it answered before.
+        from channel.web.api.account import accounts_enabled
+
+        account_mode = accounts_enabled()
+        if not account_mode and not _is_password_enabled():
             return json.dumps({"status": "success", "auth_required": False})
-        if _check_auth():
-            return json.dumps({"status": "success", "auth_required": True, "authenticated": True})
-        return json.dumps({"status": "success", "auth_required": True, "authenticated": False})
+        answer = {"status": "success", "auth_required": True,
+                  "authenticated": bool(_check_auth())}
+        if account_mode:
+            answer["account_mode"] = True
+        return json.dumps(answer)
 
 
 class AuthLoginHandler:
     def POST(self):
         web.header('Content-Type', 'application/json; charset=utf-8')
+        from channel.web.api.account import accounts_enabled
+
+        if accounts_enabled():
+            # The password token names no tenant, so account mode has nothing to
+            # authenticate it against; answer where the real login lives rather
+            # than hand out a token every protected handler will reject.
+            _discard_request_body()
+            return json.dumps({"status": "error", "reason": "account_mode",
+                               "message": "This console uses teacher accounts"})
         if not _is_password_enabled():
+            _discard_request_body()
             return json.dumps({"status": "success"})
         try:
             data = json.loads(web.data())
@@ -146,5 +166,6 @@ class AuthLoginHandler:
 class AuthLogoutHandler:
     def POST(self):
         web.header('Content-Type', 'application/json; charset=utf-8')
+        _discard_request_body()
         web.setcookie("cow_auth_token", "", expires=-1, path="/")
         return json.dumps({"status": "success"})

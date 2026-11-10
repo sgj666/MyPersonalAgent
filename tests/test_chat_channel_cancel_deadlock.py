@@ -37,7 +37,7 @@ class _StubAgentBridge:
     def __init__(self, default: str = "default"):
         self.agent_registry = SimpleNamespace(
             default_agent_id=default,
-            get=lambda agent_id=None: SimpleNamespace(id=agent_id or default),
+            get=lambda agent_id=None, require_enabled=True: SimpleNamespace(id=agent_id or default),
         )
 
     _cancel_key = staticmethod(AgentBridge._cancel_key)

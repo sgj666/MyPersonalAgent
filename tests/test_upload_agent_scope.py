@@ -48,7 +48,7 @@ def console(tmp_path, monkeypatch):
         path.mkdir(parents=True, exist_ok=True)
 
     registry = SimpleNamespace(
-        get=lambda agent_id=None: SimpleNamespace(workspace=str(workspaces[agent_id]))
+        get=lambda agent_id=None, require_enabled=True: SimpleNamespace(workspace=str(workspaces[agent_id]))
     )
 
     from channel.web import web_channel

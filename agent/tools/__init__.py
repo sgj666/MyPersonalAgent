@@ -24,6 +24,9 @@ from agent.tools.agent_delegate.agent_delegate import AgentDelegateTool
 # Import sub agent tools
 from agent.tools.subagent.subagent import SubagentTool
 
+# Import the task board tool (no optional dependency)
+from agent.tools.task_board.task_board import TaskBoardTool
+
 # Import tools with optional dependencies
 _PIP_PACKAGES = {
     "dotenv": "python-dotenv>=1.0.0",
@@ -159,6 +162,7 @@ __all__ = [
     'EvolutionUndoTool',
     'SubagentTool',
     'AgentDelegateTool',
+    'TaskBoardTool',
     'EnvConfig',
     'SchedulerTool',
     'WebSearch',

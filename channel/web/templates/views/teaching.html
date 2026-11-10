@@ -1,0 +1,232 @@
+                <!-- ====================================================== -->
+                <!-- VIEW: Teaching tools                                     -->
+                <!-- ====================================================== -->
+                <div id="view-teaching" class="view tw-view">
+                    <div class="tw-scroll">
+                        <div class="tw-page">
+
+                            <header class="tw-page-head">
+                                <div>
+                                    <h1 data-i18n="tw_teach_title">教学工具</h1>
+                                    <p data-i18n="tw_teach_desc">填表后把整理好的要求发进对话，由对应 Skill 生成产出。</p>
+                                </div>
+                            </header>
+
+                            <div class="tw-segs" role="tablist" aria-label="教学工具">
+                                <button type="button" class="tw-seg" role="tab" id="teach-tab-plan" aria-selected="false"
+                                        onclick="twTeachSelectTool('plan')">
+                                    <i class="fas fa-file-pen" aria-hidden="true"></i><span data-i18n="tw_tool_plan">教案生成</span>
+                                </button>
+                                <button type="button" class="tw-seg" role="tab" id="teach-tab-courseware" aria-selected="false"
+                                        onclick="twTeachSelectTool('courseware')">
+                                    <i class="fas fa-chalkboard" aria-hidden="true"></i><span data-i18n="tw_tool_courseware">课件生成</span>
+                                </button>
+                                <button type="button" class="tw-seg" role="tab" id="teach-tab-card" aria-selected="false"
+                                        onclick="twTeachSelectTool('card')">
+                                    <i class="fas fa-clone" aria-hidden="true"></i><span data-i18n="tw_tool_card">作业卡片</span>
+                                </button>
+                                <button type="button" class="tw-seg" role="tab" id="teach-tab-advice" aria-selected="false"
+                                        onclick="twTeachSelectTool('advice')">
+                                    <i class="fas fa-lightbulb" aria-hidden="true"></i><span data-i18n="tw_tool_advice">教学建议</span>
+                                </button>
+                                <button type="button" class="tw-seg" role="tab" id="teach-tab-schedule" aria-selected="false"
+                                        onclick="twTeachSelectTool('schedule')">
+                                    <i class="fas fa-calendar-days" aria-hidden="true"></i><span data-i18n="tw_tool_schedule">教学计划</span>
+                                </button>
+                            </div>
+
+                            <div class="tw-teach-grid">
+                                <div class="tw-card tw-teach-form">
+
+                                    <!-- 教案生成 -->
+                                    <form id="teach-form-plan" class="tw-form" data-tool="plan" role="tabpanel" aria-labelledby="teach-tab-plan"
+                                          onsubmit="twTeachSubmit('plan', event)" oninput="twTeachRefreshPreview()">
+                                        <h2 data-i18n="tw_tool_plan">教案生成</h2>
+                                        <div class="tw-field-row">
+                                            <label class="tw-field">
+                                                <span data-i18n="tw_f_stage">学段</span>
+                                                <select id="teach-plan-stage" name="stage" class="tw-select">
+                                                    <option value="小学">小学</option>
+                                                    <option value="初中" selected>初中</option>
+                                                    <option value="高中">高中</option>
+                                                </select>
+                                            </label>
+                                            <label class="tw-field">
+                                                <span data-i18n="tw_f_subject">学科</span>
+                                                <input id="teach-plan-subject" name="subject" class="tw-input" type="text"
+                                                       value="英语" required>
+                                            </label>
+                                        </div>
+                                        <div class="tw-field-row">
+                                            <label class="tw-field">
+                                                <span data-i18n="tw_f_book">教材版本</span>
+                                                <input id="teach-plan-book" name="book" class="tw-input" type="text" value="人教新版">
+                                            </label>
+                                            <label class="tw-field">
+                                                <span data-i18n="tw_f_unit">单元 / 课题</span>
+                                                <input id="teach-plan-unit" name="unit" class="tw-input" type="text"
+                                                       placeholder="Unit 3 My weekend plan" required>
+                                            </label>
+                                        </div>
+                                        <div class="tw-field-row">
+                                            <label class="tw-field">
+                                                <span data-i18n="tw_f_lesson_type">课型</span>
+                                                <select id="teach-plan-lesson-type" name="lesson_type" class="tw-select">
+                                                    <option value="新授课">新授课</option>
+                                                    <option value="读写课" selected>读写课</option>
+                                                    <option value="听说课">听说课</option>
+                                                    <option value="复习课">复习课</option>
+                                                    <option value="习题课">习题课</option>
+                                                </select>
+                                            </label>
+                                            <label class="tw-field">
+                                                <span data-i18n="tw_f_hours">课时</span>
+                                                <input id="teach-plan-hours" name="hours" class="tw-input" type="number" min="1" max="20" value="2">
+                                            </label>
+                                        </div>
+                                        <label class="tw-field">
+                                            <span data-i18n="tw_f_goal">教学目标</span>
+                                            <textarea id="teach-plan-goal" name="goal" class="tw-textarea" rows="3"
+                                                      placeholder="例：能运用 be going to 描述周末计划；能读懂并复述课文。"></textarea>
+                                        </label>
+                                        <div class="tw-form-actions">
+                                            <button type="submit" class="tw-btn tw-btn-primary" data-i18n="tw_teach_generate">开始生成</button>
+                                            <span class="tw-hint" data-i18n="tw_teach_submit_hint">提交后进入对话，由 Agent 生成。</span>
+                                        </div>
+                                    </form>
+
+                                    <!-- 课件生成 -->
+                                    <form id="teach-form-courseware" class="tw-form hidden" data-tool="courseware" role="tabpanel"
+                                          aria-labelledby="teach-tab-courseware" onsubmit="twTeachSubmit('courseware', event)"
+                                          oninput="twTeachRefreshPreview()">
+                                        <h2 data-i18n="tw_tool_courseware">课件生成</h2>
+                                        <label class="tw-field">
+                                            <span data-i18n="tw_f_unit">单元 / 课题</span>
+                                            <input id="teach-courseware-unit" name="unit" class="tw-input" type="text"
+                                                   placeholder="Unit 3 My weekend plan" required>
+                                        </label>
+                                        <div class="tw-field-row">
+                                            <label class="tw-field">
+                                                <span data-i18n="tw_f_lesson_source">教案来源</span>
+                                                <select id="teach-courseware-source" name="source" class="tw-select">
+                                                    <option value="根据本课题新建教案" selected>新建教案</option>
+                                                    <option value="使用知识库中已有的教案">已有教案</option>
+                                                </select>
+                                            </label>
+                                            <label class="tw-field">
+                                                <span data-i18n="tw_f_template">母版模板</span>
+                                                <select id="teach-courseware-template" name="template" class="tw-select">
+                                                    <option value="讲授" selected>讲授</option>
+                                                    <option value="活动">活动</option>
+                                                    <option value="复习">复习</option>
+                                                </select>
+                                            </label>
+                                        </div>
+                                        <label class="tw-field">
+                                            <span data-i18n="tw_f_slides">页数</span>
+                                            <input id="teach-courseware-slides" name="slides" class="tw-input" type="number" min="5" max="60" value="15">
+                                        </label>
+                                        <div class="tw-form-actions">
+                                            <button type="submit" class="tw-btn tw-btn-primary" data-i18n="tw_teach_generate">开始生成</button>
+                                            <span class="tw-hint" data-i18n="tw_teach_submit_hint">提交后进入对话，由 Agent 生成。</span>
+                                        </div>
+                                    </form>
+
+                                    <!-- 作业卡片 -->
+                                    <form id="teach-form-card" class="tw-form hidden" data-tool="card" role="tabpanel"
+                                          aria-labelledby="teach-tab-card" onsubmit="twTeachSubmit('card', event)"
+                                          oninput="twTeachRefreshPreview()">
+                                        <h2 data-i18n="tw_tool_card">作业卡片</h2>
+                                        <label class="tw-field">
+                                            <span data-i18n="tw_f_source">题目来源</span>
+                                            <textarea id="teach-card-source" name="source" class="tw-textarea" rows="3" required
+                                                      placeholder="例：Unit 3 课文与词汇；或粘贴题目原文。"></textarea>
+                                        </label>
+                                        <div class="tw-field-row">
+                                            <label class="tw-field">
+                                                <span data-i18n="tw_f_layout">版式</span>
+                                                <select id="teach-card-layout" name="layout" class="tw-select">
+                                                    <option value="单栏练习" selected>单栏练习</option>
+                                                    <option value="双栏练习">双栏练习</option>
+                                                    <option value="四宫格">四宫格</option>
+                                                </select>
+                                            </label>
+                                            <label class="tw-field">
+                                                <span data-i18n="tw_f_count">题目数量</span>
+                                                <input id="teach-card-count" name="count" class="tw-input" type="number" min="1" max="50" value="10">
+                                            </label>
+                                        </div>
+                                        <div class="tw-form-actions">
+                                            <button type="submit" class="tw-btn tw-btn-primary" data-i18n="tw_teach_generate">开始生成</button>
+                                            <span class="tw-hint" data-i18n="tw_teach_submit_hint">提交后进入对话，由 Agent 生成。</span>
+                                        </div>
+                                    </form>
+
+                                    <!-- 教学建议 -->
+                                    <form id="teach-form-advice" class="tw-form hidden" data-tool="advice" role="tabpanel"
+                                          aria-labelledby="teach-tab-advice" onsubmit="twTeachSubmit('advice', event)"
+                                          oninput="twTeachRefreshPreview()">
+                                        <h2 data-i18n="tw_tool_advice">教学建议</h2>
+                                        <label class="tw-field">
+                                            <span data-i18n="tw_f_class">班级情况</span>
+                                            <input id="teach-advice-class" name="class_name" class="tw-input" type="text"
+                                                   placeholder="例：七年级 (3) 班，48 人，基础一般" required>
+                                        </label>
+                                        <label class="tw-field">
+                                            <span data-i18n="tw_f_unit">单元 / 课题</span>
+                                            <input id="teach-advice-unit" name="unit" class="tw-input" type="text"
+                                                   placeholder="Unit 3 My weekend plan">
+                                        </label>
+                                        <label class="tw-field">
+                                            <span data-i18n="tw_f_focus">关注点</span>
+                                            <textarea id="teach-advice-focus" name="focus" class="tw-textarea" rows="3"
+                                                      placeholder="例：课堂参与度、分层任务、读写结合。"></textarea>
+                                        </label>
+                                        <div class="tw-form-actions">
+                                            <button type="submit" class="tw-btn tw-btn-primary" data-i18n="tw_teach_generate">开始生成</button>
+                                            <span class="tw-hint" data-i18n="tw_teach_submit_hint">提交后进入对话，由 Agent 生成。</span>
+                                        </div>
+                                    </form>
+
+                                    <!-- 教学计划 -->
+                                    <form id="teach-form-schedule" class="tw-form hidden" data-tool="schedule" role="tabpanel"
+                                          aria-labelledby="teach-tab-schedule" onsubmit="twTeachSubmit('schedule', event)"
+                                          oninput="twTeachRefreshPreview()">
+                                        <h2 data-i18n="tw_tool_schedule">教学计划</h2>
+                                        <div class="tw-field-row">
+                                            <label class="tw-field">
+                                                <span data-i18n="tw_f_term">学期</span>
+                                                <input id="teach-schedule-term" name="term" class="tw-input" type="text"
+                                                       placeholder="2026 学年第二学期" required>
+                                            </label>
+                                            <label class="tw-field">
+                                                <span data-i18n="tw_f_weeks">周数</span>
+                                                <input id="teach-schedule-weeks" name="weeks" class="tw-input" type="number" min="1" max="30" value="18">
+                                            </label>
+                                        </div>
+                                        <label class="tw-field">
+                                            <span data-i18n="tw_f_scope">单元范围</span>
+                                            <textarea id="teach-schedule-scope" name="scope" class="tw-textarea" rows="3"
+                                                      placeholder="例：七年级上册 Unit 1–Unit 6，每单元 2–3 课时。"></textarea>
+                                        </label>
+                                        <div class="tw-form-actions">
+                                            <button type="submit" class="tw-btn tw-btn-primary" data-i18n="tw_teach_generate">开始生成</button>
+                                            <span class="tw-hint" data-i18n="tw_teach_submit_hint">提交后进入对话，由 Agent 生成。</span>
+                                        </div>
+                                    </form>
+
+                                </div>
+
+                                <aside class="tw-card tw-teach-aside" aria-labelledby="teach-preview-h">
+                                    <div class="tw-card-head">
+                                        <h2 id="teach-preview-h" data-i18n="tw_teach_preview">将发送的内容</h2>
+                                    </div>
+                                    <textarea id="teach-prompt-preview" class="tw-textarea tw-preview" readonly rows="16"></textarea>
+                                    <p class="tw-hint" data-i18n="tw_teach_preview_hint">提交后会在新对话中发送以上内容。</p>
+                                    <p id="teach-status" class="tw-status" role="status"></p>
+                                </aside>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>

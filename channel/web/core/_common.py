@@ -352,8 +352,70 @@ def _get_query_token():
         return ""
 
 
+def _accounts_enabled() -> bool:
+    """True when the console runs on teacher accounts instead of one password.
+
+    The account module owns the store; this is the one-line answer the auth
+    helpers need, kept lazy so neither module has to import the other at load
+    time.
+    """
+    from channel.web.api.account import accounts_enabled
+
+    return accounts_enabled()
+
+
+def _presented_token() -> str:
+    """The session token this request carries, wherever the client put it.
+
+    Cookie for browsers, Authorization header for the desktop client (a
+    ``file://`` origin does not send the cookie), query string for EventSource.
+    """
+    cookie = web.cookies().get("cow_auth_token", "")
+    if cookie:
+        return cookie
+    return _get_bearer_token() or _get_query_token()
+
+
+def _account_identity():
+    """The tenant a valid account token names, or None.
+
+    None in legacy mode, and None rather than raising when the store cannot be
+    read: an unusable store must fail closed, not turn into an exception page on
+    every request.
+    """
+    if not _accounts_enabled():
+        return None
+    from channel.web.api.account import verify_account_token
+
+    try:
+        return verify_account_token(_presented_token())
+    except Exception as e:
+        logger.error(f"[WebChannel] account token check failed: {e}")
+        return None
+
+
+def _discard_request_body() -> None:
+    """Read and throw away a request body the handler does not care about.
+
+    A WSGI server that closes a connection with unread body bytes still in the
+    socket sends RST rather than FIN, and the client's read of the response can
+    then fail with "connection reset by peer" for an answer the app had already
+    produced. Handlers that ignore their body -- logout, and a login rejected
+    before it parses one -- consume it before replying.
+    """
+    try:
+        web.data()
+    except Exception:
+        pass
+
+
 def _check_auth():
     """Return True if request is authenticated or password not enabled."""
+    if _accounts_enabled():
+        # Account mode accepts a signed account token only. The legacy token is
+        # derived from the password and names no tenant, so honouring it here
+        # would put every teacher's requests back in the client's hands.
+        return _account_identity() is not None
     if not _is_password_enabled():
         return True
     if _verify_auth_token(web.cookies().get("cow_auth_token", "")):
@@ -363,28 +425,64 @@ def _check_auth():
     return _verify_auth_token(_get_query_token())
 
 
+#: Handle of the identity this thread's previous request bound, so the binding
+#: can be undone before the next request reuses the thread. A stale identity is
+#: not cosmetic: it would let one teacher's request resolve another's workspace.
+_identity_binding = threading.local()
+
+
+def _bind_account_identity(identity):
+    """Make ``state_dir`` resolve the caller's own workspace for this request.
+
+    Called with ``identity=None`` to clear: a rejected request, and a request in
+    legacy mode (which has no tenant), must not run under whichever binding the
+    previous request on this thread left behind. The WSGI server reuses threads,
+    and a contextvar left set is not cosmetic -- it would let one teacher's
+    request resolve another's workspace.
+    """
+    from common.runtime_identity import _current
+
+    previous = getattr(_identity_binding, "handle", None)
+    if previous is not None:
+        try:
+            _current.reset(previous)
+        except ValueError:
+            pass
+        _identity_binding.handle = None
+    _identity_binding.handle = _current.set(identity) if identity is not None else None
+
+
 def _require_auth():
     """Raise 401 if not authenticated. Call at the top of protected handlers."""
-    if not _check_auth():
-        # Log which credential the caller offered (never the value). A rejected
-        # request is otherwise invisible in run.log, which makes client bugs —
-        # e.g. an endpoint that forgets the Authorization header — undiagnosable.
-        offered = []
-        if web.cookies().get("cow_auth_token", ""):
-            offered.append("cookie")
-        if _get_bearer_token():
-            offered.append("bearer")
-        if _get_query_token():
-            offered.append("query")
-        logger.warning(
-            "[WebChannel] 401 Unauthorized: %s %s (credentials offered: %s)",
-            web.ctx.env.get("REQUEST_METHOD", "?"),
-            web.ctx.env.get("PATH_INFO", "?"),
-            ", ".join(offered) or "none",
-        )
-        raise web.HTTPError("401 Unauthorized",
-                            {"Content-Type": "application/json; charset=utf-8"},
-                            json.dumps({"status": "error", "message": "Unauthorized"}))
+    identity = _account_identity()
+    if identity is not None:
+        _bind_account_identity(identity)
+        return
+    if not _accounts_enabled() and _check_auth():
+        # Legacy mode authenticates the console, not a tenant: nothing to bind,
+        # and any leftover binding is still cleared.
+        _bind_account_identity(None)
+        return
+    _bind_account_identity(None)
+    # Log which credential the caller offered (never the value). A rejected
+    # request is otherwise invisible in run.log, which makes client bugs —
+    # e.g. an endpoint that forgets the Authorization header — undiagnosable.
+    offered = []
+    if web.cookies().get("cow_auth_token", ""):
+        offered.append("cookie")
+    if _get_bearer_token():
+        offered.append("bearer")
+    if _get_query_token():
+        offered.append("query")
+    logger.warning(
+        "[WebChannel] 401 Unauthorized: %s %s (credentials offered: %s)",
+        web.ctx.env.get("REQUEST_METHOD", "?"),
+        web.ctx.env.get("PATH_INFO", "?"),
+        ", ".join(offered) or "none",
+    )
+    raise web.HTTPError("401 Unauthorized",
+                        {"Content-Type": "application/json; charset=utf-8"},
+                        json.dumps({"status": "error", "message": "Unauthorized"}))
 
 
 # Localized text for /cancel system replies. Web is the only channel that
@@ -752,7 +850,21 @@ class WebMessage(ChatMessage):
         self.other_user_id = other_user_id
 
 
+def _session_agent_id() -> str:
+    """The Agent the caller's account owns, or None outside account mode.
+
+    This is the client-independent answer to "whose data is this": in account
+    mode a request may only ever act on the Agent minted for its own session,
+    whatever ``agent_id`` it names in the body or query string.
+    """
+    identity = _account_identity()
+    return identity.agent_id if identity is not None else None
+
+
 def _request_agent_id(source) -> str:
+    session_agent = _session_agent_id()
+    if session_agent:
+        return session_agent
     value = getattr(source, "agent_id", None)
     if value is None:
         value = getattr(source, "agent", None)
@@ -768,6 +880,10 @@ def _request_agent_id(source) -> str:
 
 def _scoped_agent_id(source) -> str:
     """The Agent a request is scoped to: its payload, or the URL's query string.
+
+    In account mode the session's own Agent wins before either is read, so the
+    client cannot address someone else's workspace (``_request_agent_id``
+    returns it). Below is the legacy, single-password rule.
 
     Clients put ``agent_id`` in the query string and deliberately keep it out of
     a multipart body — web.py merges the two, and a field present in both

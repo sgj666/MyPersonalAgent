@@ -1,0 +1,124 @@
+                <!-- ====================================================== -->
+                <!-- VIEW: Teacher home                                       -->
+                <!-- ====================================================== -->
+                <div id="view-home" class="view tw-view">
+                    <div class="tw-scroll">
+                        <div class="tw-page">
+
+                            <header class="tw-hero">
+                                <div class="tw-hero-copy">
+                                    <span class="tw-eyebrow"><i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i><span data-i18n="tw_home_eyebrow">AI 教学助手 · 本机运行</span></span>
+                                    <h1 class="tw-hero-title"><span id="home-hello"></span><br><span class="tw-hl" data-i18n="tw_home_question">今天从哪节课开始？</span></h1>
+                                    <p class="tw-lede" data-i18n="tw_home_lede">教案、课件、作业卡片都在这台机器上完成；知识库只属于你，教材和教师手册随问随取。</p>
+                                    <div class="tw-hero-actions">
+                                        <button type="button" class="tw-btn tw-btn-primary" onclick="navigateTo('teaching')">
+                                            <i class="fas fa-pen-ruler" aria-hidden="true"></i><span data-i18n="tw_home_start">开始今天的备课</span>
+                                        </button>
+                                        <a class="tw-btn" href="/board" onclick="navigateTo('board');return false">
+                                            <i class="fas fa-table-columns" aria-hidden="true"></i><span data-i18n="tw_home_open_board">打开任务看板</span>
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="tw-hero-date">
+                                    <span class="tw-hero-date-label" data-i18n="tw_home_today">今天</span>
+                                    <b id="home-date">--</b>
+                                    <span id="home-status" class="tw-status" role="status"></span>
+                                </div>
+                            </header>
+
+                            <section class="tw-metrics" aria-labelledby="home-metrics-h">
+                                <h2 id="home-metrics-h" class="tw-sr-only" data-i18n="tw_home_overview">概览</h2>
+                                <div class="tw-metric tw-metric-a">
+                                    <span class="tw-metric-label" data-i18n="tw_metric_todo">待办</span>
+                                    <b id="home-count-todo">0</b>
+                                    <i class="fas fa-clipboard-list" aria-hidden="true"></i>
+                                </div>
+                                <div class="tw-metric tw-metric-b">
+                                    <span class="tw-metric-label" data-i18n="tw_metric_doing">进行中</span>
+                                    <b id="home-count-doing">0</b>
+                                    <i class="fas fa-spinner" aria-hidden="true"></i>
+                                </div>
+                                <div class="tw-metric tw-metric-c">
+                                    <span class="tw-metric-label" data-i18n="tw_metric_done">已完成</span>
+                                    <b id="home-count-done">0</b>
+                                    <i class="fas fa-circle-check" aria-hidden="true"></i>
+                                </div>
+                            </section>
+
+                            <section aria-labelledby="home-quick-h">
+                                <div class="tw-section-head">
+                                    <div>
+                                        <h2 id="home-quick-h" data-i18n="tw_quick_title">快捷创建</h2>
+                                        <p data-i18n="tw_quick_desc">选一个工具，填好表单，内容直接进入对话。</p>
+                                    </div>
+                                </div>
+                                <div class="tw-tools">
+                                    <a class="tw-tool tw-tool-a" href="#/teaching?tool=plan" onclick="twHomeOpenTool('plan');return false">
+                                        <span class="tw-tool-ico"><i class="fas fa-file-pen" aria-hidden="true"></i></span>
+                                        <b data-i18n="tw_tool_plan">教案生成</b>
+                                        <span data-i18n="tw_tool_plan_desc">按学段与单元生成可直接上课的教案</span>
+                                    </a>
+                                    <a class="tw-tool tw-tool-b" href="#/teaching?tool=courseware" onclick="twHomeOpenTool('courseware');return false">
+                                        <span class="tw-tool-ico"><i class="fas fa-chalkboard" aria-hidden="true"></i></span>
+                                        <b data-i18n="tw_tool_courseware">课件生成</b>
+                                        <span data-i18n="tw_tool_courseware_desc">生成可下载的 .pptx 课件</span>
+                                    </a>
+                                    <a class="tw-tool tw-tool-c" href="#/teaching?tool=card" onclick="twHomeOpenTool('card');return false">
+                                        <span class="tw-tool-ico"><i class="fas fa-clone" aria-hidden="true"></i></span>
+                                        <b data-i18n="tw_tool_card">作业卡片</b>
+                                        <span data-i18n="tw_tool_card_desc">生成可导出图片的单文件作业卡片</span>
+                                    </a>
+                                    <a class="tw-tool tw-tool-d" href="#/teaching?tool=advice" onclick="twHomeOpenTool('advice');return false">
+                                        <span class="tw-tool-ico"><i class="fas fa-lightbulb" aria-hidden="true"></i></span>
+                                        <b data-i18n="tw_tool_advice">教学建议</b>
+                                        <span data-i18n="tw_tool_advice_desc">结合班级学情给出课堂建议</span>
+                                    </a>
+                                    <a class="tw-tool tw-tool-e" href="#/teaching?tool=schedule" onclick="twHomeOpenTool('schedule');return false">
+                                        <span class="tw-tool-ico"><i class="fas fa-calendar-days" aria-hidden="true"></i></span>
+                                        <b data-i18n="tw_tool_schedule">教学计划</b>
+                                        <span data-i18n="tw_tool_schedule_desc">排一学期或单元范围的教学计划</span>
+                                    </a>
+                                </div>
+                            </section>
+
+                            <div class="tw-home-grid">
+                                <section class="tw-card tw-home-board" aria-labelledby="home-board-h">
+                                    <div class="tw-card-head">
+                                        <h2 id="home-board-h" data-i18n="tw_home_board">任务看板</h2>
+                                        <a class="tw-link" href="/board" onclick="navigateTo('board');return false">
+                                            <span data-i18n="tw_home_board_all">查看全部</span><i class="fas fa-arrow-right" aria-hidden="true"></i>
+                                        </a>
+                                    </div>
+                                    <div id="home-board-mini" class="tw-mini-board">
+                                        <div class="tw-loading" data-i18n="tw_loading">加载中…</div>
+                                    </div>
+                                </section>
+
+                                <section class="tw-card" aria-labelledby="home-artifacts-h">
+                                    <div class="tw-card-head">
+                                        <h2 id="home-artifacts-h" data-i18n="tw_home_artifacts">最近产出</h2>
+                                        <a class="tw-link" href="/artifacts" onclick="navigateTo('artifacts');return false">
+                                            <span data-i18n="tw_home_board_all">查看全部</span><i class="fas fa-arrow-right" aria-hidden="true"></i>
+                                        </a>
+                                    </div>
+                                    <div id="home-artifacts" class="tw-list">
+                                        <div class="tw-loading" data-i18n="tw_loading">加载中…</div>
+                                    </div>
+                                </section>
+
+                                <section class="tw-card" aria-labelledby="home-knowledge-h">
+                                    <div class="tw-card-head">
+                                        <h2 id="home-knowledge-h" data-i18n="tw_home_knowledge">知识库</h2>
+                                        <a class="tw-link" href="/knowledge" onclick="navigateTo('knowledge');return false">
+                                            <span data-i18n="tw_home_knowledge_all">打开知识库</span><i class="fas fa-arrow-right" aria-hidden="true"></i>
+                                        </a>
+                                    </div>
+                                    <div id="home-knowledge" class="tw-list">
+                                        <div class="tw-loading" data-i18n="tw_loading">加载中…</div>
+                                    </div>
+                                </section>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>

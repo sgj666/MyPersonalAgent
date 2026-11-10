@@ -1,0 +1,104 @@
+                <!-- ====================================================== -->
+                <!-- VIEW: Task board                                         -->
+                <!-- ====================================================== -->
+                <div id="view-board" class="view tw-view">
+                    <div class="tw-scroll">
+                        <div class="tw-page">
+
+                            <header class="tw-page-head">
+                                <div>
+                                    <h1 data-i18n="tw_board_title">任务看板</h1>
+                                    <p data-i18n="tw_board_desc">教师自己的工作项，与「自动化」的定时任务分开管理。</p>
+                                </div>
+                                <div class="tw-head-controls">
+                                    <label class="tw-field tw-field-inline">
+                                        <span data-i18n="tw_board_lane">泳道</span>
+                                        <select id="board-lane-filter" class="tw-select" onchange="twBoardSetLane(this.value)">
+                                            <option value="" data-i18n="tw_board_lane_all">全部泳道</option>
+                                        </select>
+                                    </label>
+                                    <label class="tw-field tw-field-inline">
+                                        <span data-i18n="tw_board_sort">排序</span>
+                                        <select id="board-sort" class="tw-select" onchange="twBoardSetSort(this.value)">
+                                            <option value="due" data-i18n="tw_board_sort_due">截止日优先</option>
+                                            <option value="created" data-i18n="tw_board_sort_created">创建时间</option>
+                                        </select>
+                                    </label>
+                                    <button type="button" class="tw-btn tw-btn-primary" onclick="twBoardOpenCreate()">
+                                        <i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="tw_board_new">新建任务</span>
+                                    </button>
+                                </div>
+                            </header>
+
+                            <p id="board-status" class="tw-status" role="status"></p>
+                            <div id="board-live" class="tw-sr-only" role="status" aria-live="polite"></div>
+
+                            <div id="board-columns" class="tw-board">
+                                <div class="tw-loading" data-i18n="tw_loading">加载中…</div>
+                            </div>
+                            <div id="board-empty" class="tw-empty hidden">
+                                <i class="fas fa-clipboard" aria-hidden="true"></i>
+                                <p data-i18n="tw_board_empty">还没有任务。点「新建任务」开始跟进这周的备课。</p>
+                                <button type="button" class="tw-btn tw-btn-primary" onclick="twBoardOpenCreate()">
+                                    <i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="tw_board_new">新建任务</span>
+                                </button>
+                            </div>
+
+                            <p id="board-total" class="tw-footnote"></p>
+
+                        </div>
+                    </div>
+
+                    <!-- Create / edit dialog. A plain overlay rather than the shared
+                         confirm dialog: this one collects fields, that one asks a
+                         yes/no question. -->
+                    <div id="board-dialog" class="tw-modal hidden">
+                        <div class="tw-modal-scrim" onclick="twBoardCloseDialog()"></div>
+                        <div class="tw-modal-card" role="dialog" aria-modal="true" aria-labelledby="board-dialog-title">
+                            <div class="tw-modal-head">
+                                <h2 id="board-dialog-title"></h2>
+                                <button type="button" class="tw-icon-btn" onclick="twBoardCloseDialog()"
+                                        data-i18n-aria-label="tw_cancel" aria-label="取消">
+                                    <i class="fas fa-xmark" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <form id="board-form" onsubmit="twBoardSubmit(event)">
+                                <input type="hidden" id="board-task-id" value="">
+                                <label class="tw-field">
+                                    <span data-i18n="tw_task_title">标题</span>
+                                    <input id="board-task-title" class="tw-input" type="text" maxlength="120" required
+                                           data-i18n-placeholder="tw_task_title_ph" placeholder="例如：Unit 3 读写课备课">
+                                </label>
+                                <label class="tw-field">
+                                    <span data-i18n="tw_task_note">备注</span>
+                                    <textarea id="board-task-note" class="tw-textarea" rows="3" maxlength="2000"
+                                              data-i18n-placeholder="tw_task_note_ph" placeholder="需要准备的材料、思路或待确认事项"></textarea>
+                                </label>
+                                <div class="tw-field-row">
+                                    <label class="tw-field">
+                                        <span data-i18n="tw_board_lane">泳道</span>
+                                        <input id="board-task-lane" class="tw-input" type="text" maxlength="40" list="board-lane-options">
+                                        <datalist id="board-lane-options"></datalist>
+                                    </label>
+                                    <label class="tw-field">
+                                        <span data-i18n="tw_task_due_label">截止日期</span>
+                                        <input id="board-task-due" class="tw-input" type="date">
+                                    </label>
+                                </div>
+                                <label class="tw-field">
+                                    <span data-i18n="tw_task_priority">优先级</span>
+                                    <select id="board-task-priority" class="tw-select">
+                                        <option value="low" data-i18n="tw_priority_low">低</option>
+                                        <option value="normal" data-i18n="tw_priority_normal">普通</option>
+                                        <option value="high" data-i18n="tw_priority_high">高</option>
+                                    </select>
+                                </label>
+                                <p id="board-dialog-status" class="tw-status" role="status"></p>
+                                <div class="tw-modal-actions">
+                                    <button type="button" class="tw-btn" onclick="twBoardCloseDialog()" data-i18n="tw_cancel">取消</button>
+                                    <button type="submit" class="tw-btn tw-btn-primary" data-i18n="tw_save">保存</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>

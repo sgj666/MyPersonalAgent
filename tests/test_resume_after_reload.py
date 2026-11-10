@@ -225,7 +225,7 @@ def test_turn_still_running_is_not_marked_by_default():
 @pytest.fixture
 def channel(store, monkeypatch):
     registry = SimpleNamespace(
-        get=lambda agent_id=None: SimpleNamespace(id="primary", workspace="w"),
+        get=lambda agent_id=None, require_enabled=True: SimpleNamespace(id="primary", workspace="w"),
     )
     monkeypatch.setattr("agent.registry.get_agent_registry", lambda: registry)
     monkeypatch.setattr("agent.memory.get_conversation_store", lambda workspace=None: store)

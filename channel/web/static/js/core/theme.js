@@ -5,8 +5,9 @@
 // =====================================================================
 // Theme
 // =====================================================================
-// The guest page sets its own default; the console defaults to dark.
-let currentTheme = localStorage.getItem('cow_theme') || window.__COW_DEFAULT_THEME__ || 'dark';
+// The guest page sets its own default; the console opens light for the
+// teacher workbench (a saved preference still wins).
+let currentTheme = localStorage.getItem('cow_theme') || window.__COW_DEFAULT_THEME__ || 'light';
 
 function applyTheme() {
     const root = document.documentElement;

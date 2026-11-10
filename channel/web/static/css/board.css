@@ -1,0 +1,301 @@
+/* Teacher workbench: task board. Builds on the clay tokens and primitives in
+   home.css, which loads first; everything here is scoped to #view-board. */
+
+#view-board .tw-page { gap: 20px; }
+
+.tw-page-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 18px;
+    flex-wrap: wrap;
+    background: var(--tw-card-c);
+    border: 3px solid var(--tw-rim);
+    border-radius: 20px;
+    box-shadow: var(--twb-shadow);
+    padding: 22px 26px;
+}
+
+.tw-page-head h1 { font-size: clamp(26px, 3.4vw, 34px); line-height: 1.15; }
+.tw-page-head p { font-size: 13px; color: var(--tw-ink-2); font-weight: 600; margin-top: 6px; max-width: 560px; }
+
+.tw-head-controls {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.tw-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.tw-field > span {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    color: var(--tw-ink-2);
+}
+
+.tw-field-inline { min-width: 132px; }
+
+.tw-input,
+.tw-select,
+.tw-textarea {
+    width: 100%;
+    border: 3px solid var(--tw-rim);
+    border-radius: 12px;
+    background: var(--tw-surface);
+    color: var(--tw-ink);
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 13.5px;
+    padding: 8px 10px;
+    min-height: 38px;
+}
+
+.tw-input:focus-visible,
+.tw-select:focus-visible,
+.tw-textarea:focus-visible {
+    outline: 3px solid var(--tw-accent);
+    outline-offset: 2px;
+}
+
+.tw-textarea { resize: vertical; line-height: 1.55; }
+
+.tw-field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+@media (max-width: 560px) {
+    .tw-field-row { grid-template-columns: 1fr; }
+}
+
+/* ---------- columns ---------- */
+.tw-board {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    align-items: start;
+}
+
+@media (max-width: 1100px) {
+    .tw-board { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+    .tw-board { grid-template-columns: 1fr; }
+}
+
+.tw-lane {
+    background: var(--tw-surface-2);
+    border: 3px solid var(--tw-rim);
+    border-radius: 18px;
+    padding: 12px;
+    min-width: 0;
+}
+
+.tw-lane.is-drop-target { background: var(--tw-accent-soft); }
+
+.tw-lane-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 2px 4px 10px;
+}
+
+.tw-lane-head h2 { font-size: 15px; font-weight: 800; color: var(--tw-ink); }
+
+.tw-lane-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 7px;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--tw-ink);
+    background: var(--tw-surface);
+    border: 2px solid var(--tw-rim);
+    border-radius: 8px;
+}
+
+.tw-lane-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 90px;
+    border-radius: 12px;
+}
+
+.tw-lane-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 80px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--tw-ink-3);
+    border: 2px dashed var(--tw-line);
+    border-radius: 10px;
+}
+
+/* ---------- task card ---------- */
+.tw-task {
+    background: var(--tw-surface);
+    border: 3px solid var(--tw-rim);
+    border-radius: 14px;
+    box-shadow: var(--twb-shadow-sm);
+    padding: 12px;
+    cursor: grab;
+    transition: transform 120ms var(--tw-ease), box-shadow 120ms var(--tw-ease);
+}
+
+.tw-task:hover { transform: translate(-1px, -1px); box-shadow: var(--twb-shadow); }
+.tw-task.is-dragging { opacity: 0.55; cursor: grabbing; }
+.tw-task.is-overdue { border-color: var(--tw-urgent); }
+
+.tw-task-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+}
+
+.tw-task h3 {
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.4;
+    color: var(--tw-ink);
+    overflow-wrap: anywhere;
+}
+
+.tw-task-note {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--tw-ink-2);
+    font-weight: 600;
+    margin-top: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.tw-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 22px;
+    padding: 0 7px;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--tw-ink);
+    background: var(--tw-surface);
+    border: 2px solid var(--tw-rim);
+    border-radius: 7px;
+    white-space: nowrap;
+}
+
+.tw-chip-lane { background: var(--tw-card-c); }
+.tw-chip-due { background: var(--tw-surface-2); }
+.tw-chip-prio-high { background: var(--tw-urgent-soft); color: var(--tw-urgent); }
+.tw-chip-prio-low { background: var(--tw-surface-2); color: var(--tw-ink-2); }
+.tw-chip-overdue { background: var(--tw-urgent); color: #FFFFFF; }
+
+.tw-task-foot {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.tw-task-foot .tw-select {
+    flex: 1;
+    min-width: 0;
+    min-height: 30px;
+    padding: 2px 6px;
+    border-width: 2px;
+    border-radius: 8px;
+    font-size: 12px;
+}
+
+.tw-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: 2px solid var(--tw-rim);
+    border-radius: 8px;
+    background: var(--tw-surface);
+    color: var(--tw-ink);
+    cursor: pointer;
+    box-shadow: 1px 1px 0 0 var(--tw-rim);
+    flex-shrink: 0;
+}
+
+.tw-icon-btn:hover { background: var(--tw-surface-2); }
+.tw-icon-btn:focus-visible { outline: 3px solid var(--tw-accent); outline-offset: 2px; }
+.tw-icon-btn.is-danger:hover { background: var(--tw-urgent-soft); color: var(--tw-urgent); }
+
+/* ---------- dialog ---------- */
+.tw-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.tw-modal.hidden { display: none; }
+
+.tw-modal-scrim {
+    position: absolute;
+    inset: 0;
+    background: rgba(20, 26, 33, 0.45);
+}
+
+.tw-modal-card {
+    position: relative;
+    width: 100%;
+    max-width: 520px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    background: var(--tw-surface);
+    border: 3px solid var(--tw-rim);
+    border-radius: 20px;
+    box-shadow: var(--twb-shadow-hover);
+    padding: 22px;
+    color: var(--tw-ink);
+    font-family: Nunito, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+}
+
+.tw-modal-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.tw-modal-head h2 { font-size: 24px; }
+
+#board-form { display: flex; flex-direction: column; gap: 12px; }
+
+.tw-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 4px;
+}

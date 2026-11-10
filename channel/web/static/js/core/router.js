@@ -22,6 +22,9 @@
 // these paths from the same shell; the table there has to stay in step.
 const ROUTE_PATHS = {
     chat:      '',
+    home:      'home',
+    board:     'board',
+    teaching:  'teaching',
     artifacts: 'artifacts',
     agents:    'agents',
     config:    'settings',

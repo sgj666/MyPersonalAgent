@@ -196,6 +196,28 @@ def themes_dir(base=None) -> Path:
     return system_dir(base) / "themes"
 
 
+def users_file(base=None) -> Path:
+    """The teacher accounts, and the switch that turns tenancy on.
+
+    Instance-wide, beside the shared assets rather than under one Agent: the
+    account layer sits in front of every Agent, so it cannot itself be per
+    Agent. Its presence is what puts the console in account mode; a deployment
+    without the file keeps running on the single console password.
+    """
+    root = Path(base) if base is not None else shared_root()
+    return root / "users.json"
+
+
+def web_secret_file(base=None) -> Path:
+    """The HMAC key that signs console session tokens.
+
+    Deliberately independent of ``web_password``: the legacy token is derived
+    from the password, so changing it signs everyone out. Kept 0600 because
+    holding it is enough to forge a token for any account.
+    """
+    return system_dir(base) / "web_secret"
+
+
 def scheduler_recipients_file(base=None) -> Path:
     """The one directory of people/groups observed on inbound IM channels.
 

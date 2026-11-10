@@ -68,6 +68,12 @@
     <link rel="stylesheet" href="/assets/css/shares.css">
     <link rel="stylesheet" href="/assets/css/menu.css">
     <link rel="stylesheet" href="/assets/css/themes.css">
+    <!-- Teacher workbench: clay styling scoped to #view-home, #view-board and
+         #view-teaching. home.css carries the shared tokens and primitives, so
+         it loads first. -->
+    <link rel="stylesheet" href="/assets/css/home.css">
+    <link rel="stylesheet" href="/assets/css/board.css">
+    <link rel="stylesheet" href="/assets/css/teaching.css">
     <!-- Apply theme/lang before first paint to avoid flash of unstyled content.
          This runs synchronously in <head> so the correct class is on <html>
          before any CSS or body rendering occurs. -->
@@ -96,7 +102,8 @@
     (function() {
         // Backend-resolved default language (from cow_lang config / auto-detect).
         window.__COW_DEFAULT_LANG__ = '{{COW_DEFAULT_LANG}}';
-        var theme = localStorage.getItem('cow_theme') || 'dark';
+        // Teacher default is the light clay surface; a saved preference still wins.
+        var theme = localStorage.getItem('cow_theme') || 'light';
         if (theme === 'dark') document.documentElement.classList.add('dark');
         // Replay the color theme's last variables (written by themes.js) so
         // the first paint already has them.
@@ -150,6 +157,12 @@
             <div id="content-area" class="flex-1 overflow-hidden">
 
 <!--#include templates/views/chat.html-->
+
+<!--#include templates/views/home.html-->
+
+<!--#include templates/views/board.html-->
+
+<!--#include templates/views/teaching.html-->
 
 <!--#include templates/views/artifacts.html-->
 
@@ -264,6 +277,13 @@
     <script defer src="/assets/js/views/artifacts.js"></script>
     <script defer src="/assets/js/views/menu-editor.js"></script>
     <script defer src="/assets/js/views/shares.js"></script>
+
+    <!-- Teacher workbench views. They only declare functions at load time;
+         nav.js calls the loader when its view is opened. home.js comes first
+         because its quick cards call into teaching.js at click time. -->
+    <script defer src="/assets/js/views/home.js"></script>
+    <script defer src="/assets/js/views/board.js"></script>
+    <script defer src="/assets/js/views/teaching.js"></script>
 
     <!-- Last of the core layer rather than first, which is where it sat in
          console.js. It installs a window.fetch wrapper for 401 handling, and

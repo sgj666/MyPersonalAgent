@@ -27,7 +27,7 @@ class _QuietHandler(WSGIRequestHandler):
 def console(tmp_path):
     workspace = tmp_path / "default"
     workspace.mkdir()
-    registry = SimpleNamespace(get=lambda agent_id=None: SimpleNamespace(workspace=str(workspace)))
+    registry = SimpleNamespace(get=lambda agent_id=None, require_enabled=True: SimpleNamespace(workspace=str(workspace)))
 
     from channel.web import web_channel
 
