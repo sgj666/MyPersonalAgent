@@ -9,7 +9,7 @@
     flex-wrap: wrap;
     gap: 8px;
     background: var(--tw-surface-2);
-    border: 3px solid var(--tw-rim);
+    border: 1px solid var(--tw-rim);
     border-radius: 16px;
     box-shadow: var(--twb-shadow-sm);
     padding: 8px;
@@ -34,10 +34,10 @@
 .tw-seg:focus-visible { outline: 3px solid var(--tw-accent); outline-offset: 2px; }
 
 .tw-seg[aria-selected="true"] {
-    color: var(--tw-accent-ink);
-    background: var(--tw-accent);
-    border-color: var(--tw-rim);
-    box-shadow: var(--twb-shadow-sm);
+    color: #1F5A3D;
+    background: #D6F1E2;
+    border-color: rgba(82, 162, 119, 0.35);
+    box-shadow: 0 2px 8px rgba(82, 162, 119, 0.16);
 }
 
 .tw-teach-grid {

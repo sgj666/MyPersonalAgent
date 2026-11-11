@@ -328,12 +328,12 @@ html.menu-pending #sidebar-nav { visibility: hidden; }
 html:not(.dark) #sidebar {
     background: #FFFDF8;
     color: #4A5568;
-    border-right: 2px solid #2D3748;
+    border-right: 1px solid rgba(96, 84, 74, 0.16);
 }
 html:not(.dark) #sidebar .sidebar-brand { border-bottom-color: #E7E0D3; }
-html:not(.dark) #sidebar .sidebar-brand span:first-child { color: #2D3748; }
+html:not(.dark) #sidebar .sidebar-brand span:first-child { color: #4A4453; }
 html:not(.dark) #sidebar .sidebar-brand span:last-child { color: #8A8175; }
-html:not(.dark) #sidebar #sidebar-home { border: 2px solid #2D3748; border-radius: 10px; background: #fff; }
+html:not(.dark) #sidebar #sidebar-home { border: 1px solid rgba(96, 84, 74, 0.16); border-radius: 10px; background: #fff; }
 html:not(.dark) #sidebar .menu-group-head {
     color: #8A8175;
     font-weight: 700;
@@ -341,22 +341,22 @@ html:not(.dark) #sidebar .menu-group-head {
 }
 html:not(.dark) #sidebar .sidebar-item {
     color: #4A5568;
-    border: 2px solid transparent;
+    border: 1px solid transparent;
     border-radius: 12px;
     font-weight: 500;
 }
 html:not(.dark) #sidebar .sidebar-item .item-icon { color: #7A8494; }
 html:not(.dark) #sidebar .sidebar-item:hover {
-    background: #FFF1E8 !important;
-    color: #2D3748 !important;
-    border-color: #E7D9C8;
+    background: #FDF2EA !important;
+    color: #4A4453 !important;
+    border-color: #F0E1D3;
 }
 html:not(.dark) #sidebar .sidebar-item.active {
-    background: #DCFCE7 !important;
-    color: #14532D !important;
-    border-color: #2D3748;
+    background: #E3F6EC !important;
+    color: #20563C !important;
+    border-color: rgba(82, 162, 119, 0.55);
     font-weight: 600;
-    box-shadow: 2px 2px 0 rgba(45, 55, 72, .14);
+    box-shadow: 0 4px 12px rgba(82, 162, 119, 0.18);
 }
 html:not(.dark) #sidebar .sidebar-item.active .item-icon { color: #15803D; }
 html:not(.dark) #sidebar .menu-subitem {
@@ -369,11 +369,11 @@ html:not(.dark) #sidebar .menu-subitem.active {
     box-shadow: none;
 }
 html:not(.dark) #sidebar .menu-group-edit { color: #8A8175; }
-html:not(.dark) #sidebar .menu-group-edit:hover { background: #FFF1E8; color: #2D3748; }
+html:not(.dark) #sidebar .menu-group-edit:hover { background: #FDF2EA; color: #4A4453; }
 html:not(.dark) #sidebar .sidebar-footer,
 html:not(.dark) #sidebar .sidebar-version { color: #8A8175; }
 html:not(.dark) #sidebar #sidebar-collapse-btn {
-    border: 2px solid #2D3748;
+    border: 1px solid rgba(96, 84, 74, 0.16);
     border-radius: 10px;
     color: #4A5568;
     background: #fff;

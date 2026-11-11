@@ -25,28 +25,28 @@
    session panel live outside `.view` but still need the same palette.
    ===================================================================== */
 html:not(.dark) {
-    --cl-ink: #2D3748;
-    --cl-ink-2: #4A5568;
-    --cl-ink-3: #718096;
+    --cl-ink: #4A4453;
+    --cl-ink-2: #6E6579;
+    --cl-ink-3: #948C9C;
     --cl-paper: #FFFDF8;
     --cl-bg: #FFF9F5;
-    --cl-rim-color: #2D3748;
-    --cl-rim: 2px solid #2D3748;
-    --cl-line: rgba(45, 55, 72, 0.14);
-    --cl-line-strong: rgba(45, 55, 72, 0.32);
+    --cl-rim-color: rgba(96, 84, 74, 0.22);
+    --cl-rim: 1px solid rgba(96, 84, 74, 0.22);
+    --cl-line: rgba(96, 84, 74, 0.14);
+    --cl-line-strong: rgba(96, 84, 74, 0.28);
     --cl-radius: 18px;
     --cl-radius-sm: 12px;
     --cl-radius-xs: 8px;
-    --cl-shadow: 3px 3px 0 rgba(45, 55, 72, 0.16);
-    --cl-shadow-sm: 2px 2px 0 rgba(45, 55, 72, 0.14);
-    --cl-accent: #22C55E;
-    --cl-accent-hover: #16A34A;
-    --cl-accent-soft: #DCFCE7;
-    --cl-head: #FFF1E8;
+    --cl-shadow: 0 8px 24px rgba(120, 100, 80, 0.10);
+    --cl-shadow-sm: 0 3px 10px rgba(120, 100, 80, 0.08);
+    --cl-accent: #52A277;
+    --cl-accent-hover: #458C66;
+    --cl-accent-soft: #E3F6EC;
+    --cl-head: #FDF1E9;
     --cl-pink: #FFDDBB;
-    --cl-pastel-a: #FFE9A8;
-    --cl-pastel-b: #E6E6FA;
-    --cl-pastel-c: #ADD8E6;
+    --cl-pastel-a: #FFF3CF;
+    --cl-pastel-b: #ECE6FB;
+    --cl-pastel-c: #E2F0FA;
     --cl-field: #FFFFFF;
 }
 
@@ -71,8 +71,8 @@ html:not(.dark) .view:not(.tw-view) ::-webkit-scrollbar-track {
 }
 
 html:not(.dark) .view:not(.tw-view) ::-webkit-scrollbar-thumb {
-    background: rgba(45, 55, 72, 0.18);
-    border: 2px solid transparent;
+    background: rgba(96, 84, 74, 0.16);
+    border: 1px solid transparent;
     border-radius: 999px;
     background-clip: padding-box;
 }
@@ -564,7 +564,7 @@ html:not(.dark) .view:not(.tw-view) :not(pre) > code {
 }
 
 html:not(.dark) .view:not(.tw-view) blockquote {
-    border-left: 3px solid var(--cl-rim-color);
+    border-left: 2px solid rgba(82, 162, 119, 0.45);
     background: var(--cl-bg);
     color: var(--cl-ink-2);
 }
@@ -578,7 +578,7 @@ html:not(.dark) .view:not(.tw-view) hr {
    ===================================================================== */
 html:not(.dark) #view-config label > input.sr-only + div[class*="rounded-full"] {
     background: var(--cl-head);
-    border: 2px solid var(--cl-rim-color);
+    border: 1px solid var(--cl-rim-color);
     box-shadow: none;
 }
 
@@ -1052,7 +1052,7 @@ html:not(.dark) #team-chat-modal .agent-modal-card {
     background: var(--cl-paper);
     border: var(--cl-rim);
     border-radius: var(--cl-radius);
-    box-shadow: 6px 6px 0 rgba(45, 55, 72, 0.18);
+    box-shadow: 0 8px 24px rgba(120, 100, 80, 0.10);
 }
 
 html:not(.dark) #mcp-editor-overlay .cap-tabs,

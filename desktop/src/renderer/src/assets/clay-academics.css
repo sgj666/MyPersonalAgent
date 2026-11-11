@@ -12,25 +12,25 @@
   --twb-surface: #ffffff;
   --twb-surface-2: #fff1e8;
   --twb-surface-3: #ffe6d8;
-  --twb-ink: #2d3748;
-  --twb-ink-2: #4a5568;
-  --twb-ink-3: #718096;
-  --twb-rim: #2d3748;
-  --twb-line: rgba(45, 55, 72, 0.14);
-  --twb-accent: #22c55e;
-  --twb-accent-hover: #16a34a;
+  --twb-ink: #4a4453;
+  --twb-ink-2: #6e6579;
+  --twb-ink-3: #948c9c;
+  --twb-rim: rgba(96, 84, 74, 0.22);
+  --twb-line: rgba(96, 84, 74, 0.14);
+  --twb-accent: #52a277;
+  --twb-accent-hover: #458c66;
   --twb-accent-ink: #ffffff;
-  --twb-accent-soft: #dcfce7;
-  --twb-urgent: #c2410c;
-  --twb-urgent-soft: #ffe4d6;
-  --twb-card-a: #98ff98;
-  --twb-card-b: #fdbcb4;
-  --twb-card-c: #e6e6fa;
-  --twb-card-d: #add8e6;
-  --twb-card-e: #ffe9a8;
-  --twb-shadow: 4px 4px 0 0 var(--twb-rim);
-  --twb-shadow-sm: 2px 2px 0 0 var(--twb-rim);
-  --twb-shadow-hover: 6px 6px 0 0 var(--twb-rim);
+  --twb-accent-soft: #e3f6ec;
+  --twb-urgent: #c2673f;
+  --twb-urgent-soft: #ffe8dc;
+  --twb-card-a: #dcf3e6;
+  --twb-card-b: #ffe4d2;
+  --twb-card-c: #ede6fe;
+  --twb-card-d: #e3effb;
+  --twb-card-e: #fff2cc;
+  --twb-shadow: 0 8px 24px rgba(120, 100, 80, 0.10);
+  --twb-shadow-sm: 0 3px 10px rgba(120, 100, 80, 0.08);
+  --twb-shadow-hover: 0 14px 32px rgba(120, 100, 80, 0.14);
   --twb-ease: cubic-bezier(0.2, 0.6, 0.2, 1);
 
   background: var(--twb-bg);
@@ -53,10 +53,10 @@
   --twb-rim: #93a4bc;
   --twb-line: rgba(255, 255, 255, 0.14);
   --twb-accent: #4ade80;
-  --twb-accent-hover: #6ee7a0;
+  --twb-accent-hover: #7fcfa8;
   --twb-accent-ink: #0b2415;
   --twb-accent-soft: #16351f;
-  --twb-urgent: #fb923c;
+  --twb-urgent: #e8a87c;
   --twb-urgent-soft: #3a2318;
   --twb-card-a: #1f3a2a;
   --twb-card-b: #3a2622;
@@ -93,7 +93,7 @@
   padding: 0 6px;
   margin-left: 8px;
   border-radius: 999px;
-  border: 2px solid var(--twb-rim);
+  border: 1px solid var(--twb-rim);
   background: var(--twb-surface-2);
   color: var(--twb-ink-2);
   font-size: 11px;
@@ -160,7 +160,7 @@
   align-items: center;
   gap: 6px;
   padding: 5px 10px;
-  border: 2px solid var(--twb-rim);
+  border: 1px solid var(--twb-rim);
   border-radius: 999px;
   background: var(--twb-surface);
   font-size: 12.5px;
@@ -293,7 +293,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 2px solid var(--twb-rim);
+  border: 1px solid var(--twb-rim);
   border-radius: 10px;
   padding: 0 8px;
   background: var(--twb-surface);
@@ -454,7 +454,7 @@
 
 .twb-tt thead th {
   background: var(--twb-surface-2);
-  border: 2px solid var(--twb-rim);
+  border: 1px solid var(--twb-rim);
   border-radius: 8px;
 }
 
@@ -466,7 +466,7 @@
   width: 62px;
   text-align: center;
   background: var(--twb-surface-2);
-  border: 2px solid var(--twb-rim);
+  border: 1px solid var(--twb-rim);
   border-radius: 8px;
 }
 
@@ -693,7 +693,7 @@
   gap: 2px;
   padding: 14px 16px;
   background: var(--twb-surface);
-  border: 3px solid var(--twb-rim);
+  border: 1px solid var(--twb-rim);
   border-radius: 16px;
   box-shadow: var(--twb-shadow-sm);
 }
@@ -760,7 +760,7 @@
 .twb-progress-bar {
   height: 8px;
   border-radius: 999px;
-  border: 2px solid var(--twb-rim);
+  border: 1px solid var(--twb-rim);
   background: var(--twb-surface-2);
   overflow: hidden;
 }
@@ -804,7 +804,7 @@
   justify-content: space-between;
   gap: 6px;
   padding: 6px 8px;
-  border: 2px solid var(--twb-line);
+  border: 1px solid var(--twb-line);
   border-radius: 10px;
   background: var(--twb-surface);
 }
@@ -871,7 +871,7 @@
   width: 64px;
   min-height: 30px;
   padding: 3px 6px;
-  border: 2px solid var(--twb-line);
+  border: 1px solid var(--twb-line);
   border-radius: 7px;
   background: var(--twb-surface);
   color: var(--twb-ink);
@@ -963,7 +963,7 @@
   align-items: baseline;
   gap: 6px;
   padding: 5px 10px;
-  border: 2px solid var(--twb-rim);
+  border: 1px solid var(--twb-rim);
   border-radius: 999px;
   background: var(--twb-card-e);
   font-size: 12px;
@@ -1048,7 +1048,7 @@
   width: 9px;
   height: 9px;
   border-radius: 999px;
-  border: 2px solid var(--twb-line);
+  border: 1px solid var(--twb-line);
   background: transparent;
 }
 
@@ -1096,7 +1096,7 @@
 .twb-digest {
   margin: 0;
   padding: 12px 14px;
-  border: 2px solid var(--twb-rim);
+  border: 1px solid var(--twb-rim);
   border-radius: 12px;
   background: var(--twb-surface-2);
   color: var(--twb-ink);

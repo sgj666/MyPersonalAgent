@@ -19,22 +19,22 @@ html:not(.dark) body:has(.clay-legacy) {
   --cl-bg: #fff9f5;
   --cl-paper: #fffdf8;
   --cl-surface-2: #fff1e8;
-  --cl-ink: #2d3748;
-  --cl-ink-2: #4a5568;
-  --cl-ink-3: #718096;
-  --cl-rim: #2d3748;
-  --cl-line: rgba(45, 55, 72, 0.16);
-  --cl-accent: #22c55e;
-  --cl-accent-hover: #16a34a;
+  --cl-ink: #4A4453;
+  --cl-ink-2: #6E6579;
+  --cl-ink-3: #948C9C;
+  --cl-rim: 1px solid rgba(96, 84, 74, 0.22);
+  --cl-line: rgba(96, 84, 74, 0.14);
+  --cl-accent: #52A277;
+  --cl-accent-hover: #458C66;
   --cl-accent-ink: #ffffff;
-  --cl-accent-soft: #dcfce7;
+  --cl-accent-soft: #E3F6EC;
   --cl-danger: #c2410c;
   --cl-danger-soft: #ffe4d6;
   --cl-radius: 18px;
   --cl-radius-sm: 12px;
-  --cl-shadow: 3px 3px 0 rgba(45, 55, 72, 0.16);
-  --cl-shadow-sm: 2px 2px 0 rgba(45, 55, 72, 0.16);
-  --cl-shadow-hover: 5px 5px 0 rgba(45, 55, 72, 0.16);
+  --cl-shadow: 0 8px 24px rgba(120, 100, 80, 0.10);
+  --cl-shadow-sm: 0 3px 10px rgba(120, 100, 80, 0.08);
+  --cl-shadow-hover: 5px 5px 0 rgba(96, 84, 74, 0.14);
 }
 
 html:not(.dark) .clay-legacy {
@@ -45,7 +45,7 @@ html:not(.dark) .clay-legacy {
 /* ---------- page head: the timetable/scores banner ---------- */
 html:not(.dark) .clay-legacy .clay-head {
   background: var(--cl-paper);
-  border: 2px solid var(--cl-rim);
+  border: 1px solid var(--cl-rim);
   border-radius: var(--cl-radius);
   box-shadow: var(--cl-shadow);
   padding: 18px 22px;
@@ -82,7 +82,7 @@ html:not(.dark) .clay-legacy > .clay-head ~ * {
 html:not(.dark) .clay-legacy .clay-card,
 html:not(.dark) .clay-legacy .rounded-card.border {
   background: var(--cl-paper);
-  border: 2px solid var(--cl-rim);
+  border: 1px solid var(--cl-rim);
   border-radius: var(--cl-radius);
   box-shadow: var(--cl-shadow);
 }
@@ -113,7 +113,7 @@ html:not(.dark) .clay-legacy .clay-split {
 /* ---------- inputs, textareas, native selects ---------- */
 html:not(.dark) .clay-legacy :is(input, textarea, select).border {
   background: #ffffff;
-  border: 2px solid var(--cl-rim);
+  border: 1px solid var(--cl-rim);
   border-radius: var(--cl-radius-sm);
   color: var(--cl-ink);
   box-shadow: none;
@@ -141,7 +141,7 @@ html:not(.dark) .clay-legacy button.bg-accent:not([role='switch']),
 html:not(.dark) .clay-legacy .clay-btn-primary {
   background: var(--cl-accent);
   color: var(--cl-accent-ink);
-  border: 2px solid var(--cl-rim);
+  border: 1px solid var(--cl-rim);
   border-radius: 999px;
   box-shadow: var(--cl-shadow-sm);
   font-weight: 700;
@@ -164,7 +164,7 @@ html:not(.dark) .clay-legacy button.border.border-strong:not(.bg-inset):not(.bor
 html:not(.dark) .clay-legacy .clay-btn {
   background: var(--cl-paper);
   color: var(--cl-ink-2);
-  border: 2px solid var(--cl-rim);
+  border: 1px solid var(--cl-rim);
   border-radius: 999px;
   box-shadow: var(--cl-shadow-sm);
   font-weight: 600;
@@ -181,7 +181,7 @@ html:not(.dark) .clay-legacy .clay-btn:hover:not(:disabled) {
 html:not(.dark) .clay-legacy .clay-btn-soft {
   background: var(--cl-accent-soft);
   color: var(--cl-accent-hover);
-  border: 2px solid var(--cl-rim);
+  border: 1px solid var(--cl-rim);
   border-radius: 999px;
   box-shadow: var(--cl-shadow-sm);
   font-weight: 700;
@@ -196,7 +196,7 @@ html:not(.dark) .clay-legacy .clay-btn-soft:hover:not(:disabled) {
 html:not(.dark) .clay-legacy button.bg-danger-soft {
   background: var(--cl-danger-soft);
   color: var(--cl-danger);
-  border: 2px solid var(--cl-rim);
+  border: 1px solid var(--cl-rim);
   border-radius: 999px;
   box-shadow: var(--cl-shadow-sm);
   font-weight: 600;
@@ -213,7 +213,7 @@ html:not(.dark) .clay-legacy button.bg-danger-soft:disabled {
 /* Dropdown triggers read as fields, not pills. */
 html:not(.dark) .clay-legacy button.bg-inset.border {
   background: #ffffff;
-  border: 2px solid var(--cl-rim);
+  border: 1px solid var(--cl-rim);
   border-radius: var(--cl-radius-sm);
   color: var(--cl-ink);
   box-shadow: none;
@@ -242,7 +242,7 @@ html:not(.dark) .clay-legacy [role='switch'][aria-checked='false'] {
 /* ---------- tabs / segmented controls: white plate, green-soft active ---------- */
 html:not(.dark) .clay-legacy .clay-tabs {
   background: var(--cl-paper);
-  border: 2px solid var(--cl-rim);
+  border: 1px solid var(--cl-rim);
   border-radius: 999px;
   box-shadow: var(--cl-shadow-sm);
   padding: 3px;
@@ -278,7 +278,7 @@ html:not(.dark) .clay-legacy .clay-tab.clay-tab-on {
 html:not(.dark) .clay-legacy .clay-menu,
 html:not(.dark) .clay-legacy .bg-elevated.border {
   background: var(--cl-paper);
-  border: 2px solid var(--cl-rim);
+  border: 1px solid var(--cl-rim);
   border-radius: var(--cl-radius);
   box-shadow: var(--cl-shadow);
   padding: 6px;
@@ -319,7 +319,7 @@ html:not(.dark) .clay-legacy .clay-table tbody td {
 /* ---------- empty states: a paper plate ---------- */
 html:not(.dark) .clay-legacy .clay-empty {
   background: var(--cl-paper);
-  border: 2px solid var(--cl-rim);
+  border: 1px solid var(--cl-rim);
   border-radius: var(--cl-radius);
   box-shadow: var(--cl-shadow);
   color: var(--cl-ink-3);
@@ -339,9 +339,9 @@ html:not(.dark) .clay-legacy .clay-empty.clay-empty-flat {
 /* ---------- modal rendered inside a page (knowledge dialogs) ---------- */
 html:not(.dark) .clay-legacy .clay-modal {
   background: var(--cl-paper);
-  border: 2px solid var(--cl-rim);
+  border: 1px solid var(--cl-rim);
   border-radius: var(--cl-radius);
-  box-shadow: 4px 4px 0 rgba(45, 55, 72, 0.16);
+  box-shadow: 0 8px 24px rgba(120, 100, 80, 0.10);
 }
 
 html:not(.dark) .clay-legacy .clay-modal h3 {
@@ -360,21 +360,21 @@ html:not(.dark) .clay-legacy [class*='hover:bg-inset']:hover {
 html:not(.dark) .clay-legacy .chat-column .bg-bubble-user {
   background: var(--cl-accent-soft);
   color: var(--cl-ink);
-  border: 2px solid var(--cl-rim);
+  border: 1px solid var(--cl-rim);
   border-radius: var(--cl-radius);
   box-shadow: var(--cl-shadow-sm);
 }
 
 html:not(.dark) .clay-legacy .chat-column .rounded-2xl.border {
   background: var(--cl-paper);
-  border: 2px solid var(--cl-rim);
+  border: 1px solid var(--cl-rim);
   border-radius: var(--cl-radius);
   box-shadow: var(--cl-shadow-sm);
 }
 
 html:not(.dark) .clay-legacy .chat-home {
   background: var(--cl-paper);
-  border: 2px solid var(--cl-rim);
+  border: 1px solid var(--cl-rim);
   border-radius: var(--cl-radius);
   box-shadow: var(--cl-shadow);
   margin: 18px 20px;
@@ -384,7 +384,7 @@ html:not(.dark) .clay-legacy .chat-home {
 
 html:not(.dark) .clay-legacy .chat-home button {
   background: #ffffff;
-  border: 2px solid var(--cl-rim);
+  border: 1px solid var(--cl-rim);
   border-radius: 14px;
   box-shadow: var(--cl-shadow-sm);
 }
@@ -397,12 +397,12 @@ html:not(.dark) .clay-legacy .chat-home button:hover {
 
 html:not(.dark) .clay-legacy .composer-bar {
   background: var(--cl-paper);
-  border-top: 2px solid var(--cl-rim);
+  border-top: 1px solid var(--cl-rim);
 }
 
 html:not(.dark) .clay-legacy .composer-card {
   background: var(--cl-paper);
-  border: 2px solid var(--cl-rim);
+  border: 1px solid var(--cl-rim);
   border-radius: var(--cl-radius);
   box-shadow: var(--cl-shadow);
 }
@@ -415,7 +415,7 @@ html:not(.dark) .clay-legacy .composer-card {
 html:not(.dark) body:has(.clay-legacy) .bg-elevated.border,
 html:not(.dark) body:has(.clay-legacy) .rounded-card.border {
   background: var(--cl-paper);
-  border: 2px solid var(--cl-rim);
+  border: 1px solid var(--cl-rim);
   border-radius: var(--cl-radius);
   box-shadow: var(--cl-shadow);
 }
@@ -433,7 +433,7 @@ html:not(.dark) body:has(.clay-legacy) .bg-elevated.border .bg-accent-soft {
 html:not(.dark) body:has(.clay-legacy) button.bg-accent:not([role='switch']) {
   background: var(--cl-accent);
   color: var(--cl-accent-ink);
-  border: 2px solid var(--cl-rim);
+  border: 1px solid var(--cl-rim);
   border-radius: 999px;
   box-shadow: var(--cl-shadow-sm);
   font-weight: 700;
@@ -442,7 +442,7 @@ html:not(.dark) body:has(.clay-legacy) button.bg-accent:not([role='switch']) {
 html:not(.dark) body:has(.clay-legacy) button.border.border-strong:not(.bg-inset):not(.border-dashed) {
   background: var(--cl-paper);
   color: var(--cl-ink-2);
-  border: 2px solid var(--cl-rim);
+  border: 1px solid var(--cl-rim);
   border-radius: 999px;
   box-shadow: var(--cl-shadow-sm);
   font-weight: 600;
@@ -450,7 +450,7 @@ html:not(.dark) body:has(.clay-legacy) button.border.border-strong:not(.bg-inset
 
 html:not(.dark) body:has(.clay-legacy) :is(input, textarea, select).border {
   background: #ffffff;
-  border: 2px solid var(--cl-rim);
+  border: 1px solid var(--cl-rim);
   border-radius: var(--cl-radius-sm);
   color: var(--cl-ink);
 }

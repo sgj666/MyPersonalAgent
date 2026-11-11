@@ -10,7 +10,7 @@
     gap: 18px;
     flex-wrap: wrap;
     background: var(--tw-card-c);
-    border: 3px solid var(--tw-rim);
+    border: 1px solid var(--tw-rim);
     border-radius: 20px;
     box-shadow: var(--twb-shadow);
     padding: 22px 26px;
@@ -46,7 +46,7 @@
 .tw-select,
 .tw-textarea {
     width: 100%;
-    border: 3px solid var(--tw-rim);
+    border: 1px solid var(--tw-rim);
     border-radius: 12px;
     background: var(--tw-surface);
     color: var(--tw-ink);
@@ -94,7 +94,7 @@
 
 .tw-lane {
     background: var(--tw-surface-2);
-    border: 3px solid var(--tw-rim);
+    border: 1px solid var(--tw-rim);
     border-radius: 18px;
     padding: 12px;
     min-width: 0;
@@ -123,7 +123,7 @@
     font-weight: 800;
     color: var(--tw-ink);
     background: var(--tw-surface);
-    border: 2px solid var(--tw-rim);
+    border: 1px solid var(--tw-rim);
     border-radius: 8px;
 }
 
@@ -150,7 +150,7 @@
 /* ---------- task card ---------- */
 .tw-task {
     background: var(--tw-surface);
-    border: 3px solid var(--tw-rim);
+    border: 1px solid var(--tw-rim);
     border-radius: 14px;
     box-shadow: var(--twb-shadow-sm);
     padding: 12px;
@@ -200,7 +200,7 @@
     font-weight: 800;
     color: var(--tw-ink);
     background: var(--tw-surface);
-    border: 2px solid var(--tw-rim);
+    border: 1px solid var(--tw-rim);
     border-radius: 7px;
     white-space: nowrap;
 }
@@ -234,12 +234,12 @@
     justify-content: center;
     width: 30px;
     height: 30px;
-    border: 2px solid var(--tw-rim);
+    border: 1px solid var(--tw-rim);
     border-radius: 8px;
     background: var(--tw-surface);
     color: var(--tw-ink);
     cursor: pointer;
-    box-shadow: 1px 1px 0 0 var(--tw-rim);
+    box-shadow: 0 8px 24px rgba(120, 100, 80, 0.10);
     flex-shrink: 0;
 }
 
@@ -273,7 +273,7 @@
     max-height: calc(100vh - 40px);
     overflow-y: auto;
     background: var(--tw-surface);
-    border: 3px solid var(--tw-rim);
+    border: 1px solid var(--tw-rim);
     border-radius: 20px;
     box-shadow: var(--twb-shadow-hover);
     padding: 22px;
