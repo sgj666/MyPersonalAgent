@@ -6,7 +6,10 @@ its own built-in menu. The document holds groups of items, and an item is one
 of:
 
 - ``builtin``: a page of the client, named by ``view``. A client skips the
-  views it does not have, and keeps them when it saves.
+  views it does not have, and keeps them when it saves. It may name a ``tab``
+  of that page, and may carry up to ``MAX_CHILDREN`` further tabs as
+  ``children`` -- the teaching tools are five tabs of one page and are drawn
+  as one entry with a submenu.
 - ``artifact``: a file shown in place, by its absolute path.
 - ``url``: a web page, shown in place (``open: embed``) or in a new tab.
 
@@ -26,6 +29,7 @@ from common.log import logger
 
 MAX_GROUPS = 20
 MAX_ITEMS = 200
+MAX_CHILDREN = 8
 TITLE_MAX = 40
 URL_MAX = 2048
 
@@ -39,6 +43,7 @@ REQUIRED_VIEWS = ("chat", "config")
 
 _ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
 _VIEW_RE = re.compile(r"^[a-z_]{1,30}$")
+_TAB_RE = re.compile(r"^[a-z_]{1,20}$")
 _ICON_RE = re.compile(r"^[a-z0-9-]{0,40}$")
 
 
@@ -46,7 +51,21 @@ def _title(value) -> str:
     return " ".join(str(value or "").split())[:TITLE_MAX]
 
 
-def _clean_item(raw: dict, seen_ids: set, seen_views: set) -> dict:
+def _clean_child(raw: dict, seen_pairs: set) -> dict:
+    """One tab of a page, shown under the entry that owns it."""
+    if not isinstance(raw, dict):
+        raise ValueError("a child entry must be an object")
+    view = str(raw.get("view") or "")
+    tab = str(raw.get("tab") or "")
+    if not _VIEW_RE.match(view) or not _TAB_RE.match(tab):
+        raise ValueError(f"bad child view or tab: {view!r}/{tab!r}")
+    if (view, tab) in seen_pairs:
+        raise ValueError(f"repeated view and tab: {view!r}/{tab!r}")
+    seen_pairs.add((view, tab))
+    return {"view": view, "tab": tab, "title": _title(raw.get("title"))}
+
+
+def _clean_item(raw: dict, seen_ids: set, seen_pairs: set) -> dict:
     if not isinstance(raw, dict):
         raise ValueError("an item must be an object")
     item_id = str(raw.get("id") or "")
@@ -63,11 +82,26 @@ def _clean_item(raw: dict, seen_ids: set, seen_views: set) -> dict:
 
     if kind == "builtin":
         view = str(raw.get("view") or "")
-        if not _VIEW_RE.match(view) or view in seen_views:
-            raise ValueError(f"bad or repeated view: {view!r}")
-        seen_views.add(view)
+        tab = str(raw.get("tab") or "")
+        # One page may appear once per tab -- the five teaching tools are five
+        # entries over the same view -- but the same (view, tab) twice would be
+        # two entries that light up together and go to the same place.
+        if not _VIEW_RE.match(view) or (tab and not _TAB_RE.match(tab)) or (view, tab) in seen_pairs:
+            raise ValueError(f"bad or repeated view and tab: {view!r}/{tab!r}")
+        seen_pairs.add((view, tab))
         item["view"] = view
+        if tab:
+            item["tab"] = tab
         item["hidden"] = bool(raw.get("hidden")) and view not in REQUIRED_VIEWS
+        children = raw.get("children")
+        if children is not None:
+            if not isinstance(children, list):
+                raise ValueError("children must be a list")
+            if len(children) > MAX_CHILDREN:
+                raise ValueError("too many child entries")
+            kids = [_clean_child(child, seen_pairs) for child in children]
+            if kids:
+                item["children"] = kids
     elif kind == "artifact":
         path = os.path.expanduser(str(raw.get("path") or ""))
         if not path or len(path) > URL_MAX or not os.path.isabs(path):
@@ -90,12 +124,19 @@ def _clean_item(raw: dict, seen_ids: set, seen_views: set) -> dict:
 
 
 def clean_menu(raw) -> dict:
-    """The stored form of a menu the client sent, or ValueError."""
+    """The stored form of a menu the client sent, or ValueError.
+
+    Views and tabs are checked for shape only, never against a client's list
+    of pages: the web console and the desktop client have different pages
+    between them, and each already skips a view or tab it does not have. A
+    tab its view does not have is therefore kept, and the client lands on the
+    view's default tab instead.
+    """
     if not isinstance(raw, dict) or not isinstance(raw.get("groups"), list):
         raise ValueError("menu must be an object with a groups list")
     if len(raw["groups"]) > MAX_GROUPS:
         raise ValueError("too many groups")
-    seen_groups, seen_ids, seen_views = set(), set(), set()
+    seen_groups, seen_ids, seen_pairs = set(), set(), set()
     groups = []
     for g in raw["groups"]:
         if not isinstance(g, dict) or not isinstance(g.get("items", []), list):
@@ -104,7 +145,7 @@ def clean_menu(raw) -> dict:
         if not _ID_RE.match(group_id) or group_id in seen_groups:
             raise ValueError(f"bad or repeated group id: {group_id!r}")
         seen_groups.add(group_id)
-        items = [_clean_item(i, seen_ids, seen_views) for i in g.get("items", [])]
+        items = [_clean_item(i, seen_ids, seen_pairs) for i in g.get("items", [])]
         groups.append({"id": group_id, "title": _title(g.get("title")), "items": items})
     if len(seen_ids) > MAX_ITEMS:
         raise ValueError("too many items")

@@ -358,12 +358,13 @@ const TeachingPage: React.FC = () => {
   const [values, setValues] = useState<Record<ToolId, Record<string, string>>>(defaultValues)
   const [status, setStatus] = useState('')
 
-  // A link from the home cards carries ?tool=<id>; honour it when the page is
-  // already mounted and the parameter changes underneath it.
+  // A link from the rail or the home cards carries ?tool=<id>; follow it both
+  // when the page mounts and when the parameter changes underneath it.
+  // Dropping the parameter (the parent 教学工具 entry) returns to the first tool.
   const urlTool = TOOL_IDS.includes(fromUrl as ToolId) ? (fromUrl as ToolId) : null
   useEffect(() => {
-    if (urlTool && urlTool !== tool) setTool(urlTool)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const next = urlTool || TOOL_IDS[0]
+    setTool((current) => (current === next ? current : next))
   }, [urlTool])
 
   const active = TOOLS.find((item) => item.id === tool) || TOOLS[0]

@@ -36,22 +36,29 @@ function twTeachToolFromUrl() {
     return TW_TEACH_TOOLS.indexOf(tool) === -1 ? '' : tool;
 }
 
-function loadTeachingView() {
-    const fromUrl = twTeachToolFromUrl();
-    twTeachSelectTool(fromUrl || twTeachTool);
+function loadTeachingView(tab) {
+    // The address bar names the tool it opens on (/teaching/card). A link
+    // carrying ?tool= -- the home cards' shareable form -- is the fallback,
+    // and the lesson plan is what a bare /teaching opens on.
+    const routed = TW_TEACH_TOOLS.indexOf(tab) === -1 ? '' : tab;
+    twTeachSelectTool(routed || twTeachToolFromUrl() || 'plan');
 }
 
 function twTeachSelectTool(tool) {
     if (TW_TEACH_TOOLS.indexOf(tool) === -1) return;
     twTeachTool = tool;
     TW_TEACH_TOOLS.forEach(id => {
-        const tab = document.getElementById('teach-tab-' + id);
+        const tab = document.getElementById('teaching-tab-' + id);
         if (tab) tab.setAttribute('aria-selected', id === tool ? 'true' : 'false');
         const panel = document.getElementById('teach-form-' + id);
         if (panel) panel.classList.toggle('hidden', id !== tool);
     });
     twTeachStatus('');
     twTeachRefreshPreview();
+    // The tool is part of the destination: a reload or a shared link has to
+    // land on the same form, and the menu lights the entry for this tab.
+    routeNoteTab('teaching', tool);
+    menuSyncActive();
 }
 
 function twTeachValues(tool) {

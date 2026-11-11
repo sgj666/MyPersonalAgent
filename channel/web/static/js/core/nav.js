@@ -105,12 +105,14 @@ function closeSidebar() {
 // docs/plans/teacher-academics.md §1 -- so there is no group state to keep.
 const SIDEBAR_COLLAPSED_KEY = 'cow_sidebar_collapsed';
 
-// Delegated: menu.js redraws the entries whenever the menu changes.
+// Delegated: menu.js redraws the entries whenever the menu changes. An entry
+// may name a tab of its page (a teaching tool), which is part of where the
+// click goes.
 document.getElementById('sidebar-nav').addEventListener('click', e => {
     const item = e.target.closest('.sidebar-item');
     if (!item) return;
     if (item.dataset.menuId) menuOpenItem(item.dataset.menuId);
-    else navigateTo(item.dataset.view);
+    else navigateTo(item.dataset.view, item.dataset.tab || '');
 });
 
 function isSidebarCollapsed() {
@@ -202,7 +204,7 @@ function navigateTo(viewId, tab) {
     // Lazy-load view data
     if (viewId === 'home') loadHomeView();
     else if (viewId === 'board') loadBoardView();
-    else if (viewId === 'teaching') loadTeachingView();
+    else if (viewId === 'teaching') loadTeachingView(tab);
     else if (viewId === 'classes') loadClassesView();
     else if (viewId === 'timetable') loadTimetableView();
     else if (viewId === 'progress') loadProgressView();

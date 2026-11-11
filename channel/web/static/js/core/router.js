@@ -53,6 +53,7 @@ const ROUTE_TABS = {
     memory:    ['files', 'dreams'],
     tasks:     ['tasks', 'records'],
     knowledge: ['docs', 'graph'],
+    teaching:  ['plan', 'courseware', 'card', 'advice', 'schedule'],
 };
 
 // The tab a view opens on when the route does not name one. It is left out of
@@ -63,6 +64,7 @@ const ROUTE_DEFAULT_TABS = {
     memory:    'files',
     tasks:     'tasks',
     knowledge: 'docs',
+    teaching:  'plan',
 };
 
 // URL segment for a tab whose element id reads as an internal name. The path
@@ -134,6 +136,7 @@ function _routeApplyTab(view, tab) {
     else if (view === 'memory') switchMemoryTab(tab);
     else if (view === 'tasks') switchTasksTab(tab);
     else if (view === 'knowledge') switchKnowledgeTab(tab);
+    else if (view === 'teaching') twTeachSelectTool(tab);
     else if (view === 'custom') navigateTo('custom', tab);
 }
 

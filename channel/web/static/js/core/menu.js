@@ -36,10 +36,28 @@ const MENU_BUILTINS = {
 const MENU_DEFAULT = [
     { id: 'chat',    views: ['chat', 'artifacts'] },
     { id: 'teach',   views: ['home', 'classes', 'timetable', 'progress', 'homework', 'scores',
-                             'board', 'teaching', 'knowledge'] },
+                             'teaching', 'board', 'knowledge'] },
     { id: 'manage',  views: ['agents', 'config', 'skills', 'memory', 'channels', 'tasks'] },
     { id: 'monitor', views: ['logs'] },
 ];
+
+// What a tab of a page looks like. The teaching tools are five tabs of one
+// view, so the menu draws one entry with a submenu of them; the labels are the
+// names the teaching view itself shows, so there is one wording per tool.
+const MENU_TAB_META = {
+    teaching: {
+        plan:       { icon: 'fa-file-pen',      label: 'tw_tool_plan' },
+        courseware: { icon: 'fa-chalkboard',    label: 'tw_tool_courseware' },
+        card:       { icon: 'fa-clone',         label: 'tw_tool_card' },
+        advice:     { icon: 'fa-lightbulb',     label: 'tw_tool_advice' },
+        schedule:   { icon: 'fa-calendar-days', label: 'tw_tool_schedule' },
+    },
+};
+// The tabs a page opens with in the built-in menu, in the order the page shows
+// them. A menu saved before a page had tabs gets them on the next load.
+const MENU_DEFAULT_CHILDREN = {
+    teaching: ['plan', 'courseware', 'card', 'advice', 'schedule'],
+};
 const MENU_GROUP_LABELS = { teach: 'nav_teach', chat: 'nav_chat', manage: 'nav_manage', monitor: 'nav_monitor' };
 // Pages a menu must always lead to; mirrors REQUIRED_VIEWS in api/menu.py.
 const MENU_REQUIRED = ['chat', 'config'];
@@ -60,6 +78,8 @@ const MENU_ICONS = {
 };
 
 const MENU_CACHE_KEY = 'cow_menu_cache';
+// Which entries' submenus the user folded, by item id. Absent means open.
+const MENU_SUBMENUS_KEY = 'cow_menu_submenus';
 
 let menuSaved = null;
 let menuDoc = menuMerge(null);
@@ -69,8 +89,16 @@ let menuPageKey = '';
 let _menuReadyResolve;
 const menuReady = new Promise(resolve => { _menuReadyResolve = resolve; });
 
+function _menuDefaultChildren(view) {
+    const tabs = MENU_DEFAULT_CHILDREN[view];
+    return tabs ? tabs.map(tab => ({ view: view, tab: tab, title: '' })) : null;
+}
+
 function menuBuiltinItem(view) {
-    return { id: view, type: 'builtin', view: view, title: '', icon: '', hidden: false };
+    const item = { id: view, type: 'builtin', view: view, title: '', icon: '', hidden: false };
+    const children = _menuDefaultChildren(view);
+    if (children) item.children = children;
+    return item;
 }
 
 function _menuDefaultItem(view) {
@@ -85,9 +113,20 @@ function menuMerge(saved) {
     const doc = {
         groups: saved.groups.map(g => ({
             id: g.id, title: g.title || '',
-            items: (g.items || []).map(i => Object.assign({}, i)),
+            items: (g.items || []).map(i => {
+                const item = Object.assign({}, i);
+                if (Array.isArray(i.children)) item.children = i.children.map(c => Object.assign({}, c));
+                return item;
+            }),
         })),
     };
+    // A menu saved before a page grew tabs keeps its flat entry: give it the
+    // submenu this version draws, as a missing page is added below.
+    doc.groups.forEach(g => g.items.forEach(i => {
+        if (i.type === 'builtin' && !Array.isArray(i.children) && MENU_DEFAULT_CHILDREN[i.view]) {
+            i.children = _menuDefaultChildren(i.view);
+        }
+    }));
     const present = new Set();
     doc.groups.forEach(g => g.items.forEach(i => { if (i.type === 'builtin') present.add(i.view); }));
     MENU_DEFAULT.forEach(def => def.views.forEach(view => {
@@ -130,17 +169,104 @@ function menuShows(item) {
     return !!MENU_BUILTINS[item.view] && !item.hidden;
 }
 
+function menuShowsChild(child) {
+    return !!(child && MENU_BUILTINS[child.view]);
+}
+
+function menuChildMeta(child) {
+    return (MENU_TAB_META[child.view] || {})[child.tab] || {};
+}
+
+function menuChildLabel(child) {
+    if (child.title) return child.title;
+    const meta = menuChildMeta(child);
+    return meta.label ? t(meta.label) : (child.tab || '');
+}
+
+function menuChildIcon(child) {
+    return menuChildMeta(child).icon || 'fa-circle';
+}
+
+/** Whether the entry's submenu is open. Open until the user folds it. */
+function menuSubmenuOpen(id) {
+    try {
+        const saved = JSON.parse(localStorage.getItem(MENU_SUBMENUS_KEY) || '{}');
+        return !saved || saved[id] !== false;
+    } catch (_) { return true; }
+}
+
+function _menuSetSubmenuChrome(id, open) {
+    const btn = document.querySelector(`#sidebar [data-submenu-toggle="${CSS.escape(id)}"]`);
+    if (!btn) return;
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.setAttribute('aria-label', t(open ? 'menu_submenu_collapse' : 'menu_submenu_expand'));
+    const icon = btn.querySelector('i');
+    if (icon) icon.className = 'fas fa-chevron-' + (open ? 'down' : 'right');
+}
+
+/** Fold or unfold an entry's submenu; the choice outlives the page. */
+function menuToggleSubmenu(id) {
+    const open = !menuSubmenuOpen(id);
+    const box = document.querySelector(`#sidebar [data-subitems="${CSS.escape(id)}"]`);
+    if (box) box.classList.toggle('hidden', !open);
+    _menuSetSubmenuChrome(id, open);
+    try {
+        const saved = JSON.parse(localStorage.getItem(MENU_SUBMENUS_KEY) || '{}') || {};
+        saved[id] = open;
+        localStorage.setItem(MENU_SUBMENUS_KEY, JSON.stringify(saved));
+    } catch (_) { /* private mode */ }
+}
+
+/** The rail is 64px wide with no room for a chevron; hide the toggles there. */
+function _menuSyncSubmenuChrome() {
+    const collapsed = typeof isSidebarCollapsed === 'function'
+        && isSidebarCollapsed() && window.innerWidth >= 1024;
+    document.querySelectorAll('#sidebar .menu-sub-toggle').forEach(btn => {
+        btn.style.display = collapsed ? 'none' : '';
+    });
+}
+
+window.addEventListener('resize', _menuSyncSubmenuChrome);
+// The rail toggle writes a class on <html> rather than firing an event.
+new MutationObserver(_menuSyncSubmenuChrome)
+    .observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+function _menuChildHTML(child) {
+    const meta = menuChildMeta(child);
+    const label = child.title
+        ? `<span class="sidebar-label">${escapeHtml(child.title)}</span>`
+        : `<span${meta.label ? ` data-i18n="${escapeHtml(meta.label)}"` : ''}>${escapeHtml(menuChildLabel(child))}</span>`;
+    return `<a class="sidebar-item menu-subitem flex items-center gap-3 pl-7 pr-3 py-1.5 rounded-lg cursor-pointer transition-all duration-150 hover:bg-white/5 hover:text-neutral-200 text-[13px]"
+               data-view="${escapeHtml(child.view)}" data-tab="${escapeHtml(child.tab)}">
+            <i class="fas ${escapeHtml(menuChildIcon(child))} item-icon text-[10px] w-4 text-center"></i>${label}
+        </a>`;
+}
+
 function _menuItemHTML(item) {
     const builtin = item.type === 'builtin';
+    const tabAttr = builtin && item.tab ? ` data-tab="${escapeHtml(item.tab)}"` : '';
     const label = builtin && !item.title
         ? `<span data-i18n="${escapeHtml(MENU_BUILTINS[item.view].label)}">${escapeHtml(menuItemLabel(item))}</span>`
         : `<span class="sidebar-label">${escapeHtml(menuItemLabel(item))}</span>`;
     const external = item.type === 'url' && item.open === 'tab'
         ? '<i class="fas fa-arrow-up-right-from-square sidebar-ext"></i>' : '';
-    return `<a class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-150 hover:bg-white/5 hover:text-neutral-200 text-[14px]"
-               data-view="${builtin ? escapeHtml(item.view) : 'custom'}"${builtin ? '' : ` data-menu-id="${escapeHtml(item.id)}"`}>
+    const children = builtin ? (item.children || []).filter(menuShowsChild) : [];
+    const rowClass = 'sidebar-item flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-150 hover:bg-white/5 hover:text-neutral-200 text-[14px]'
+        + (children.length ? ' pr-8' : '');
+    const anchor = `<a class="${rowClass}"
+               data-view="${builtin ? escapeHtml(item.view) : 'custom'}"${tabAttr}${builtin ? '' : ` data-menu-id="${escapeHtml(item.id)}"`}>
             <i class="fas ${escapeHtml(menuItemIcon(item))} item-icon text-xs w-5 text-center"></i>${label}${external}
         </a>`;
+    if (!children.length) return anchor;
+    const open = menuSubmenuOpen(item.id);
+    return `<div class="menu-subwrap relative">
+            ${anchor}
+            <button type="button" class="menu-sub-toggle absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 inline-flex items-center justify-center rounded-md text-neutral-500 hover:text-neutral-200 cursor-pointer"
+                    data-submenu-toggle="${escapeHtml(item.id)}" aria-expanded="${open ? 'true' : 'false'}"
+                    aria-label="${escapeHtml(t(open ? 'menu_submenu_collapse' : 'menu_submenu_expand'))}"
+                    onclick="menuToggleSubmenu('${escapeHtml(item.id)}')"><i class="fas fa-chevron-${open ? 'down' : 'right'}"></i></button>
+        </div>
+        <div class="menu-subitems mt-0.5 space-y-0.5${open ? '' : ' hidden'}" data-subitems="${escapeHtml(item.id)}">${children.map(_menuChildHTML).join('')}</div>`;
 }
 
 function menuRenderSidebar() {
@@ -163,6 +289,7 @@ function menuRenderSidebar() {
     }).join('');
     document.documentElement.classList.remove('menu-pending');
     syncSidebarTips();
+    _menuSyncSubmenuChrome();
     menuSyncActive();
 }
 
@@ -171,10 +298,15 @@ function menuSyncActive() {
     const meta = VIEW_META[currentView] || {};
     const own = document.querySelector(`#sidebar .sidebar-item[data-view="${currentView}"]:not([data-menu-id])`);
     const navId = own ? currentView : (meta.nav || currentView);
+    // A view entered on one of its tabs (a teaching tool) lights only that
+    // tab's entry: the menu holds one entry per tab, all naming the same view.
+    // routeTab is assigned by router.js, which loads after this file; the view
+    // comparison keeps it untouched while the initial menu is drawn.
+    const tab = currentView === 'teaching' && typeof routeTab === 'string' ? routeTab : '';
     document.querySelectorAll('#sidebar .sidebar-item').forEach(el => {
         const active = el.dataset.menuId
             ? currentView === 'custom' && el.dataset.menuId === menuCustomId
-            : el.dataset.view === navId;
+            : el.dataset.view === navId && (el.dataset.tab || '') === tab;
         el.classList.toggle('active', active);
     });
     const found = currentView === 'custom' ? menuFind(menuCustomId) : null;

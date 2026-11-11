@@ -13,23 +13,23 @@
                             </header>
 
                             <div class="tw-segs" role="tablist" aria-label="教学工具">
-                                <button type="button" class="tw-seg" role="tab" id="teach-tab-plan" aria-selected="false"
+                                <button type="button" class="tw-seg" role="tab" id="teaching-tab-plan" aria-selected="false"
                                         onclick="twTeachSelectTool('plan')">
                                     <i class="fas fa-file-pen" aria-hidden="true"></i><span data-i18n="tw_tool_plan">教案生成</span>
                                 </button>
-                                <button type="button" class="tw-seg" role="tab" id="teach-tab-courseware" aria-selected="false"
+                                <button type="button" class="tw-seg" role="tab" id="teaching-tab-courseware" aria-selected="false"
                                         onclick="twTeachSelectTool('courseware')">
                                     <i class="fas fa-chalkboard" aria-hidden="true"></i><span data-i18n="tw_tool_courseware">课件生成</span>
                                 </button>
-                                <button type="button" class="tw-seg" role="tab" id="teach-tab-card" aria-selected="false"
+                                <button type="button" class="tw-seg" role="tab" id="teaching-tab-card" aria-selected="false"
                                         onclick="twTeachSelectTool('card')">
                                     <i class="fas fa-clone" aria-hidden="true"></i><span data-i18n="tw_tool_card">作业卡片</span>
                                 </button>
-                                <button type="button" class="tw-seg" role="tab" id="teach-tab-advice" aria-selected="false"
+                                <button type="button" class="tw-seg" role="tab" id="teaching-tab-advice" aria-selected="false"
                                         onclick="twTeachSelectTool('advice')">
                                     <i class="fas fa-lightbulb" aria-hidden="true"></i><span data-i18n="tw_tool_advice">教学建议</span>
                                 </button>
-                                <button type="button" class="tw-seg" role="tab" id="teach-tab-schedule" aria-selected="false"
+                                <button type="button" class="tw-seg" role="tab" id="teaching-tab-schedule" aria-selected="false"
                                         onclick="twTeachSelectTool('schedule')">
                                     <i class="fas fa-calendar-days" aria-hidden="true"></i><span data-i18n="tw_tool_schedule">教学计划</span>
                                 </button>
@@ -39,7 +39,7 @@
                                 <div class="tw-card tw-teach-form">
 
                                     <!-- 教案生成 -->
-                                    <form id="teach-form-plan" class="tw-form" data-tool="plan" role="tabpanel" aria-labelledby="teach-tab-plan"
+                                    <form id="teach-form-plan" class="tw-form" data-tool="plan" role="tabpanel" aria-labelledby="teaching-tab-plan"
                                           onsubmit="twTeachSubmit('plan', event)" oninput="twTeachRefreshPreview()">
                                         <h2 data-i18n="tw_tool_plan">教案生成</h2>
                                         <div class="tw-field-row">
@@ -97,7 +97,7 @@
 
                                     <!-- 课件生成 -->
                                     <form id="teach-form-courseware" class="tw-form hidden" data-tool="courseware" role="tabpanel"
-                                          aria-labelledby="teach-tab-courseware" onsubmit="twTeachSubmit('courseware', event)"
+                                          aria-labelledby="teaching-tab-courseware" onsubmit="twTeachSubmit('courseware', event)"
                                           oninput="twTeachRefreshPreview()">
                                         <h2 data-i18n="tw_tool_courseware">课件生成</h2>
                                         <label class="tw-field">
@@ -134,7 +134,7 @@
 
                                     <!-- 作业卡片 -->
                                     <form id="teach-form-card" class="tw-form hidden" data-tool="card" role="tabpanel"
-                                          aria-labelledby="teach-tab-card" onsubmit="twTeachSubmit('card', event)"
+                                          aria-labelledby="teaching-tab-card" onsubmit="twTeachSubmit('card', event)"
                                           oninput="twTeachRefreshPreview()">
                                         <h2 data-i18n="tw_tool_card">作业卡片</h2>
                                         <label class="tw-field">
@@ -164,7 +164,7 @@
 
                                     <!-- 教学建议 -->
                                     <form id="teach-form-advice" class="tw-form hidden" data-tool="advice" role="tabpanel"
-                                          aria-labelledby="teach-tab-advice" onsubmit="twTeachSubmit('advice', event)"
+                                          aria-labelledby="teaching-tab-advice" onsubmit="twTeachSubmit('advice', event)"
                                           oninput="twTeachRefreshPreview()">
                                         <h2 data-i18n="tw_tool_advice">教学建议</h2>
                                         <label class="tw-field">
@@ -190,7 +190,7 @@
 
                                     <!-- 教学计划 -->
                                     <form id="teach-form-schedule" class="tw-form hidden" data-tool="schedule" role="tabpanel"
-                                          aria-labelledby="teach-tab-schedule" onsubmit="twTeachSubmit('schedule', event)"
+                                          aria-labelledby="teaching-tab-schedule" onsubmit="twTeachSubmit('schedule', event)"
                                           oninput="twTeachRefreshPreview()">
                                         <h2 data-i18n="tw_tool_schedule">教学计划</h2>
                                         <div class="tw-field-row">

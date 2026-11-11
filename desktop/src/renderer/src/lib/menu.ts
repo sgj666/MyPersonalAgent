@@ -46,11 +46,14 @@ import {
   Bot,
   Pen,
   Search,
+  Presentation,
+  Copy,
+  Lightbulb,
   type LucideIcon,
 } from 'lucide-react'
 import { t } from '../i18n'
 import { iconFor } from './fileKind'
-import type { FileKind, MenuDoc, MenuGroup, MenuItem } from '../types'
+import type { FileKind, MenuChild, MenuDoc, MenuGroup, MenuItem } from '../types'
 
 /** The pages of this app a menu can lead to, by the view name the document uses. */
 export const MENU_BUILTINS: Record<string, { path: string; labelKey: string; icon: LucideIcon }> = {
@@ -74,6 +77,36 @@ export const MENU_BUILTINS: Record<string, { path: string; labelKey: string; ico
   logs: { path: '/logs', labelKey: 'menu_logs', icon: ScrollText },
 }
 
+/** One tool of the teaching page, as the rail draws it. */
+export interface MenuTeachingTool {
+  tab: string
+  labelKey: string
+  icon: LucideIcon
+}
+
+// The tools nested under 教学工具, in the order the rail and the page show
+// them. Labels are the page's own (tw_tool_*), so the tab and the rail agree;
+// icons come from the same family as the page's tabs.
+export const MENU_TEACHING_TOOLS: MenuTeachingTool[] = [
+  { tab: 'plan', labelKey: 'tw_tool_plan', icon: FileText },
+  { tab: 'courseware', labelKey: 'tw_tool_courseware', icon: Presentation },
+  { tab: 'card', labelKey: 'tw_tool_card', icon: Copy },
+  { tab: 'advice', labelKey: 'tw_tool_advice', icon: Lightbulb },
+  { tab: 'schedule', labelKey: 'tw_tool_schedule', icon: CalendarDays },
+]
+
+/** A branch draws at most this many children; mirrors MAX_CHILDREN in channel/web/api/menu.py. */
+export const MENU_CHILDREN_MAX = 8
+
+export function teachingTool(tab: string): MenuTeachingTool | undefined {
+  return MENU_TEACHING_TOOLS.find((tool) => tool.tab === tab)
+}
+
+/** The five tools as nested entries of the 教学工具 page. */
+export function defaultTeachingChildren(): MenuChild[] {
+  return MENU_TEACHING_TOOLS.slice(0, MENU_CHILDREN_MAX).map((tool) => ({ view: 'teaching', tab: tool.tab }))
+}
+
 // The built-in menu, drawn in these groups until the user saves their own.
 // The document is shared with the web console, so it keeps every page the
 // console has, footer ones included.
@@ -84,7 +117,7 @@ export const MENU_DEFAULT: { id: string; views: string[] }[] = [
   { id: 'chat', views: ['chat', 'artifacts'] },
   {
     id: 'teach',
-    views: ['home', 'classes', 'timetable', 'progress', 'homework', 'scores', 'board', 'teaching', 'knowledge'],
+    views: ['home', 'classes', 'timetable', 'progress', 'homework', 'scores', 'teaching', 'board', 'knowledge'],
   },
   { id: 'manage', views: ['agents', 'config', 'skills', 'memory', 'channels', 'tasks'] },
   { id: 'monitor', views: ['logs'] },
@@ -158,9 +191,37 @@ export function builtinItem(view: string): MenuItem {
   return { id: view, type: 'builtin', view, title: '', icon: '', hidden: false }
 }
 
+/** The children a page draws: the document's own, or the built-in set when it has none. */
+function withChildren(item: MenuItem): MenuItem {
+  if (item.type !== 'builtin' || item.view !== 'teaching') return item
+  // A tab this client has no form for is kept, not dropped: the page falls
+  // back to its first tool, the same way it does for a web-console-only page.
+  const saved = (item.children || [])
+    .filter((child) => !!child && child.view === 'teaching' && !!child.tab)
+    .slice(0, MENU_CHILDREN_MAX)
+  return { ...item, children: saved.length ? saved : defaultTeachingChildren() }
+}
+
+/** The nested entries an item draws: what the document carries, else the built-in set. */
+export function itemChildren(item: MenuItem): MenuChild[] {
+  return withChildren(item).children || []
+}
+
+export function childLabel(child: MenuChild): string {
+  if (child.title) return child.title
+  const tool = teachingTool(child.tab)
+  return tool ? t(tool.labelKey) : child.tab
+}
+
+export function childIcon(child: MenuChild): LucideIcon {
+  return teachingTool(child.tab)?.icon || Folder
+}
+
 /** The built-in menu as a document. */
 export function defaultMenu(): MenuDoc {
-  return { groups: MENU_DEFAULT.map((g) => ({ id: g.id, title: '', items: g.views.map(builtinItem) })) }
+  return {
+    groups: MENU_DEFAULT.map((g) => ({ id: g.id, title: '', items: g.views.map((v) => withChildren(builtinItem(v))) })),
+  }
 }
 
 /** The menu to draw: the saved one, plus any built-in page this version added since. */
@@ -170,7 +231,7 @@ export function mergeMenu(saved: MenuDoc | null): MenuDoc {
     groups: saved.groups.map((g) => ({
       id: g.id,
       title: g.title || '',
-      items: (g.items || []).map((i) => ({ ...i })),
+      items: (g.items || []).map((i) => withChildren({ ...i })),
     })),
   }
   const present = new Set<string>()
@@ -179,7 +240,7 @@ export function mergeMenu(saved: MenuDoc | null): MenuDoc {
     for (const view of def.views) {
       if (present.has(view)) continue
       const home = doc.groups.find((g) => g.id === def.id) || doc.groups[doc.groups.length - 1]
-      home.items.push(builtinItem(view))
+      home.items.push(withChildren(builtinItem(view)))
     }
   }
   return doc
@@ -221,10 +282,31 @@ export function itemShows(item: MenuItem): boolean {
   return !!item.view && !!MENU_BUILTINS[item.view] && !item.hidden && !isFooterItem(item)
 }
 
-/** Where an entry leads inside the app. */
-export function itemRoute(item: MenuItem): string {
-  if (item.type === 'builtin') return (item.view && MENU_BUILTINS[item.view]?.path) || '/'
+/** Where a built-in page leads; a teaching tool adds its `?tool=` selection. */
+export function viewRoute(view: string, tab?: string): string {
+  const path = MENU_BUILTINS[view]?.path || '/'
+  return view === 'teaching' && tab ? `${path}?tool=${encodeURIComponent(tab)}` : path
+}
+
+/** Where an entry leads inside the app; `tab` overrides the item's own tool. */
+export function itemRoute(item: MenuItem, tab?: string): string {
+  if (item.type === 'builtin') return item.view ? viewRoute(item.view, tab ?? item.tab) : '/'
   return `/m/${encodeURIComponent(item.id)}`
+}
+
+/**
+ * Whether the rail lights this entry. A child needs both its page and its
+ * tool; the parent stays lit only while no child owns the current tool.
+ */
+export function isItemActive(item: MenuItem, pathname: string, search: string): boolean {
+  if (item.type !== 'builtin') return pathname === itemRoute(item)
+  if (!item.view || !MENU_BUILTINS[item.view]) return false
+  const path = MENU_BUILTINS[item.view].path
+  if (pathname !== path) return false
+  if (item.view !== 'teaching') return true
+  const tool = new URLSearchParams(search).get('tool')
+  if (item.tab) return tool === item.tab
+  return !itemChildren(item).some((child) => child.tab === tool)
 }
 
 export function newMenuId(prefix: string): string {

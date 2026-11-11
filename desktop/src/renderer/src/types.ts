@@ -376,6 +376,19 @@ export interface MenuFile {
   preview_url: string
 }
 
+/**
+ * A tool nested under a built-in page entry: `view` names the page, `tab` the
+ * tool that page should select (TeachingPage reads it as `?tool=`). Children
+ * travel in the shared menu document; `mergeMenu` fills in the built-in five
+ * for a document written before the field existed.
+ */
+export interface MenuChild {
+  view: string
+  tab: string
+  /** Overrides the built-in label; empty uses it. */
+  title?: string
+}
+
 export interface MenuItem {
   id: string
   /** `builtin` names a page by `view`; `artifact` shows a file by `path`; `url` shows a web page. */
@@ -383,6 +396,10 @@ export interface MenuItem {
   title: string
   icon: string
   view?: string
+  /** The tool a page should select; only teaching uses one today. */
+  tab?: string
+  /** Nested tools drawn under this entry (the rail expands them in place). */
+  children?: MenuChild[]
   hidden?: boolean
   path?: string
   url?: string

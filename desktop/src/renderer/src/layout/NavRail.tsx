@@ -17,6 +17,7 @@ import {
   Palette,
   SquarePen,
   ExternalLink,
+  ChevronRight,
 } from 'lucide-react'
 import type { Theme } from '../theme/themes'
 import ThemeFlyout from '../components/ThemePicker'
@@ -33,7 +34,17 @@ import { useUpdateStore, hasPendingUpdate, hasAvailableUpdate } from '../store/u
 import UpdateBanner from '../components/UpdateBanner'
 import Tooltip from '../components/Tooltip'
 import { useMenuStore } from '../store/menuStore'
-import { groupLabel, itemIcon, itemLabel, itemRoute, itemShows } from '../lib/menu'
+import {
+  childIcon,
+  childLabel,
+  groupLabel,
+  isItemActive,
+  itemChildren,
+  itemIcon,
+  itemLabel,
+  itemRoute,
+  itemShows,
+} from '../lib/menu'
 import { product } from '@product'
 
 // Fallback shown when app.getVersion() is unavailable (dev/web preview). Keep
@@ -56,6 +67,27 @@ const openExternal = (url: string) => {
   window.open(url, '_blank', 'noopener,noreferrer')
 }
 
+// Nested tool rows stay expanded until the teacher folds them, so only the
+// folded ids are stored: an entry this version adds arrives open.
+const BRANCH_KEY = 'cow_nav_closed_branches'
+
+function readClosedBranches(): Set<string> {
+  try {
+    const raw: unknown = JSON.parse(localStorage.getItem(BRANCH_KEY) || '[]')
+    return new Set(Array.isArray(raw) ? raw.filter((id): id is string => typeof id === 'string') : [])
+  } catch {
+    return new Set()
+  }
+}
+
+function writeClosedBranches(ids: Set<string>) {
+  try {
+    localStorage.setItem(BRANCH_KEY, JSON.stringify([...ids]))
+  } catch {
+    // localStorage unavailable: the rail simply opens every branch next launch.
+  }
+}
+
 interface NavRailProps {
   onLangChange: () => void
 }
@@ -73,6 +105,18 @@ const NavRail: React.FC<NavRailProps> = ({ onLangChange }) => {
 
   const collapsed = navCollapsed
   const width = collapsed ? 'w-[56px]' : 'w-[208px]'
+  const { pathname, search } = location
+
+  const [closedBranches, setClosedBranches] = useState<Set<string>>(readClosedBranches)
+  const toggleBranch = (id: string) => {
+    setClosedBranches((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      writeClosedBranches(next)
+      return next
+    })
+  }
 
   // Leaving a page unmounts its document editor, so settle any unsaved work
   // first - here, while declining can still stop the navigation.
@@ -233,26 +277,77 @@ const NavRail: React.FC<NavRailProps> = ({ onLangChange }) => {
               {items.map((item) => {
                 const Icon = itemIcon(item)
                 const label = itemLabel(item)
-                const isActive = location.pathname === itemRoute(item)
+                const children = itemChildren(item)
+                const open = !closedBranches.has(item.id)
+                const childActive =
+                  collapsed &&
+                  children.some((child) => isItemActive({ ...item, tab: child.tab }, pathname, search))
+                const isActive = isItemActive(item, pathname, search) || childActive
                 return (
-                  <button
-                    key={item.id}
-                    onClick={() => openItem(item)}
-                    title={collapsed ? label : undefined}
-                    className={`group w-full flex items-center gap-3 rounded-btn cursor-pointer transition-colors h-9 ${
-                      collapsed ? 'justify-center px-0' : 'px-3'
-                    } ${
-                      isActive
-                        ? 'bg-accent-soft text-accent'
-                        : 'text-content-secondary hover:bg-surface-2 hover:text-content'
-                    }`}
-                  >
-                    <Icon size={18} strokeWidth={isActive ? 2.2 : 1.8} className="flex-shrink-0" />
-                    {!collapsed && <span className="flex-1 min-w-0 text-left text-[13px] truncate">{label}</span>}
-                    {!collapsed && item.type === 'url' && item.open === 'tab' && (
-                      <ExternalLink size={12} className="flex-shrink-0 opacity-50" />
+                  <div key={item.id}>
+                    <div className="relative">
+                      <button
+                        onClick={() => openItem(item)}
+                        title={collapsed ? label : undefined}
+                        className={`group w-full flex items-center gap-3 rounded-btn cursor-pointer transition-colors h-9 ${
+                          collapsed ? 'justify-center px-0' : 'px-3'
+                        } ${children.length && !collapsed ? 'pr-9' : ''} ${
+                          isActive
+                            ? 'bg-accent-soft text-accent'
+                            : 'text-content-secondary hover:bg-surface-2 hover:text-content'
+                        }`}
+                      >
+                        <Icon size={18} strokeWidth={isActive ? 2.2 : 1.8} className="flex-shrink-0" />
+                        {!collapsed && <span className="flex-1 min-w-0 text-left text-[13px] truncate">{label}</span>}
+                        {!collapsed && item.type === 'url' && item.open === 'tab' && (
+                          <ExternalLink size={12} className="flex-shrink-0 opacity-50" />
+                        )}
+                      </button>
+                      {children.length > 0 && !collapsed && (
+                        <button
+                          type="button"
+                          onClick={() => toggleBranch(item.id)}
+                          aria-expanded={open}
+                          aria-label={label}
+                          className="absolute right-1 top-0 h-9 w-7 inline-flex items-center justify-center rounded-md
+                                     text-content-tertiary hover:text-content hover:bg-surface-2 cursor-pointer"
+                        >
+                          <ChevronRight
+                            size={13}
+                            className={`transition-transform ${open ? 'rotate-90' : ''}`}
+                          />
+                        </button>
+                      )}
+                    </div>
+                    {children.length > 0 && !collapsed && open && (
+                      <div className="mt-0.5 space-y-0.5">
+                        {children.map((child) => {
+                          const ChildIcon = childIcon(child)
+                          const active = isItemActive({ ...item, tab: child.tab }, pathname, search)
+                          return (
+                            <button
+                              key={child.tab}
+                              onClick={() => void go(itemRoute(item, child.tab))}
+                              className={`w-full flex items-center gap-2 rounded-btn cursor-pointer transition-colors h-8 pl-[42px] pr-3 ${
+                                active
+                                  ? 'bg-accent-soft text-accent'
+                                  : 'text-content-secondary hover:bg-surface-2 hover:text-content'
+                              }`}
+                            >
+                              <ChildIcon
+                                size={14}
+                                strokeWidth={active ? 2.2 : 1.8}
+                                className="flex-shrink-0"
+                              />
+                              <span className="flex-1 min-w-0 text-left text-[12.5px] truncate">
+                                {childLabel(child)}
+                              </span>
+                            </button>
+                          )
+                        })}
+                      </div>
                     )}
-                  </button>
+                  </div>
                 )
               })}
             </div>
