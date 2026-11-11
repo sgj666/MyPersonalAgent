@@ -37,6 +37,14 @@ function twHomeRenderDate() {
         hello.textContent = t(hour < 12 ? 'tw_home_hi_morning'
             : hour < 18 ? 'tw_home_hi_afternoon' : 'tw_home_hi_evening');
     }
+    // The greeting and the line under it come from the teacher profile, so the
+    // name and the daily motto match the desktop client.
+    fetch('/api/teaching/greeting').then(r => r.json()).then(data => {
+        if (data.status !== 'success') return;
+        if (hello && data.greeting) hello.textContent = data.greeting;
+        const motto = document.getElementById('home-motto');
+        if (motto) motto.textContent = data.motto || '';
+    }).catch(() => {});
 }
 
 function twHomeOpenTool(tool) {

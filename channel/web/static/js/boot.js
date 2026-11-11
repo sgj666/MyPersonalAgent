@@ -10,8 +10,8 @@ requestAuthGatedStart(() => {
     fetch('/config').then(r => r.json()).then(data => {
         if (data.status === 'success') {
             appConfig = data;
-            const title = data.title || 'CowAgent';
-            document.getElementById('welcome-title').textContent = title;
+            const welcome = document.getElementById('welcome-title');
+            if (welcome) welcome.textContent = t('chat_welcome') || data.title || 'CowAgent';
             initConfigView(data);
         }
         loadHistory(1);

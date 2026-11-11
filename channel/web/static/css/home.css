@@ -160,6 +160,14 @@ html.dark #view-teaching.tw-view {
     margin: 8px 0 4px;
 }
 
+.tw-motto {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--tw-ink-2);
+}
+
 .tw-hl {
     background: #D6F1E2;
     color: #1F5A3D;

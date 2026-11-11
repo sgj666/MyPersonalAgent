@@ -2,16 +2,17 @@ import React, { useEffect, useMemo, useRef, useCallback, useState } from 'react'
 import {
   ChevronDown,
   Loader2,
-  FolderOpen,
-  Clock,
-  Code2,
-  BookOpen,
-  Puzzle,
-  Terminal,
+  FileText,
+  Presentation,
+  ClipboardList,
+  CalendarDays,
+  ChartLine,
+  Users,
   type LucideIcon,
 } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import MessageBubble from '../components/MessageBubble'
+import AgentAvatar from '../components/AgentAvatar'
 import ChatInput, { type ChatInputHandle } from '../components/ChatInput'
 import ChatTimeline from '../components/ChatTimeline'
 import { useTimelineStore } from '../store/timelineStore'
@@ -43,12 +44,12 @@ const SUGGESTIONS: {
   iconClass: string
   bgClass: string
 }[] = [
-  { key: 'example_sys', icon: FolderOpen, iconClass: 'text-blue-500', bgClass: 'bg-blue-500/10' },
-  { key: 'example_task', icon: Clock, iconClass: 'text-amber-500', bgClass: 'bg-amber-500/10' },
-  { key: 'example_code', icon: Code2, iconClass: 'text-emerald-500', bgClass: 'bg-emerald-500/10' },
-  { key: 'example_knowledge', icon: BookOpen, iconClass: 'text-violet-500', bgClass: 'bg-violet-500/10' },
-  { key: 'example_skill', icon: Puzzle, iconClass: 'text-rose-500', bgClass: 'bg-rose-500/10' },
-  { key: 'example_web', send: '/help', icon: Terminal, iconClass: 'text-content-tertiary', bgClass: 'bg-content-tertiary/10' },
+  { key: 'example_lesson', icon: FileText, iconClass: 'text-emerald-600', bgClass: 'bg-emerald-500/10' },
+  { key: 'example_deck', icon: Presentation, iconClass: 'text-orange-500', bgClass: 'bg-orange-500/10' },
+  { key: 'example_homework', icon: ClipboardList, iconClass: 'text-sky-600', bgClass: 'bg-sky-500/10' },
+  { key: 'example_today', icon: CalendarDays, iconClass: 'text-amber-600', bgClass: 'bg-amber-500/10' },
+  { key: 'example_scores', icon: ChartLine, iconClass: 'text-violet-500', bgClass: 'bg-violet-500/10' },
+  { key: 'example_class', icon: Users, iconClass: 'text-rose-500', bgClass: 'bg-rose-500/10' },
 ]
 
 const useProductSuggestions = product.chat?.useSuggestions ?? (() => null)
@@ -505,11 +506,11 @@ const ChatPage: React.FC<ChatPageProps> = ({ baseUrl }) => {
 
         {isEmpty ? (
           <div data-home className="chat-home flex flex-col items-center justify-center h-full px-6 py-12">
-            <div className="theme-logo w-16 h-16 rounded-2xl mb-5 shadow-md overflow-hidden">
+            <div className="theme-logo w-16 h-16 rounded-2xl mb-5 shadow-md overflow-hidden flex items-center justify-center bg-surface">
               {product.slots?.HomeLogo ? (
                 <product.slots.HomeLogo />
               ) : (
-                <img src="./logo.jpg" alt="CowAgent" className="block w-full h-full" />
+                <AgentAvatar size={64} shape="square" />
               )}
             </div>
             <h1 className="text-xl font-semibold text-content mb-2">{t('chat_welcome')}</h1>

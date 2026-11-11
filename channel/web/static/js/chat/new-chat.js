@@ -124,63 +124,63 @@ function newChat(optimistic = true, inherit = true) {
     ws.className = 'flex flex-col items-center justify-center h-full px-6 pb-16';
     ws.style.paddingTop = '6vh';
     ws.innerHTML = `
-        <img src="/assets/logo.jpg" alt="CowAgent" class="w-16 h-16 rounded-2xl mb-6 shadow-lg shadow-primary-500/20">
-        <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-3">${appConfig.title || 'CowAgent'}</h1>
+        <img src="/assets/agent-qinghe.png" alt="青禾" class="w-16 h-16 rounded-2xl mb-6 shadow-lg shadow-primary-500/20">
+        <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-3" data-i18n="chat_welcome">${t('chat_welcome')}</h1>
         <p class="text-slate-500 dark:text-slate-400 text-center max-w-lg mb-10 leading-relaxed" data-i18n="welcome_subtitle">${t('welcome_subtitle')}</p>
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full max-w-2xl">
             <div class="example-card group bg-panel border border-slate-200 dark:border-white/10 rounded-xl p-4 cursor-pointer hover:border-primary-300 dark:hover:border-primary-600 hover:shadow-md transition-all duration-200">
                 <div class="flex items-center gap-2 mb-2">
-                    <div class="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
-                        <i class="fas fa-folder-open text-blue-500 text-xs"></i>
+                    <div class="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-900/30 flex items-center justify-center">
+                        <i class="fas fa-file-pen text-emerald-600 text-xs"></i>
                     </div>
-                    <span class="font-medium text-sm text-slate-700 dark:text-slate-200" data-i18n="example_sys_title">${t('example_sys_title')}</span>
+                    <span class="font-medium text-sm text-slate-700 dark:text-slate-200" data-i18n="example_lesson_title">${t('example_lesson_title')}</span>
                 </div>
-                <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed" data-i18n="example_sys_text">${t('example_sys_text')}</p>
+                <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed" data-i18n="example_lesson_text">${t('example_lesson_text')}</p>
+            </div>
+            <div class="example-card group bg-panel border border-slate-200 dark:border-white/10 rounded-xl p-4 cursor-pointer hover:border-primary-300 dark:hover:border-primary-600 hover:shadow-md transition-all duration-200">
+                <div class="flex items-center gap-2 mb-2">
+                    <div class="w-7 h-7 rounded-lg bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center">
+                        <i class="fas fa-chalkboard text-orange-500 text-xs"></i>
+                    </div>
+                    <span class="font-medium text-sm text-slate-700 dark:text-slate-200" data-i18n="example_deck_title">${t('example_deck_title')}</span>
+                </div>
+                <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed" data-i18n="example_deck_text">${t('example_deck_text')}</p>
+            </div>
+            <div class="example-card group bg-panel border border-slate-200 dark:border-white/10 rounded-xl p-4 cursor-pointer hover:border-primary-300 dark:hover:border-primary-600 hover:shadow-md transition-all duration-200">
+                <div class="flex items-center gap-2 mb-2">
+                    <div class="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-900/30 flex items-center justify-center">
+                        <i class="fas fa-clipboard-list text-sky-600 text-xs"></i>
+                    </div>
+                    <span class="font-medium text-sm text-slate-700 dark:text-slate-200" data-i18n="example_homework_title">${t('example_homework_title')}</span>
+                </div>
+                <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed" data-i18n="example_homework_text">${t('example_homework_text')}</p>
             </div>
             <div class="example-card group bg-panel border border-slate-200 dark:border-white/10 rounded-xl p-4 cursor-pointer hover:border-primary-300 dark:hover:border-primary-600 hover:shadow-md transition-all duration-200">
                 <div class="flex items-center gap-2 mb-2">
                     <div class="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center">
-                        <i class="fas fa-clock text-amber-500 text-xs"></i>
+                        <i class="fas fa-calendar-day text-amber-600 text-xs"></i>
                     </div>
-                    <span class="font-medium text-sm text-slate-700 dark:text-slate-200" data-i18n="example_task_title">${t('example_task_title')}</span>
+                    <span class="font-medium text-sm text-slate-700 dark:text-slate-200" data-i18n="example_today_title">${t('example_today_title')}</span>
                 </div>
-                <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed" data-i18n="example_task_text">${t('example_task_text')}</p>
-            </div>
-            <div class="example-card group bg-panel border border-slate-200 dark:border-white/10 rounded-xl p-4 cursor-pointer hover:border-primary-300 dark:hover:border-primary-600 hover:shadow-md transition-all duration-200">
-                <div class="flex items-center gap-2 mb-2">
-                    <div class="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center">
-                        <i class="fas fa-code text-emerald-500 text-xs"></i>
-                    </div>
-                    <span class="font-medium text-sm text-slate-700 dark:text-slate-200" data-i18n="example_code_title">${t('example_code_title')}</span>
-                </div>
-                <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed" data-i18n="example_code_text">${t('example_code_text')}</p>
+                <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed" data-i18n="example_today_text">${t('example_today_text')}</p>
             </div>
             <div class="example-card group bg-panel border border-slate-200 dark:border-white/10 rounded-xl p-4 cursor-pointer hover:border-primary-300 dark:hover:border-primary-600 hover:shadow-md transition-all duration-200">
                 <div class="flex items-center gap-2 mb-2">
                     <div class="w-7 h-7 rounded-lg bg-violet-50 dark:bg-violet-900/30 flex items-center justify-center">
-                        <i class="fas fa-book text-violet-500 text-xs"></i>
+                        <i class="fas fa-chart-line text-violet-500 text-xs"></i>
                     </div>
-                    <span class="font-medium text-sm text-slate-700 dark:text-slate-200" data-i18n="example_knowledge_title">${t('example_knowledge_title')}</span>
+                    <span class="font-medium text-sm text-slate-700 dark:text-slate-200" data-i18n="example_scores_title">${t('example_scores_title')}</span>
                 </div>
-                <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed" data-i18n="example_knowledge_text">${t('example_knowledge_text')}</p>
+                <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed" data-i18n="example_scores_text">${t('example_scores_text')}</p>
             </div>
             <div class="example-card group bg-panel border border-slate-200 dark:border-white/10 rounded-xl p-4 cursor-pointer hover:border-primary-300 dark:hover:border-primary-600 hover:shadow-md transition-all duration-200">
                 <div class="flex items-center gap-2 mb-2">
-                    <div class="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center">
-                        <i class="fas fa-puzzle-piece text-rose-500 text-xs"></i>
-                    </div>
-                    <span class="font-medium text-sm text-slate-700 dark:text-slate-200" data-i18n="example_skill_title">${t('example_skill_title')}</span>
-                </div>
-                <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed" data-i18n="example_skill_text">${t('example_skill_text')}</p>
-            </div>
-            <div class="example-card group bg-panel border border-slate-200 dark:border-white/10 rounded-xl p-4 cursor-pointer hover:border-primary-300 dark:hover:border-primary-600 hover:shadow-md transition-all duration-200" data-send="/help">
-                <div class="flex items-center gap-2 mb-2">
                     <div class="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                        <i class="fas fa-terminal text-slate-500 text-xs"></i>
+                        <i class="fas fa-users text-rose-500 text-xs"></i>
                     </div>
-                    <span class="font-medium text-sm text-slate-700 dark:text-slate-200" data-i18n="example_web_title">${t('example_web_title')}</span>
+                    <span class="font-medium text-sm text-slate-700 dark:text-slate-200" data-i18n="example_class_title">${t('example_class_title')}</span>
                 </div>
-                <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed" data-i18n="example_web_text">${t('example_web_text')}</p>
+                <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed" data-i18n="example_class_text">${t('example_class_text')}</p>
             </div>
         </div>
     `;
