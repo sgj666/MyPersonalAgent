@@ -46,6 +46,9 @@ import type {
   RosterSnapshot,
   MenuDoc,
   ArtifactListItem,
+  BoardTask,
+  BoardTaskFields,
+  BoardSnapshot,
 } from '../types'
 import { getLang, t } from '../i18n'
 
@@ -1416,6 +1419,44 @@ class ApiClient {
     if (scope) formData.append('agent_id', scope)
     files.forEach((file) => formData.append('files', file, file.name))
     return this.postFormData('/api/knowledge/import', formData)
+  }
+
+  // ---------------------------------------------------------
+  // Teacher task board (/api/tasks). Separate from the scheduler: a board task
+  // is a work item the teacher tracks, a scheduled task is an action that
+  // fires. `carryAgent` scopes every call to the active Agent's board.
+  // ---------------------------------------------------------
+
+  // The backend answers 200 with status "error" for a refused create/update
+  // (an unknown field, a bad due date), so unwrap the reason instead of letting
+  // the caller render an empty failure.
+  private async boardCall<T extends ApiResult>(path: string, body?: Record<string, unknown>): Promise<T> {
+    const data = await this.request<T>(
+      path,
+      body === undefined ? undefined : { method: 'POST', body: JSON.stringify(body) }
+    )
+    if (data.status !== 'success') throw new Error(data.message || `HTTP ${data.status}`)
+    return data
+  }
+
+  /** Every task, plus the four columns and their counts. */
+  async getBoard(): Promise<ApiResult & { tasks: BoardTask[]; board: BoardSnapshot }> {
+    return this.boardCall('/api/tasks')
+  }
+
+  async createBoardTask(fields: BoardTaskFields): Promise<ApiResult & { task: BoardTask }> {
+    return this.boardCall('/api/tasks', { ...fields })
+  }
+
+  async updateBoardTask(
+    id: string,
+    fields: Partial<BoardTaskFields>
+  ): Promise<ApiResult & { task: BoardTask }> {
+    return this.boardCall('/api/tasks/update', { id, ...fields })
+  }
+
+  async deleteBoardTask(id: string): Promise<ApiResult & { deleted: boolean; id: string }> {
+    return this.boardCall('/api/tasks/delete', { id })
   }
 
   // ---------------------------------------------------------

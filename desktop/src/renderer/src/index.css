@@ -1,4 +1,5 @@
 @import './highlight.css';
+@import './assets/clay.css';
 
 @tailwind base;
 @tailwind components;

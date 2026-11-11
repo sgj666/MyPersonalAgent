@@ -29,6 +29,9 @@ import SkillsPage from './pages/SkillsPage'
 import MemoryPage from './pages/MemoryPage'
 import ChannelsPage from './pages/ChannelsPage'
 import TasksPage from './pages/TasksPage'
+import HomePage from './pages/HomePage'
+import BoardPage from './pages/BoardPage'
+import TeachingPage from './pages/TeachingPage'
 import LogsPage from './pages/LogsPage'
 import AgentsPage from './pages/AgentsPage'
 import ArtifactsPage from './pages/ArtifactsPage'
@@ -310,6 +313,9 @@ const App: React.FC = () => {
           ) : (
           <Routes>
             <Route path="/" element={<ChatPage baseUrl={backend.baseUrl} />} />
+            <Route path="/home" element={<HomePage baseUrl={backend.baseUrl} />} />
+            <Route path="/board" element={<BoardPage baseUrl={backend.baseUrl} />} />
+            <Route path="/teaching" element={<TeachingPage />} />
             <Route path="/artifacts" element={<ArtifactsPage />} />
             <Route path="/knowledge" element={<KnowledgePage baseUrl={backend.baseUrl} />} />
             <Route path="/memory" element={<MemoryPage baseUrl={backend.baseUrl} />} />

@@ -33,6 +33,8 @@ import {
   Heart,
   Terminal,
   House,
+  KanbanSquare,
+  PencilRuler,
   ShoppingCart,
   Mail,
   Layers,
@@ -47,6 +49,9 @@ import type { FileKind, MenuDoc, MenuGroup, MenuItem } from '../types'
 
 /** The pages of this app a menu can lead to, by the view name the document uses. */
 export const MENU_BUILTINS: Record<string, { path: string; labelKey: string; icon: LucideIcon }> = {
+  home: { path: '/home', labelKey: 'menu_home', icon: House },
+  board: { path: '/board', labelKey: 'menu_board', icon: KanbanSquare },
+  teaching: { path: '/teaching', labelKey: 'menu_teaching', icon: PencilRuler },
   chat: { path: '/', labelKey: 'menu_chat', icon: MessageSquare },
   artifacts: { path: '/artifacts', labelKey: 'menu_artifacts', icon: Layers },
   agents: { path: '/agents', labelKey: 'menu_agents', icon: Users },
@@ -63,12 +68,16 @@ export const MENU_BUILTINS: Record<string, { path: string; labelKey: string; ico
 // The document is shared with the web console, so it keeps every page the
 // console has, footer ones included.
 export const MENU_DEFAULT: { id: string; views: string[] }[] = [
+  // Same group id and page order as the web console's built-in menu, so a
+  // document saved by either client lays out the same way in both.
+  { id: 'teach', views: ['home', 'board', 'teaching'] },
   { id: 'chat', views: ['chat', 'artifacts'] },
   { id: 'manage', views: ['agents', 'knowledge', 'memory', 'skills', 'channels', 'tasks', 'config'] },
   { id: 'monitor', views: ['logs'] },
 ]
 
 export const MENU_GROUP_LABELS: Record<string, string> = {
+  teach: 'nav_teach',
   chat: 'nav_chat',
   manage: 'nav_manage',
   monitor: 'nav_monitor',

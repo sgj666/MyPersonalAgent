@@ -1333,6 +1333,68 @@ export interface TaskRecipient {
 }
 
 // ============================================================
+// Teacher workbench: the task board (/api/tasks)
+// ============================================================
+
+/** The board's fixed lanes, in the order they render. */
+export type BoardStatus = 'todo' | 'doing' | 'blocked' | 'done'
+
+export type BoardPriority = 'low' | 'normal' | 'high'
+
+/** Where a task came from: the board itself, a chat turn, or a document. */
+export interface BoardTaskSource {
+  type: 'manual' | 'chat' | 'doc'
+  ref: string
+}
+
+/**
+ * One work item the teacher follows to completion.
+ *
+ * Deliberately not a `SchedulerTask`: that one is an action that fires at a
+ * time, this one is work with a status and a deadline. They live in different
+ * files and neither can overwrite the other.
+ */
+export interface BoardTask {
+  id: string
+  title: string
+  note: string
+  status: BoardStatus
+  lane: string
+  /** `YYYY-MM-DD`, empty when it has no deadline. */
+  due: string
+  priority: BoardPriority
+  source: BoardTaskSource
+  created_at: string
+  updated_at: string
+  /** When it was completed, empty while it isn't. */
+  done_at: string
+}
+
+export interface BoardColumn {
+  status: BoardStatus
+  /** The backend's own label for the column. */
+  label: string
+  tasks: BoardTask[]
+}
+
+/** The board as GET /api/tasks draws it: four columns, counts, a total. */
+export interface BoardSnapshot {
+  columns: BoardColumn[]
+  counts: Record<BoardStatus, number>
+  total: number
+}
+
+/** The fields a create/update may send. The rest is derived by the backend. */
+export interface BoardTaskFields {
+  title: string
+  note?: string
+  status?: BoardStatus
+  lane?: string
+  due?: string
+  priority?: BoardPriority
+}
+
+// ============================================================
 // Logs
 // ============================================================
 
