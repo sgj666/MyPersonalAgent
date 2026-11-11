@@ -74,6 +74,7 @@
     <link rel="stylesheet" href="/assets/css/home.css">
     <link rel="stylesheet" href="/assets/css/board.css">
     <link rel="stylesheet" href="/assets/css/teaching.css">
+    <link rel="stylesheet" href="/assets/css/teaching2.css">
     <!-- Apply theme/lang before first paint to avoid flash of unstyled content.
          This runs synchronously in <head> so the correct class is on <html>
          before any CSS or body rendering occurs. -->
@@ -163,6 +164,16 @@
 <!--#include templates/views/board.html-->
 
 <!--#include templates/views/teaching.html-->
+
+<!--#include templates/views/classes.html-->
+
+<!--#include templates/views/timetable.html-->
+
+<!--#include templates/views/progress.html-->
+
+<!--#include templates/views/homework.html-->
+
+<!--#include templates/views/scores.html-->
 
 <!--#include templates/views/artifacts.html-->
 
@@ -284,6 +295,11 @@
     <script defer src="/assets/js/views/home.js"></script>
     <script defer src="/assets/js/views/board.js"></script>
     <script defer src="/assets/js/views/teaching.js"></script>
+    <script defer src="/assets/js/views/classes.js"></script>
+    <script defer src="/assets/js/views/timetable.js"></script>
+    <script defer src="/assets/js/views/progress.js"></script>
+    <script defer src="/assets/js/views/homework.js"></script>
+    <script defer src="/assets/js/views/scores.js"></script>
 
     <!-- Last of the core layer rather than first, which is where it sat in
          console.js. It installs a window.fetch wrapper for 401 handling, and

@@ -29,6 +29,11 @@ import {
   Folder,
   Box,
   Rocket,
+  ClipboardList,
+  GraduationCap,
+  ListChecks,
+  CalendarDays,
+  NotebookPen,
   Flag,
   Heart,
   Terminal,
@@ -50,6 +55,11 @@ import type { FileKind, MenuDoc, MenuGroup, MenuItem } from '../types'
 /** The pages of this app a menu can lead to, by the view name the document uses. */
 export const MENU_BUILTINS: Record<string, { path: string; labelKey: string; icon: LucideIcon }> = {
   home: { path: '/home', labelKey: 'menu_home', icon: House },
+  classes: { path: '/classes', labelKey: 'menu_classes', icon: Users },
+  timetable: { path: '/timetable', labelKey: 'menu_timetable', icon: CalendarDays },
+  progress: { path: '/progress', labelKey: 'menu_progress', icon: ListChecks },
+  homework: { path: '/homework', labelKey: 'menu_homework', icon: ClipboardList },
+  scores: { path: '/scores', labelKey: 'menu_scores', icon: GraduationCap },
   board: { path: '/board', labelKey: 'menu_board', icon: KanbanSquare },
   teaching: { path: '/teaching', labelKey: 'menu_teaching', icon: PencilRuler },
   chat: { path: '/', labelKey: 'menu_chat', icon: MessageSquare },
@@ -67,12 +77,16 @@ export const MENU_BUILTINS: Record<string, { path: string; labelKey: string; ico
 // The built-in menu, drawn in these groups until the user saves their own.
 // The document is shared with the web console, so it keeps every page the
 // console has, footer ones included.
+//
+// docs/plans/teacher-academics.md §1: 对话 → 教学 → 管理 → 监控, each group
+// open (no folding); a group lists its pages 日常高频 → 低频.
 export const MENU_DEFAULT: { id: string; views: string[] }[] = [
-  // Same group id and page order as the web console's built-in menu, so a
-  // document saved by either client lays out the same way in both.
-  { id: 'teach', views: ['home', 'board', 'teaching'] },
   { id: 'chat', views: ['chat', 'artifacts'] },
-  { id: 'manage', views: ['agents', 'knowledge', 'memory', 'skills', 'channels', 'tasks', 'config'] },
+  {
+    id: 'teach',
+    views: ['home', 'classes', 'timetable', 'progress', 'homework', 'scores', 'board', 'teaching', 'knowledge'],
+  },
+  { id: 'manage', views: ['agents', 'config', 'skills', 'memory', 'channels', 'tasks'] },
   { id: 'monitor', views: ['logs'] },
 ]
 
@@ -91,9 +105,6 @@ export const MENU_KINDS: ReadonlySet<FileKind> = new Set<FileKind>(['html', 'mar
 
 /** Pages the built-in menu carries: they can be hidden, never removed. */
 export const MENU_DEFAULT_VIEWS = new Set(MENU_DEFAULT.flatMap((g) => g.views))
-
-/** Built-in pages that start hidden; mirrors MENU_DEFAULT_HIDDEN in the web console. */
-const MENU_DEFAULT_HIDDEN: ReadonlySet<string> = new Set(['artifacts'])
 
 /**
  * Pages this app keeps in the rail's footer menu rather than in the menu. The
@@ -147,13 +158,9 @@ export function builtinItem(view: string): MenuItem {
   return { id: view, type: 'builtin', view, title: '', icon: '', hidden: false }
 }
 
-function defaultItem(view: string): MenuItem {
-  return { ...builtinItem(view), hidden: MENU_DEFAULT_HIDDEN.has(view) }
-}
-
 /** The built-in menu as a document. */
 export function defaultMenu(): MenuDoc {
-  return { groups: MENU_DEFAULT.map((g) => ({ id: g.id, title: '', items: g.views.map(defaultItem) })) }
+  return { groups: MENU_DEFAULT.map((g) => ({ id: g.id, title: '', items: g.views.map(builtinItem) })) }
 }
 
 /** The menu to draw: the saved one, plus any built-in page this version added since. */
@@ -172,7 +179,7 @@ export function mergeMenu(saved: MenuDoc | null): MenuDoc {
     for (const view of def.views) {
       if (present.has(view)) continue
       const home = doc.groups.find((g) => g.id === def.id) || doc.groups[doc.groups.length - 1]
-      home.items.push(defaultItem(view))
+      home.items.push(builtinItem(view))
     }
   }
   return doc

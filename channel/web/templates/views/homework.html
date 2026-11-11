@@ -1,0 +1,117 @@
+                <!-- ====================================================== -->
+                <!-- VIEW: Homework                                           -->
+                <!-- ====================================================== -->
+                <div id="view-homework" class="view tw-view">
+                    <div class="tw-scroll">
+                        <div class="tw-page">
+
+                            <header class="tw-page-head">
+                                <div>
+                                    <h1 data-i18n="tw_hw_title">作业</h1>
+                                    <p data-i18n="tw_hw_desc">一次布置给多个班，截止日默认取所排的下一次课；逐人记状态。</p>
+                                </div>
+                                <div class="tw-head-controls">
+                                    <label class="tw-field tw-field-inline">
+                                        <span data-i18n="tw_hw_filter">按班级筛选</span>
+                                        <select id="homework-filter" class="tw-select" onchange="twHwRenderList()">
+                                            <option value="" data-i18n="tw_hw_all_classes">全部班级</option>
+                                        </select>
+                                    </label>
+                                    <button type="button" id="homework-new" class="tw-btn tw-btn-primary" onclick="twHwOpenCreateDialog()">
+                                        <i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="tw_hw_new">布置作业</span>
+                                    </button>
+                                </div>
+                            </header>
+
+                            <p id="homework-status" class="tw-status" role="status"></p>
+
+                            <div class="tw-acad-split">
+                                <aside class="tw-card tw-acad-side" aria-labelledby="homework-list-h">
+                                    <div class="tw-card-head">
+                                        <h2 id="homework-list-h" data-i18n="tw_hw_items">作业记录</h2>
+                                    </div>
+                                    <div id="homework-list" class="tw-acad-list">
+                                        <div class="tw-loading" data-i18n="tw_loading">加载中…</div>
+                                    </div>
+                                </aside>
+
+                                <section class="tw-card tw-acad-main" aria-labelledby="homework-item-h">
+                                    <div class="tw-card-head tw-acad-head">
+                                        <div>
+                                            <h2 id="homework-item-h" data-i18n="tw_hw_pick">选择一条作业查看逐人状态</h2>
+                                            <p id="homework-meta" class="tw-hint"></p>
+                                        </div>
+                                        <div id="homework-rate" class="tw-hw-rate"></div>
+                                    </div>
+                                    <div class="tw-hw-toolbar">
+                                        <button type="button" id="homework-mark-rest" class="tw-btn tw-btn-sm" onclick="twHwMarkRest()" disabled>
+                                            <i class="fas fa-check-double" aria-hidden="true"></i><span data-i18n="tw_hw_mark_rest">其余都已交</span>
+                                        </button>
+                                        <button type="button" id="homework-copy-missing" class="tw-btn tw-btn-sm" onclick="twHwCopyMissing()" disabled>
+                                            <i class="fas fa-copy" aria-hidden="true"></i><span data-i18n="tw_hw_copy_missing">复制未交名单</span>
+                                        </button>
+                                        <button type="button" id="homework-save" class="tw-btn tw-btn-sm tw-btn-primary" onclick="twHwSaveRecords()" disabled>
+                                            <i class="fas fa-floppy-disk" aria-hidden="true"></i><span data-i18n="tw_save">保存</span>
+                                        </button>
+                                        <button type="button" id="homework-delete" class="tw-btn tw-btn-sm tw-hw-danger" onclick="twHwDeleteItem()" disabled>
+                                            <i class="fas fa-trash" aria-hidden="true"></i><span data-i18n="tw_delete">删除</span>
+                                        </button>
+                                    </div>
+                                    <div id="homework-body">
+                                        <div class="tw-empty">
+                                            <i class="fas fa-clipboard-check" aria-hidden="true"></i>
+                                            <p data-i18n="tw_hw_pick">选择一条作业查看逐人状态</p>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- Create: one item for one or more classes. -->
+                    <div id="homework-dialog" class="tw-modal hidden">
+                        <div class="tw-modal-scrim" onclick="twHwCloseDialogs()"></div>
+                        <div class="tw-modal-card" role="dialog" aria-modal="true" aria-labelledby="homework-dialog-title">
+                            <div class="tw-modal-head">
+                                <h2 id="homework-dialog-title" data-i18n="tw_hw_new">布置作业</h2>
+                                <button type="button" class="tw-icon-btn" onclick="twHwCloseDialogs()"
+                                        data-i18n-aria-label="tw_cancel" aria-label="取消">
+                                    <i class="fas fa-xmark" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <form id="homework-form" onsubmit="twHwSubmitCreate(event)">
+                                <label class="tw-field">
+                                    <span data-i18n="tw_hw_item_title">作业内容</span>
+                                    <input id="homework-title-input" class="tw-input" type="text" maxlength="160" required
+                                           data-i18n-placeholder="tw_hw_title_ph" placeholder="例如：Unit 3 单词抄写">
+                                </label>
+                                <div class="tw-field-row">
+                                    <label class="tw-field">
+                                        <span data-i18n="tw_hw_kind">类型</span>
+                                        <select id="homework-kind" class="tw-select">
+                                            <option value="homework" data-i18n="tw_hw_kind_homework">课后作业</option>
+                                            <option value="practice" data-i18n="tw_hw_kind_practice">课堂练习</option>
+                                            <option value="recite" data-i18n="tw_hw_kind_recite">背诵</option>
+                                            <option value="preview" data-i18n="tw_hw_kind_preview">预习</option>
+                                        </select>
+                                    </label>
+                                    <label class="tw-field">
+                                        <span data-i18n="tw_hw_due">截止日期</span>
+                                        <input id="homework-due-input" class="tw-input" type="date" onchange="twHwDueTouched = true">
+                                    </label>
+                                </div>
+                                <p class="tw-hint" data-i18n="tw_hw_due_hint">默认取所选班级的下一次上课日期（按固定课表推算）。</p>
+                                <fieldset class="tw-field tw-hw-classes">
+                                    <legend><span data-i18n="tw_hw_classes">班级</span></legend>
+                                    <div id="homework-class-picks" class="tw-hw-class-picks"></div>
+                                </fieldset>
+                                <p id="homework-dialog-status" class="tw-status" role="status"></p>
+                                <div class="tw-modal-actions">
+                                    <button type="button" class="tw-btn" onclick="twHwCloseDialogs()" data-i18n="tw_cancel">取消</button>
+                                    <button type="submit" class="tw-btn tw-btn-primary" data-i18n="tw_hw_create">布置</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>

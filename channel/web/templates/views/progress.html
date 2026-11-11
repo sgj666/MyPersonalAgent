@@ -1,0 +1,110 @@
+                <!-- ====================================================== -->
+                <!-- VIEW: Teaching progress                                  -->
+                <!-- ====================================================== -->
+                <div id="view-progress" class="view tw-view">
+                    <div class="tw-scroll">
+                        <div class="tw-page">
+
+                            <header class="tw-page-head">
+                                <div>
+                                    <h1 data-i18n="tw_pr_title">教学进度</h1>
+                                    <p data-i18n="tw_pr_desc">按班级维护课题清单，「讲完了」推进一节，与计划课时对照看快慢。</p>
+                                </div>
+                                <div class="tw-head-controls">
+                                    <button type="button" id="progress-add" class="tw-btn tw-btn-primary" disabled
+                                            onclick="twPrOpenTopicDialog()">
+                                        <i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="tw_pr_add">添加课题</span>
+                                    </button>
+                                    <button type="button" id="progress-import" class="tw-btn" disabled
+                                            onclick="twPrOpenImportDialog()">
+                                        <i class="fas fa-paste" aria-hidden="true"></i><span data-i18n="tw_pr_import">从教学计划粘贴</span>
+                                    </button>
+                                </div>
+                            </header>
+
+                            <p id="progress-status" class="tw-status" role="status"></p>
+
+                            <div class="tw-acad-split">
+                                <aside class="tw-card tw-acad-side" aria-labelledby="progress-classes-h">
+                                    <div class="tw-card-head">
+                                        <h2 id="progress-classes-h" data-i18n="tw_cls_classes">班级</h2>
+                                    </div>
+                                    <div id="progress-classes" class="tw-acad-list">
+                                        <div class="tw-loading" data-i18n="tw_loading">加载中…</div>
+                                    </div>
+                                </aside>
+
+                                <section class="tw-card tw-acad-main" aria-labelledby="progress-topics-h">
+                                    <div class="tw-card-head tw-acad-head">
+                                        <div>
+                                            <h2 id="progress-topics-h" data-i18n="tw_pr_topics">课题清单</h2>
+                                            <p id="progress-meta" class="tw-hint"></p>
+                                        </div>
+                                        <div id="progress-pace" class="tw-pr-pace"></div>
+                                    </div>
+                                    <div id="progress-body">
+                                        <div class="tw-empty">
+                                            <i class="fas fa-list-check" aria-hidden="true"></i>
+                                            <p data-i18n="tw_pr_pick">选择左侧班级查看进度。</p>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <div id="topic-dialog" class="tw-modal hidden">
+                        <div class="tw-modal-scrim" onclick="twPrCloseDialogs()"></div>
+                        <div class="tw-modal-card" role="dialog" aria-modal="true" aria-labelledby="topic-dialog-title">
+                            <div class="tw-modal-head">
+                                <h2 id="topic-dialog-title" data-i18n="tw_pr_add_title">添加课题</h2>
+                                <button type="button" class="tw-icon-btn" onclick="twPrCloseDialogs()"
+                                        data-i18n-aria-label="tw_cancel" aria-label="取消">
+                                    <i class="fas fa-xmark" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <form id="topic-form" onsubmit="twPrSubmitTopic(event)">
+                                <input type="hidden" id="topic-id" value="">
+                                <label class="tw-field">
+                                    <span data-i18n="tw_pr_topic">课题</span>
+                                    <input id="topic-name" class="tw-input" type="text" maxlength="160" required
+                                           data-i18n-placeholder="tw_pr_topic_ph" placeholder="例如：Unit 3 My weekend plan">
+                                </label>
+                                <label class="tw-field">
+                                    <span data-i18n="tw_pr_planned">计划课时</span>
+                                    <input id="topic-planned" class="tw-input" type="number" min="1" max="60" value="1" required>
+                                </label>
+                                <p id="topic-dialog-status" class="tw-status" role="status"></p>
+                                <div class="tw-modal-actions">
+                                    <button type="button" class="tw-btn" onclick="twPrCloseDialogs()" data-i18n="tw_cancel">取消</button>
+                                    <button type="submit" class="tw-btn tw-btn-primary" data-i18n="tw_save">保存</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div id="progress-import-dialog" class="tw-modal hidden">
+                        <div class="tw-modal-scrim" onclick="twPrCloseDialogs()"></div>
+                        <div class="tw-modal-card tw-modal-wide" role="dialog" aria-modal="true" aria-labelledby="progress-import-title">
+                            <div class="tw-modal-head">
+                                <h2 id="progress-import-title" data-i18n="tw_pr_import_title">粘贴教学计划</h2>
+                                <button type="button" class="tw-icon-btn" onclick="twPrCloseDialogs()"
+                                        data-i18n-aria-label="tw_cancel" aria-label="取消">
+                                    <i class="fas fa-xmark" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <p class="tw-hint" data-i18n="tw_pr_import_desc">每行一个课题，可带课时，例如「Unit 3 My weekend plan	3」。</p>
+                            <textarea id="progress-import-text" class="tw-textarea tw-import-text" rows="7"
+                                      data-i18n-placeholder="tw_pr_import_ph" placeholder="Unit 3 My weekend plan&#9;3"
+                                      oninput="twPrPreviewImport()"></textarea>
+                            <div id="progress-import-preview" class="tw-import-preview"></div>
+                            <p id="progress-import-status" class="tw-status" role="status"></p>
+                            <div class="tw-modal-actions">
+                                <button type="button" class="tw-btn" onclick="twPrCloseDialogs()" data-i18n="tw_cancel">取消</button>
+                                <button type="button" id="progress-import-submit" class="tw-btn tw-btn-primary" disabled
+                                        onclick="twPrSubmitImport()" data-i18n="tw_pr_import">导入</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>

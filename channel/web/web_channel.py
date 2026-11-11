@@ -79,6 +79,13 @@ from channel.web.api.skills import (  # noqa: F401
     SkillsHandler, SkillUploadHandler, ToolsHandler,
     _install_skill_for_agent,
 )
+from channel.web.api.teaching import (  # noqa: F401
+    TEACHING_URLS,
+    TeachingAnalysisHandler, TeachingClassesHandler, TeachingExamsHandler,
+    TeachingHomeworkHandler, TeachingHomeworkRecordsHandler,
+    TeachingProgressHandler, TeachingScoresHandler, TeachingStudentsHandler,
+    TeachingStudentHandler, TeachingTimetableHandler,
+)
 from channel.web.api.tasks import (  # noqa: F401
     TaskDeleteHandler, TaskUpdateHandler, TasksHandler,
 )
@@ -183,6 +190,8 @@ URLS = (
     '/api/scheduler/create', 'SchedulerCreateHandler',
     '/api/scheduler/recipients', 'SchedulerRecipientsHandler',
     '/api/scheduler/instances', 'SchedulerInstancesHandler',
+    # web.py wants flat pattern/handler pairs, not (pattern, handler) tuples.
+    *[part for pair in TEACHING_URLS for part in pair],
     '/api/tasks', 'TasksHandler',
     '/api/tasks/update', 'TaskUpdateHandler',
     '/api/tasks/delete', 'TaskDeleteHandler',
@@ -215,7 +224,7 @@ URLS = (
     # can ever shadow an API route above -- which is also why the
     # settings view is /settings and not /config, a path the config
     # API already owns.
-    '/(?:home|board|teaching|agents|artifacts|settings|skills|memory|knowledge|channels|scheduler|logs)'
+    '/(?:home|board|teaching|classes|timetable|progress|homework|scores|agents|artifacts|settings|skills|memory|knowledge|channels|scheduler|logs)'
     '(?:/[a-z]+)?/?', 'ChatHandler',
     # A page the user put in the menu: /m/<item id>.
     '/m/[A-Za-z0-9_-]{1,40}/?', 'ChatHandler',

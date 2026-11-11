@@ -30,6 +30,11 @@ import MemoryPage from './pages/MemoryPage'
 import ChannelsPage from './pages/ChannelsPage'
 import TasksPage from './pages/TasksPage'
 import HomePage from './pages/HomePage'
+import ClassesPage from './pages/ClassesPage'
+import TimetablePage from './pages/TimetablePage'
+import ProgressPage from './pages/ProgressPage'
+import HomeworkPage from './pages/HomeworkPage'
+import ScoresPage from './pages/ScoresPage'
 import BoardPage from './pages/BoardPage'
 import TeachingPage from './pages/TeachingPage'
 import LogsPage from './pages/LogsPage'
@@ -314,6 +319,11 @@ const App: React.FC = () => {
           <Routes>
             <Route path="/" element={<ChatPage baseUrl={backend.baseUrl} />} />
             <Route path="/home" element={<HomePage baseUrl={backend.baseUrl} />} />
+            <Route path="/classes" element={<ClassesPage baseUrl={backend.baseUrl} />} />
+            <Route path="/timetable" element={<TimetablePage baseUrl={backend.baseUrl} />} />
+            <Route path="/progress" element={<ProgressPage baseUrl={backend.baseUrl} />} />
+            <Route path="/homework" element={<HomeworkPage baseUrl={backend.baseUrl} />} />
+            <Route path="/scores" element={<ScoresPage baseUrl={backend.baseUrl} />} />
             <Route path="/board" element={<BoardPage baseUrl={backend.baseUrl} />} />
             <Route path="/teaching" element={<TeachingPage />} />
             <Route path="/artifacts" element={<ArtifactsPage />} />

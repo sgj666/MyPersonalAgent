@@ -22,10 +22,9 @@
             <nav id="sidebar-nav" class="flex-1 overflow-y-auto py-4 px-3 space-y-1">
                 <!-- Chat Group -->
                 <div class="menu-group open" data-group="chat">
-                    <button class="menu-group-head w-full flex items-center gap-2 pl-3 pr-8 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-500 hover:text-neutral-300 cursor-pointer transition-colors duration-150">
-                        <i class="fas fa-chevron-right text-[10px] chevron"></i>
+                    <div class="menu-group-head w-full flex items-center gap-2 pl-3 pr-8 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">
                         <span data-i18n="nav_chat">对话</span>
-                    </button>
+                    </div>
                     <div class="menu-group-items pl-2">
                         <a class="sidebar-item active flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-150 hover:bg-white/5 hover:text-neutral-200 text-[14px]"
                            data-view="chat">
@@ -37,10 +36,9 @@
 
                 <!-- Management Group -->
                 <div class="menu-group open" data-group="manage">
-                    <button class="menu-group-head w-full flex items-center gap-2 pl-3 pr-8 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-500 hover:text-neutral-300 cursor-pointer transition-colors duration-150">
-                        <i class="fas fa-chevron-right text-[10px] chevron"></i>
+                    <div class="menu-group-head w-full flex items-center gap-2 pl-3 pr-8 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">
                         <span data-i18n="nav_manage">管理</span>
-                    </button>
+                    </div>
                     <div class="menu-group-items pl-2">
                         <a class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-150 hover:bg-white/5 hover:text-neutral-200 text-[14px]"
                            data-view="agents">
@@ -82,10 +80,9 @@
 
                 <!-- Monitor Group -->
                 <div class="menu-group open" data-group="monitor">
-                    <button class="menu-group-head w-full flex items-center gap-2 pl-3 pr-8 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-500 hover:text-neutral-300 cursor-pointer transition-colors duration-150">
-                        <i class="fas fa-chevron-right text-[10px] chevron"></i>
+                    <div class="menu-group-head w-full flex items-center gap-2 pl-3 pr-8 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">
                         <span data-i18n="nav_monitor">监控</span>
-                    </button>
+                    </div>
                     <div class="menu-group-items pl-2">
                         <a class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-150 hover:bg-white/5 hover:text-neutral-200 text-[14px]"
                            data-view="logs">
@@ -164,18 +161,5 @@
                 </button>
             </div>
         </div>
-        <!-- Close the groups the user folded last time before the first paint,
-             so they don't flash open and then animate shut. -->
-        <script>
-        (function () {
-            try {
-                var groups = JSON.parse(localStorage.getItem('cow_sidebar_groups') || '{}');
-                document.querySelectorAll('#sidebar .menu-group[data-group]').forEach(function (g) {
-                    if (groups[g.getAttribute('data-group')] === false) g.classList.remove('open');
-                });
-            } catch (e) { /* unreadable state: keep the defaults */ }
-        })();
-        </script>
-
         <!-- Mobile Overlay -->
         <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden cursor-pointer" onclick="toggleSidebar()"></div>

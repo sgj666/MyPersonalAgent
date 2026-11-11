@@ -49,6 +49,23 @@ import type {
   BoardTask,
   BoardTaskFields,
   BoardSnapshot,
+  TeachingClass,
+  TeachingClassFields,
+  TeachingStudent,
+  TeachingStudentFields,
+  TeachingStudentInput,
+  TeachingTimetable,
+  ProgressItem,
+  ProgressFields,
+  HomeworkItem,
+  HomeworkFields,
+  HomeworkState,
+  TeachingHomework,
+  TeachingExam,
+  ExamFields,
+  ScoreEntry,
+  TeachingScores,
+  TeachingAnalysis,
 } from '../types'
 import { getLang, t } from '../i18n'
 
@@ -1457,6 +1474,241 @@ class ApiClient {
 
   async deleteBoardTask(id: string): Promise<ApiResult & { deleted: boolean; id: string }> {
     return this.boardCall('/api/tasks/delete', { id })
+  }
+
+  // ---------------------------------------------------------
+  // Teaching academics (/api/teaching/*). One workspace folder per Agent
+  // holds classes, rosters, the timetable, progress, homework, exams and
+  // scores; `carryAgent` scopes every call like the other workspace APIs.
+  // ---------------------------------------------------------
+
+  /**
+   * A teaching call. Two kinds of refusal have to surface with their reason:
+   * a non-2xx reply and a 200 carrying `{"status":"error",...}` (the contract
+   * in docs/plans/teacher-academics.md §3). `request()` only reports the HTTP
+   * status, so the body is read here before either check.
+   */
+  private async teachingCall<T extends ApiResult>(
+    path: string,
+    method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE' = 'GET',
+    body?: unknown
+  ): Promise<T> {
+    const { path: url, options } = this.carryAgent(path, {
+      method,
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    })
+    const res = await fetch(`${this.baseUrl}${url}`, {
+      ...options,
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.authToken ? { Authorization: `Bearer ${this.authToken}` } : {}),
+      },
+    })
+    let data: (T & { code?: string }) | null = null
+    try {
+      data = await res.json()
+    } catch {
+      // An empty or non-JSON body: the HTTP status below is all there is.
+    }
+    if (!res.ok) {
+      this.noteStatus(res)
+      throw new Error(data?.message || `HTTP ${res.status}: ${res.statusText}`)
+    }
+    if (data && data.status === 'error') {
+      throw new Error(data.message || data.code || `HTTP ${res.status}`)
+    }
+    return data || ({ status: 'success' } as T)
+  }
+
+  /**
+   * The first array among `keys`. The contract names the collection in the
+   * JSON (`classes`, `students`, …) but not always the key, so a caller
+   * reads the documented one and falls back to the generic `items`.
+   */
+  private rowsOf<T>(data: ApiResult, ...keys: string[]): T[] {
+    const raw = data as unknown as Record<string, unknown>
+    for (const key of keys) {
+      if (Array.isArray(raw[key])) return raw[key] as T[]
+    }
+    return []
+  }
+
+  // ----- classes & roster -----
+
+  async listTeachingClasses(): Promise<TeachingClass[]> {
+    const data = await this.teachingCall<ApiResult>('/api/teaching/classes')
+    return this.rowsOf<TeachingClass>(data, 'classes', 'items')
+  }
+
+  async createTeachingClass(fields: TeachingClassFields): Promise<void> {
+    await this.teachingCall('/api/teaching/classes', 'POST', fields)
+  }
+
+  async updateTeachingClass(id: string, fields: Partial<TeachingClassFields>): Promise<void> {
+    await this.teachingCall('/api/teaching/classes', 'PATCH', { id, ...fields })
+  }
+
+  async deleteTeachingClass(id: string): Promise<void> {
+    await this.teachingCall('/api/teaching/classes', 'DELETE', { id })
+  }
+
+  async listTeachingStudents(classId: string): Promise<TeachingStudent[]> {
+    const data = await this.teachingCall<ApiResult>(
+      `/api/teaching/students?class_id=${encodeURIComponent(classId)}`
+    )
+    return this.rowsOf<TeachingStudent>(data, 'students', 'items')
+  }
+
+  /** Bulk paste import: upserts by 学号 inside the class. */
+  async importTeachingStudents(classId: string, students: TeachingStudentInput[]): Promise<void> {
+    await this.teachingCall('/api/teaching/students', 'POST', { class_id: classId, students })
+  }
+
+  async updateTeachingStudent(id: string, fields: TeachingStudentFields): Promise<void> {
+    await this.teachingCall(`/api/teaching/students/${encodeURIComponent(id)}`, 'PATCH', fields)
+  }
+
+  async deleteTeachingStudent(id: string): Promise<void> {
+    await this.teachingCall(`/api/teaching/students/${encodeURIComponent(id)}`, 'DELETE')
+  }
+
+  // ----- timetable: the whole table in, the whole table out -----
+
+  async getTeachingTimetable(): Promise<TeachingTimetable> {
+    const data = await this.teachingCall<ApiResult & Partial<TeachingTimetable>>('/api/teaching/timetable')
+    return {
+      periods: Array.isArray(data.periods) ? data.periods : [],
+      slots: Array.isArray(data.slots) ? data.slots : [],
+      overrides: Array.isArray(data.overrides) ? data.overrides : [],
+    }
+  }
+
+  async saveTeachingTimetable(table: TeachingTimetable): Promise<void> {
+    await this.teachingCall('/api/teaching/timetable', 'PUT', table)
+  }
+
+  // ----- progress -----
+
+  async listTeachingProgress(classId?: string): Promise<ProgressItem[]> {
+    const path = classId
+      ? `/api/teaching/progress?class_id=${encodeURIComponent(classId)}`
+      : '/api/teaching/progress'
+    const data = await this.teachingCall<ApiResult>(path)
+    return this.rowsOf<ProgressItem>(data, 'items', 'progress')
+  }
+
+  async createTeachingProgress(fields: ProgressFields): Promise<void> {
+    await this.teachingCall('/api/teaching/progress', 'POST', fields)
+  }
+
+  async updateTeachingProgress(id: string, fields: ProgressFields): Promise<void> {
+    await this.teachingCall('/api/teaching/progress', 'PATCH', { id, ...fields })
+  }
+
+  async deleteTeachingProgress(id: string): Promise<void> {
+    await this.teachingCall('/api/teaching/progress', 'DELETE', { id })
+  }
+
+  // ----- homework -----
+
+  async getTeachingHomework(): Promise<TeachingHomework> {
+    const data = await this.teachingCall<ApiResult & Partial<TeachingHomework>>('/api/teaching/homework')
+    return {
+      items: Array.isArray(data.items) ? data.items : [],
+      records:
+        data.records && typeof data.records === 'object' && !Array.isArray(data.records)
+          ? data.records
+          : {},
+    }
+  }
+
+  async createTeachingHomework(fields: HomeworkFields): Promise<void> {
+    await this.teachingCall('/api/teaching/homework', 'POST', fields)
+  }
+
+  async updateTeachingHomework(id: string, fields: HomeworkFields): Promise<void> {
+    await this.teachingCall('/api/teaching/homework', 'PATCH', { id, ...fields })
+  }
+
+  async deleteTeachingHomework(id: string): Promise<void> {
+    await this.teachingCall('/api/teaching/homework', 'DELETE', { id })
+  }
+
+  /** The whole status block for one homework, as a student → state map. */
+  async saveTeachingHomeworkRecords(
+    id: string,
+    records: Record<string, HomeworkState>
+  ): Promise<void> {
+    await this.teachingCall(`/api/teaching/homework/${encodeURIComponent(id)}/records`, 'PUT', {
+      records,
+    })
+  }
+
+  // ----- exams & scores -----
+
+  async listTeachingExams(): Promise<TeachingExam[]> {
+    const data = await this.teachingCall<ApiResult>('/api/teaching/exams')
+    return this.rowsOf<TeachingExam>(data, 'exams', 'items')
+  }
+
+  async createTeachingExam(fields: ExamFields): Promise<void> {
+    await this.teachingCall('/api/teaching/exams', 'POST', fields)
+  }
+
+  async updateTeachingExam(id: string, fields: ExamFields): Promise<void> {
+    await this.teachingCall('/api/teaching/exams', 'PATCH', { id, ...fields })
+  }
+
+  async deleteTeachingExam(id: string): Promise<void> {
+    await this.teachingCall('/api/teaching/exams', 'DELETE', { id })
+  }
+
+  /**
+   * The scores already recorded for an exam. The plan lists only the write
+   * (`PUT /api/teaching/scores/<exam_id>`); reading the same resource back is
+   * its counterpart, and the grid cannot edit saved rows without it.
+   */
+  async getTeachingScores(examId: string): Promise<Record<string, ScoreEntry>> {
+    const data = await this.teachingCall<
+      ApiResult & { by_exam?: Record<string, Record<string, ScoreEntry>>; scores?: Record<string, ScoreEntry> }
+    >(`/api/teaching/scores/${encodeURIComponent(examId)}`)
+    if (data.scores && typeof data.scores === 'object') return data.scores
+    const byExam = data.by_exam
+    if (byExam && typeof byExam === 'object' && byExam[examId]) return byExam[examId]
+    return {}
+  }
+
+  /** The whole class's block: one student → {total, items}, for one class. */
+  async saveTeachingScores(
+    examId: string,
+    classId: string,
+    scores: Record<string, ScoreEntry>
+  ): Promise<void> {
+    await this.teachingCall(`/api/teaching/scores/${encodeURIComponent(examId)}`, 'PUT', {
+      class_id: classId,
+      scores,
+    })
+  }
+
+  async getTeachingAnalysis(examId: string, classId: string): Promise<TeachingAnalysis> {
+    const qs = new URLSearchParams({ exam_id: examId, class_id: classId })
+    const data = await this.teachingCall<ApiResult & Partial<TeachingAnalysis>>(
+      `/api/teaching/analysis?${qs.toString()}`
+    )
+    return {
+      summary: data.summary || {
+        count: 0,
+        average: 0,
+        pass_rate: 0,
+        excellent_rate: 0,
+        stddev: 0,
+      },
+      by_class: Array.isArray(data.by_class) ? data.by_class : [],
+      items: Array.isArray(data.items) ? data.items : [],
+      critical: Array.isArray(data.critical) ? data.critical : [],
+      students: Array.isArray(data.students) ? data.students : [],
+    }
   }
 
   // ---------------------------------------------------------

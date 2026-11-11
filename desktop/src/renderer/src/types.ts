@@ -1395,6 +1395,248 @@ export interface BoardTaskFields {
 }
 
 // ============================================================
+// Teaching academics (/api/teaching/*)
+//
+// One workspace folder per Agent holds classes, rosters, the timetable,
+// progress, homework, exams and scores. The shapes mirror
+// docs/plans/teacher-academics.md §2; ids are opaque strings minted by the
+// backend, and a student's identity inside a class is their `no` (学号).
+// ============================================================
+
+export interface TeachingClass {
+  id: string
+  name: string
+  grade: string
+  subject: string
+  room: string
+  created_at: string
+}
+
+export interface TeachingClassFields {
+  name: string
+  grade?: string
+  subject?: string
+  room?: string
+}
+
+export interface TeachingStudent {
+  id: string
+  class_id: string
+  /** 学号; unique inside the class, so a paste upserts by it. */
+  no: string
+  name: string
+  gender: string
+  tags: string[]
+  note: string
+}
+
+/** An editable student field set; the roster grid sends only what changed. */
+export type TeachingStudentFields = Partial<Pick<TeachingStudent, 'no' | 'name' | 'gender' | 'tags' | 'note'>>
+
+/** One row of a pasted roster, between parsing and POST. */
+export interface TeachingStudentInput {
+  no: string
+  name: string
+  gender: string
+  tags: string[]
+  note: string
+}
+
+export interface TimetablePeriod {
+  index: number
+  /** `HH:MM`, empty when the teacher has not set the time. */
+  start: string
+  end: string
+}
+
+/** 正课 / 早读 / 辅导 / 晚自习 / 课后服务 / 教研 / 值班 */
+export type TimetableKind =
+  | 'lesson'
+  | 'morning'
+  | 'tutorial'
+  | 'evening'
+  | 'after_school'
+  | 'research'
+  | 'duty'
+
+export interface TimetableSlot {
+  id: string
+  class_id: string
+  /** 1 = Monday … 5 = Friday. */
+  weekday: number
+  /** Matches TimetablePeriod.index. */
+  period: number
+  subject: string
+  kind: TimetableKind
+}
+
+/** A one-off change or cancellation; the fixed table keeps its own slots. */
+export type TimetableOverrideState = 'changed' | 'cancelled'
+
+export interface TimetableOverride {
+  /** `YYYY-MM-DD`. */
+  date: string
+  period: number
+  class_id: string
+  subject: string
+  kind: TimetableKind
+  state: TimetableOverrideState
+}
+
+export interface TeachingTimetable {
+  periods: TimetablePeriod[]
+  slots: TimetableSlot[]
+  overrides: TimetableOverride[]
+}
+
+export interface ProgressItem {
+  id: string
+  class_id: string
+  topic: string
+  planned_periods: number
+  taught_periods: number
+  order: number
+  updated_at: string
+}
+
+export interface ProgressFields {
+  class_id?: string
+  topic?: string
+  planned_periods?: number
+  taught_periods?: number
+  order?: number
+}
+
+/** submitted 已交 · excellent 优秀 · fix 待订正 · missing 未交 */
+export type HomeworkState = 'submitted' | 'excellent' | 'fix' | 'missing'
+
+export interface HomeworkItem {
+  id: string
+  class_ids: string[]
+  title: string
+  kind: string
+  /** `YYYY-MM-DD`. */
+  due: string
+  created_at: string
+}
+
+export interface HomeworkFields {
+  class_ids?: string[]
+  title?: string
+  kind?: string
+  due?: string
+}
+
+/** `records[homework_id][student_id] = state`; an absent key means 未登记. */
+export interface TeachingHomework {
+  items: HomeworkItem[]
+  records: Record<string, Record<string, HomeworkState>>
+}
+
+export interface ExamItem {
+  key: string
+  label: string
+  full: number
+}
+
+export interface TeachingExam {
+  id: string
+  name: string
+  /** `YYYY-MM-DD`. */
+  date: string
+  class_ids: string[]
+  subject: string
+  full_score: number
+  /** Empty for an exam with no sub-scores (total only). */
+  items: ExamItem[]
+}
+
+export interface ExamFields {
+  name?: string
+  date?: string
+  class_ids?: string[]
+  subject?: string
+  full_score?: number
+  items?: ExamItem[]
+}
+
+/** `total: null` is 缺考 — kept distinct from a zero. */
+export interface ScoreEntry {
+  total: number | null
+  items: Record<string, number | null>
+}
+
+/** `by_exam[exam_id][student_id]`. */
+export interface TeachingScores {
+  by_exam: Record<string, Record<string, ScoreEntry>>
+}
+
+export interface AnalysisSummary {
+  /** Students counted (缺考 excluded from the averages). */
+  count: number
+  average: number
+  /** 0–1. */
+  pass_rate: number
+  excellent_rate: number
+  stddev: number
+  full_score?: number
+  pass_score?: number
+  excellent_score?: number
+  missing?: number
+}
+
+export interface AnalysisClassRow {
+  class_id: string
+  name: string
+  count: number
+  average: number
+  pass_rate: number
+  excellent_rate: number
+  stddev: number
+}
+
+export interface AnalysisItemRow {
+  key: string
+  label: string
+  full: number
+  average: number
+  /** 得分率, 0–1. */
+  rate: number
+}
+
+/** 临界生: total within `gap` points below the pass line. */
+export interface AnalysisCriticalRow {
+  student_id: string
+  name: string
+  class_id: string
+  total: number
+  gap: number
+}
+
+export interface AnalysisTrendPoint {
+  exam_id: string
+  name: string
+  date: string
+  total: number | null
+}
+
+export interface AnalysisStudentRow {
+  student_id: string
+  name: string
+  class_id: string
+  trend: AnalysisTrendPoint[]
+}
+
+/** GET /api/teaching/analysis?exam_id=&class_id= */
+export interface TeachingAnalysis {
+  summary: AnalysisSummary
+  by_class: AnalysisClassRow[]
+  items: AnalysisItemRow[]
+  critical: AnalysisCriticalRow[]
+  students: AnalysisStudentRow[]
+}
+
+// ============================================================
 // Logs
 // ============================================================
 

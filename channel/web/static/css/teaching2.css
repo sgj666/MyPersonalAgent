@@ -1,0 +1,668 @@
+/* Teacher workbench, second phase: classes & students, timetable, teaching
+   progress, homework and scores. The clay primitives themselves (.tw-btn,
+   .tw-card, .tw-table-*, .tw-modal) live in home.css / board.css; those files
+   scope their design tokens to the first three views, so the same tokens are
+   declared here for these five. Nothing outside these views is affected.
+
+   Visual language: docs/plans/teacher-workbench-ui.html -- cream canvas,
+   white cards with a 3px ink rim and a hard 4px offset shadow, green primary. */
+
+#view-classes.tw-view,
+#view-timetable.tw-view,
+#view-progress.tw-view,
+#view-homework.tw-view,
+#view-scores.tw-view {
+    --tw-bg: #FFF9F5;
+    --tw-surface: #FFFFFF;
+    --tw-surface-2: #FFF1E8;
+    --tw-surface-3: #FFE6D8;
+    --tw-ink: #2D3748;
+    --tw-ink-2: #4A5568;
+    --tw-ink-3: #718096;
+    --tw-rim: #2D3748;
+    --tw-line: rgba(45, 55, 72, 0.14);
+    --tw-accent: #22C55E;
+    --tw-accent-hover: #16A34A;
+    --tw-accent-ink: #FFFFFF;
+    --tw-accent-soft: #DCFCE7;
+    --tw-urgent: #C2410C;
+    --tw-urgent-soft: #FFE4D6;
+    --tw-card-a: #98FF98;
+    --tw-card-b: #FDBCB4;
+    --tw-card-c: #E6E6FA;
+    --tw-card-d: #ADD8E6;
+    --tw-card-e: #FFE9A8;
+    --twb-shadow: 4px 4px 0 0 var(--tw-rim);
+    --twb-shadow-sm: 2px 2px 0 0 var(--tw-rim);
+    --twb-shadow-hover: 6px 6px 0 0 var(--tw-rim);
+    --tw-ease: cubic-bezier(0.2, 0.6, 0.2, 1);
+
+    background: var(--tw-bg);
+    color: var(--tw-ink);
+    font-family: Nunito, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+}
+
+html.dark #view-classes.tw-view,
+html.dark #view-timetable.tw-view,
+html.dark #view-progress.tw-view,
+html.dark #view-homework.tw-view,
+html.dark #view-scores.tw-view {
+    --tw-bg: #0F1419;
+    --tw-surface: #171D24;
+    --tw-surface-2: #1E262E;
+    --tw-surface-3: #263039;
+    --tw-ink: #E6EDF3;
+    --tw-ink-2: #AEBAC7;
+    --tw-ink-3: #8695A6;
+    --tw-rim: #93A4BC;
+    --tw-line: rgba(255, 255, 255, 0.14);
+    --tw-accent: #4ADE80;
+    --tw-accent-hover: #6EE7A0;
+    --tw-accent-ink: #0B2415;
+    --tw-accent-soft: #16351F;
+    --tw-urgent: #FB923C;
+    --tw-urgent-soft: #3A2318;
+    --tw-card-a: #1F3A2A;
+    --tw-card-b: #3A2622;
+    --tw-card-c: #1D1D28;
+    --tw-card-d: #17202A;
+    --tw-card-e: #3A331C;
+}
+
+#view-classes .tw-scroll,
+#view-timetable .tw-scroll,
+#view-progress .tw-scroll,
+#view-homework .tw-scroll,
+#view-scores .tw-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 28px 32px 56px;
+}
+
+#view-classes .tw-page,
+#view-timetable .tw-page,
+#view-progress .tw-page,
+#view-homework .tw-page,
+#view-scores .tw-page { gap: 20px; }
+
+@media (max-width: 767px) {
+    #view-classes .tw-scroll,
+    #view-timetable .tw-scroll,
+    #view-progress .tw-scroll,
+    #view-homework .tw-scroll,
+    #view-scores .tw-scroll { padding: 18px 16px 40px; }
+}
+
+/* Sidebar groups no longer fold, so their header is a plain div rather than
+   the button sessions.css hides on the collapsed rail. Keep the rail tidy. */
+@media (min-width: 1024px) {
+    html.sidebar-collapsed .menu-group-head { display: none; }
+}
+
+/* ---------- two-pane layout (class list + work area) ---------- */
+.tw-acad-split {
+    display: grid;
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+}
+
+@media (max-width: 980px) {
+    .tw-acad-split { grid-template-columns: minmax(0, 1fr); }
+}
+
+.tw-acad-side { min-width: 0; }
+.tw-acad-main { min-width: 0; }
+
+.tw-acad-head {
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.tw-acad-head > div { min-width: 0; }
+.tw-acad-head .tw-hint { margin-top: 4px; }
+
+.tw-acad-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 62vh;
+    overflow-y: auto;
+}
+
+.tw-acad-item {
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+    border: 2px solid transparent;
+    border-radius: 12px;
+    padding: 2px;
+    transition: background-color 120ms var(--tw-ease), border-color 120ms var(--tw-ease);
+}
+
+.tw-acad-item:hover { background: var(--tw-surface-2); }
+
+.tw-acad-item.is-active {
+    background: var(--tw-accent-soft);
+    border-color: var(--tw-rim);
+    box-shadow: var(--twb-shadow-sm);
+}
+
+.tw-acad-item-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 8px 10px;
+    text-align: left;
+    border: 0;
+    background: transparent;
+    color: var(--tw-ink);
+    cursor: pointer;
+    border-radius: 8px;
+}
+
+.tw-acad-item-main b {
+    font-size: 14px;
+    font-weight: 800;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tw-acad-item-main small {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--tw-ink-3);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tw-acad-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+/* ---------- buttons and fields, smaller than the board's ---------- */
+.tw-btn-sm {
+    height: 32px;
+    padding: 0 12px;
+    font-size: 12.5px;
+    border-width: 2px;
+    border-radius: 10px;
+    box-shadow: var(--twb-shadow-sm);
+}
+
+.tw-btn-sm:hover { box-shadow: var(--twb-shadow); }
+
+.tw-input-sm,
+.tw-select-sm {
+    height: 34px;
+    padding: 0 10px;
+    font-size: 12.5px;
+    min-width: 0;
+}
+
+.tw-input-time {
+    height: 26px;
+    padding: 0 4px;
+    font-size: 11.5px;
+    border-width: 2px;
+    border-radius: 8px;
+    width: 84px;
+    font-family: inherit;
+}
+
+.tw-hw-danger { color: var(--tw-urgent); }
+
+/* ---------- tables ---------- */
+.tw-table-wrap {
+    width: 100%;
+    overflow: auto;
+    border: 2px solid var(--tw-rim);
+    border-radius: 14px;
+    background: var(--tw-surface);
+}
+
+.tw-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.tw-table th,
+.tw-table td {
+    padding: 8px 10px;
+    text-align: left;
+    border-bottom: 1.5px solid var(--tw-line);
+    vertical-align: middle;
+}
+
+.tw-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--tw-surface-2);
+    font-size: 11.5px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--tw-ink-2);
+    white-space: nowrap;
+}
+
+.tw-table tbody tr:last-child td { border-bottom: 0; }
+.tw-table tbody tr:hover td { background: var(--tw-surface-2); }
+.tw-table tbody tr.is-muted td { color: var(--tw-ink-3); }
+.tw-table td b { font-weight: 800; }
+
+.tw-col-actions { width: 1%; white-space: nowrap; text-align: right; }
+.tw-col-actions .tw-icon-btn { margin-left: 2px; }
+.tw-mono { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.tw-cell-note { max-width: 240px; color: var(--tw-ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.tw-table .tw-chip { margin-right: 4px; }
+
+/* ---------- paste import ---------- */
+.tw-import-text { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+.tw-import-preview { margin-top: 12px; max-height: 280px; overflow: auto; }
+.tw-import-table { margin-top: 6px; }
+
+.tw-modal-wide { max-width: 720px; }
+
+/* =====================================================================
+   Timetable
+   ===================================================================== */
+.tw-tt-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+    gap: 18px;
+    align-items: start;
+}
+
+@media (max-width: 1080px) {
+    .tw-tt-layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+.tw-tt-grid-card { padding: 16px 16px 18px; }
+.tw-tt-grid-wrap { overflow: auto; }
+
+.tw-tt {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 4px;
+    table-layout: fixed;
+    min-width: 660px;
+}
+
+.tw-tt th,
+.tw-tt td { padding: 0; vertical-align: stretch; }
+
+.tw-tt thead th {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--tw-ink-2);
+    text-align: center;
+    padding: 6px 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.tw-tt-corner { width: 96px; }
+
+.tw-tt-period {
+    width: 96px;
+    text-align: left;
+    font-weight: 800;
+    font-size: 12px;
+    color: var(--tw-ink-2);
+    padding: 4px 6px;
+    background: var(--tw-surface-2);
+    border: 2px solid var(--tw-rim);
+    border-radius: 10px;
+}
+
+.tw-tt-times {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 4px;
+}
+
+.tw-tt-td { height: 74px; }
+
+.tw-tt-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 2px;
+    width: 100%;
+    height: 100%;
+    min-height: 74px;
+    padding: 8px 9px;
+    text-align: left;
+    border: 2px solid var(--tw-rim);
+    border-radius: 12px;
+    background: var(--tw-surface);
+    box-shadow: var(--twb-shadow-sm);
+    color: var(--tw-ink);
+    cursor: pointer;
+    transition: transform 120ms var(--tw-ease), box-shadow 120ms var(--tw-ease);
+}
+
+.tw-tt-cell:hover { transform: translate(-1px, -1px); box-shadow: var(--twb-shadow); }
+.tw-tt-cell:focus-visible { outline: 3px solid var(--tw-accent); outline-offset: 2px; }
+.tw-tt-cell b { font-size: 13px; font-weight: 800; line-height: 1.25; }
+.tw-tt-cell small { font-size: 11.5px; font-weight: 600; color: rgba(45, 55, 72, 0.75); }
+
+.tw-tt-kind {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.55);
+}
+
+.tw-tt-cell.is-empty {
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border-style: dashed;
+    box-shadow: none;
+    color: var(--tw-ink-3);
+    font-size: 11.5px;
+    font-weight: 700;
+}
+
+.tw-tt-cell.is-empty i { font-size: 12px; }
+.tw-tt-cell.is-empty:hover { background: var(--tw-surface-2); }
+
+.tw-tt-cell.is-normal { background: var(--tw-accent-soft); }
+.tw-tt-cell.is-morning { background: #FFE9A8; }
+.tw-tt-cell.is-tutor { background: #E6E6FA; }
+.tw-tt-cell.is-evening { background: #ADD8E6; }
+.tw-tt-cell.is-after { background: #FDBCB4; }
+.tw-tt-cell.is-research { background: #FFE4D6; }
+.tw-tt-cell.is-duty { background: #E5E7EB; }
+
+html.dark .tw-tt-cell { color: var(--tw-ink); }
+html.dark .tw-tt-cell small { color: var(--tw-ink-2); }
+html.dark .tw-tt-cell.is-normal { background: var(--tw-card-a); }
+html.dark .tw-tt-cell.is-morning { background: var(--tw-card-e); }
+html.dark .tw-tt-cell.is-tutor { background: var(--tw-card-c); }
+html.dark .tw-tt-cell.is-evening { background: var(--tw-card-d); }
+html.dark .tw-tt-cell.is-after { background: var(--tw-card-b); }
+html.dark .tw-tt-cell.is-research { background: var(--tw-urgent-soft); }
+html.dark .tw-tt-cell.is-duty { background: var(--tw-surface-2); }
+html.dark .tw-tt-kind { background: rgba(0, 0, 0, 0.28); }
+
+.tw-tt-side { display: flex; flex-direction: column; gap: 10px; }
+.tw-tt-override-head { margin-top: 8px; }
+
+.tw-tt-stats-table { font-size: 12.5px; }
+.tw-tt-stats-table td,
+.tw-tt-stats-table th { padding: 6px 8px; }
+
+.tw-tt-overrides { display: flex; flex-direction: column; gap: 6px; max-height: 280px; overflow-y: auto; }
+
+.tw-ov-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 8px;
+    border: 2px solid var(--tw-line);
+    border-radius: 10px;
+    background: var(--tw-surface);
+}
+
+.tw-ov-item.is-cancelled { border-color: var(--tw-urgent); background: var(--tw-urgent-soft); }
+.tw-ov-date { font-size: 11px; font-weight: 800; color: var(--tw-ink-2); font-variant-numeric: tabular-nums; }
+.tw-ov-body { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 12px; font-weight: 700; }
+.tw-ov-body small { font-size: 11px; font-weight: 600; color: var(--tw-ink-3); }
+
+.tw-tt-dialog-actions { flex-wrap: wrap; }
+.tw-tt-danger { color: var(--tw-urgent); }
+
+/* =====================================================================
+   Progress
+   ===================================================================== */
+.tw-pr-pace { display: flex; align-items: center; gap: 8px; }
+.tw-pr-pace-pct { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+.tw-pr-pace-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border: 2px solid var(--tw-rim);
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 800;
+    box-shadow: var(--twb-shadow-sm);
+    background: var(--tw-surface);
+}
+
+.tw-pr-pace-chip.is-done { background: var(--tw-accent); color: var(--tw-accent-ink); }
+.tw-pr-pace-chip.is-ok { background: var(--tw-card-e); color: #2D3748; }
+.tw-pr-pace-chip.is-slow { background: var(--tw-urgent-soft); color: var(--tw-urgent); }
+.tw-pr-pace-chip.is-none { background: var(--tw-surface-2); color: var(--tw-ink-3); }
+
+.tw-pr-table td:nth-child(2),
+.tw-pr-table td:nth-child(3) { font-variant-numeric: tabular-nums; }
+
+.tw-pr-bar-cell { min-width: 140px; }
+.tw-pr-bar-cell small { margin-left: 6px; color: var(--tw-ink-3); font-weight: 700; }
+
+.tw-pr-bar {
+    display: inline-block;
+    width: 110px;
+    height: 10px;
+    border: 2px solid var(--tw-rim);
+    border-radius: 999px;
+    background: var(--tw-surface-2);
+    overflow: hidden;
+    vertical-align: middle;
+}
+
+.tw-pr-bar > span {
+    display: block;
+    height: 100%;
+    background: var(--tw-accent);
+    border-radius: 999px;
+}
+
+.tw-chip-done { background: var(--tw-accent); color: var(--tw-accent-ink); }
+.tw-chip-doing { background: var(--tw-card-c); color: #2D3748; }
+html.dark .tw-chip-doing { color: var(--tw-ink); }
+
+/* =====================================================================
+   Homework
+   ===================================================================== */
+.tw-hw-rate { display: flex; flex-direction: column; align-items: flex-end; }
+.tw-hw-rate-num { font-size: 26px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.tw-hw-rate small { font-size: 11.5px; color: var(--tw-ink-3); font-weight: 700; }
+
+.tw-hw-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-bottom: 12px;
+    border-bottom: 2px dashed var(--tw-line);
+    margin-bottom: 12px;
+}
+
+.tw-hw-classes { border: 0; padding: 0; margin: 0; }
+.tw-hw-classes legend { padding: 0; font-size: 12.5px; font-weight: 700; color: var(--tw-ink-2); margin-bottom: 6px; }
+
+.tw-hw-class-picks {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 6px;
+    max-height: 190px;
+    overflow-y: auto;
+}
+
+.tw-hw-class-pick {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 9px;
+    border: 2px solid var(--tw-line);
+    border-radius: 10px;
+    background: var(--tw-surface-2);
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 700;
+}
+
+.tw-hw-class-pick input { accent-color: var(--tw-accent); }
+.tw-hw-class-pick span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tw-hw-class-pick small { color: var(--tw-ink-3); font-weight: 600; }
+
+.tw-hw-table td:not(:first-child):not(:nth-child(2)) { text-align: center; }
+.tw-hw-state-cell { width: 1%; }
+
+.tw-hw-state {
+    padding: 3px 8px;
+    border: 2px solid var(--tw-line);
+    border-radius: 999px;
+    background: transparent;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--tw-ink-3);
+    cursor: pointer;
+    transition: background-color 100ms var(--tw-ease), border-color 100ms var(--tw-ease), color 100ms var(--tw-ease);
+}
+
+.tw-hw-state:hover { border-color: var(--tw-rim); color: var(--tw-ink); }
+
+.tw-hw-state.is-submitted.is-on { background: var(--tw-accent); border-color: var(--tw-rim); color: var(--tw-accent-ink); }
+.tw-hw-state.is-excellent.is-on { background: var(--tw-card-e); border-color: var(--tw-rim); color: #2D3748; }
+.tw-hw-state.is-fix.is-on { background: #ADD8E6; border-color: var(--tw-rim); color: #2D3748; }
+.tw-hw-state.is-missing.is-on { background: var(--tw-urgent); border-color: var(--tw-rim); color: #FFFFFF; }
+
+html.dark .tw-hw-state.is-excellent.is-on { background: var(--tw-card-e); color: var(--tw-ink); }
+html.dark .tw-hw-state.is-fix.is-on { background: var(--tw-card-d); color: var(--tw-ink); }
+
+/* =====================================================================
+   Scores
+   ===================================================================== */
+.tw-sc-segs { margin-bottom: 14px; }
+.tw-sc-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.tw-sc-table { font-size: 13px; }
+.tw-sc-table th small { font-weight: 600; color: var(--tw-ink-3); }
+.tw-sc-table td { padding: 4px 6px; }
+.tw-sc-cell { min-width: 74px; }
+
+.tw-sc-input {
+    width: 100%;
+    min-width: 64px;
+    height: 32px;
+    padding: 0 8px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    border-width: 2px;
+    border-radius: 8px;
+}
+
+.tw-sc-input:focus { background: var(--tw-accent-soft); }
+
+.tw-sc-items-field { border: 0; padding: 0; margin: 0; }
+.tw-sc-items-field legend { padding: 0; font-size: 12.5px; font-weight: 700; color: var(--tw-ink-2); margin-bottom: 6px; }
+
+.tw-sc-items-box { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+
+.tw-sc-item-row {
+    display: grid;
+    grid-template-columns: 0.6fr 1.4fr 0.6fr auto;
+    gap: 6px;
+    align-items: center;
+}
+
+.tw-sc-section-h {
+    font-family: "ZCOOL QingKe HuangYou", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    font-size: 19px;
+    font-weight: 400;
+    margin: 18px 0 10px;
+}
+
+.tw-sc-section-h:first-child { margin-top: 0; }
+.tw-sc-metrics { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.tw-sc-metrics .tw-metric { padding: 12px 14px; box-shadow: var(--twb-shadow-sm); }
+.tw-sc-metrics .tw-metric b { font-size: 24px; }
+
+.tw-sc-item-rates { display: flex; flex-direction: column; gap: 8px; }
+
+.tw-sc-rate-row {
+    display: grid;
+    grid-template-columns: minmax(90px, 1fr) 2fr auto 44px;
+    gap: 10px;
+    align-items: center;
+    font-size: 12.5px;
+    font-weight: 700;
+}
+
+.tw-sc-rate-row .tw-pr-bar { width: 100%; }
+.tw-sc-rate-row b { font-variant-numeric: tabular-nums; }
+.tw-sc-rate-row small { color: var(--tw-ink-3); text-align: right; }
+
+.tw-sc-down { color: var(--tw-urgent); }
+
+/* =====================================================================
+   Print: the timetable is the thing a teacher pins to the wall
+   ===================================================================== */
+@media print {
+    body * { visibility: hidden; }
+
+    #view-timetable,
+    #view-timetable * { visibility: visible; }
+
+    #view-timetable {
+        position: absolute;
+        inset: 0;
+        display: block;
+        background: #FFFFFF;
+    }
+
+    #view-timetable .tw-page-head,
+    #view-timetable #timetable-status,
+    #view-timetable .tw-tt-side,
+    #view-timetable .tw-tt-controls { display: none !important; }
+
+    #view-timetable .tw-scroll {
+        padding: 0;
+        overflow: visible;
+    }
+
+    #view-timetable .tw-card {
+        border: 0;
+        box-shadow: none;
+        padding: 0;
+    }
+
+    #view-timetable .tw-tt { min-width: 0; border-spacing: 2px; }
+    #view-timetable .tw-tt-cell,
+    #view-timetable .tw-tt-period { box-shadow: none; }
+    #view-timetable .tw-tt-cell.is-empty { border-style: solid; border-color: #CCCCCC; }
+    #view-timetable .tw-tt-cell small,
+    #view-timetable .tw-tt-kind { color: #333333; }
+    #view-timetable .tw-input-time { border: 0; padding: 0; height: auto; }
+}

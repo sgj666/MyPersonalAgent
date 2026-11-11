@@ -135,6 +135,65 @@ def main() -> int:
                     "slides": [{"title": "目标", "bullets": ["能描述周末计划"]}]}, str(out))
         check("pptx builds offline", out.exists() and out.stat().st_size > 10000, str(out.stat().st_size if out.exists() else 0))
 
+        # ---- teaching academics: class -> students -> timetable -> homework -> exam -> analysis
+        status, body = call("POST", "/api/teaching/classes",
+                            {"name": "七年级1班", "grade": "七年级", "subject": "英语"}, headers=auth_a)
+        check("create class", status == 200 and '"class"' in body, f"{status} {body[:160]}")
+        class_id = json.loads(body)["class"]["id"]
+
+        roster = [{"no": "%02d" % i, "name": "学生%02d" % i} for i in range(1, 11)]
+        status, body = call("POST", "/api/teaching/students",
+                            {"class_id": class_id, "students": roster}, headers=auth_a)
+        report = json.loads(body)
+        check("import 10 students", status == 200 and report.get("imported") == 10, f"{status} {body[:200]}")
+
+        status, body = call("GET", "/api/teaching/students?class_id=" + class_id, headers=auth_a)
+        students = json.loads(body)["students"]
+        check("roster reads back", len(students) == 10, str(len(students)))
+
+        status, body = call("PUT", "/api/teaching/timetable", {
+            "periods": [{"index": 1, "start": "08:00", "end": "08:45"}],
+            "slots": [{"class_id": class_id, "weekday": 1, "period": 1,
+                       "subject": "英语", "kind": "正课"}],
+            "overrides": [],
+        }, headers=auth_a)
+        check("timetable saves", status == 200 and "slots" in body, f"{status} {body[:160]}")
+
+        status, body = call("POST", "/api/teaching/homework", {
+            "class_ids": [class_id], "title": "Unit 3 练习", "kind": "practice", "due": "2026-11-13",
+        }, headers=auth_a)
+        check("create homework", status == 200 and "item" in body, f"{status} {body[:200]}")
+        hw_id = json.loads(body)["item"]["id"]
+        status, body = call("PUT", f"/api/teaching/homework/{hw_id}/records",
+                            {"records": {students[0]["id"]: "missing"}}, headers=auth_a)
+        check("homework records save", status == 200, f"{status} {body[:160]}")
+
+        status, body = call("POST", "/api/teaching/exams", {
+            "name": "单元测", "class_ids": [class_id], "subject": "英语",
+            "full_score": 100, "date": "2026-11-10",
+            "items": [{"key": "reading", "label": "阅读", "full": 40},
+                      {"key": "writing", "label": "写作", "full": 20}],
+        }, headers=auth_a)
+        check("create exam", status == 200 and '"exam"' in body, f"{status} {body[:200]}")
+        exam_id = json.loads(body)["exam"]["id"]
+
+        marks = {}
+        for index, student in enumerate(students):
+            reading = 20 + index * 2          # 20..38 of 40
+            writing = 8 + (index % 5) * 2     # 8..16 of 20
+            marks[student["id"]] = {"total": reading + writing,
+                                    "items": {"reading": reading, "writing": writing}}
+        status, body = call("PUT", f"/api/teaching/scores/{exam_id}", {"scores": marks}, headers=auth_a)
+        check("scores save", status == 200, f"{status} {body[:160]}")
+
+        status, body = call("GET", f"/api/teaching/analysis?exam_id={exam_id}", headers=auth_a)
+        report = json.loads(body)
+        summary = report.get("summary") or {}
+        check("analysis computes", status == 200 and summary.get("scored") == 10
+              and 30 <= summary.get("average", 0) <= 90 and len(report.get("items") or []) == 2,
+              f"{status} {json.dumps(summary, ensure_ascii=False)[:200]}")
+        check("analysis compares the class", len(report.get("by_class") or []) == 1, str(report.get("by_class"))[:120])
+
         print(f"\n{len(checks)} checks passed. sandbox: {sandbox}")
         return 0
     finally:

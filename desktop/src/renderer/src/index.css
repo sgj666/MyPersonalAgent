@@ -1,5 +1,6 @@
 @import './highlight.css';
 @import './assets/clay.css';
+@import './assets/clay-academics.css';
 
 @tailwind base;
 @tailwind components;

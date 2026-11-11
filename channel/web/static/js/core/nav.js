@@ -10,13 +10,18 @@ const VIEW_META = {
     home:     { group: 'nav_teach',   page: 'menu_home' },
     board:    { group: 'nav_teach',   page: 'menu_board' },
     teaching: { group: 'nav_teach',   page: 'menu_teaching' },
+    classes:  { group: 'nav_teach',   page: 'menu_classes' },
+    timetable:{ group: 'nav_teach',   page: 'menu_timetable' },
+    progress: { group: 'nav_teach',   page: 'menu_progress' },
+    homework: { group: 'nav_teach',   page: 'menu_homework' },
+    scores:   { group: 'nav_teach',   page: 'menu_scores' },
     chat:     { group: 'nav_chat',    page: 'menu_chat' },
     artifacts:{ group: 'nav_chat',    page: 'menu_artifacts', nav: 'chat' },
     agents:   { group: 'nav_manage',  page: 'menu_agents' },
     config:   { group: 'nav_manage',  page: 'menu_config' },
     skills:   { group: 'nav_manage',  page: 'menu_skills' },
     memory:   { group: 'nav_manage',  page: 'menu_memory' },
-    knowledge:{ group: 'nav_manage',  page: 'menu_knowledge' },
+    knowledge:{ group: 'nav_teach',   page: 'menu_knowledge' },
     channels: { group: 'nav_manage',  page: 'menu_channels' },
     tasks:    { group: 'nav_manage',  page: 'menu_tasks' },
     logs:     { group: 'nav_monitor', page: 'menu_logs' },
@@ -89,31 +94,13 @@ function closeSidebar() {
     document.getElementById('sidebar-overlay').classList.add('hidden');
 }
 
-// Group open/closed state and the collapsed rail are remembered per browser.
-// The first paint already honours both: the <head> script sets
-// html.sidebar-collapsed and sidebar.html closes the stored groups inline.
+// The collapsed rail is remembered per browser. The first paint honours it:
+// the <head> script sets html.sidebar-collapsed. Groups do not fold -- see
+// docs/plans/teacher-academics.md §1 -- so there is no group state to keep.
 const SIDEBAR_COLLAPSED_KEY = 'cow_sidebar_collapsed';
-const SIDEBAR_GROUPS_KEY = 'cow_sidebar_groups';
-
-function _saveSidebarGroups() {
-    // Merged into what is stored: a group the menu does not draw right now
-    // keeps the state it had.
-    let state = {};
-    try { state = JSON.parse(localStorage.getItem(SIDEBAR_GROUPS_KEY) || '{}'); } catch (_) { /* start over */ }
-    document.querySelectorAll('#sidebar .menu-group[data-group]').forEach(g => {
-        state[g.dataset.group] = g.classList.contains('open');
-    });
-    try { localStorage.setItem(SIDEBAR_GROUPS_KEY, JSON.stringify(state)); } catch (_) { /* private mode */ }
-}
 
 // Delegated: menu.js redraws the entries whenever the menu changes.
 document.getElementById('sidebar-nav').addEventListener('click', e => {
-    const header = e.target.closest('.menu-group-head');
-    if (header) {
-        header.parentElement.classList.toggle('open');
-        _saveSidebarGroups();
-        return;
-    }
     const item = e.target.closest('.sidebar-item');
     if (!item) return;
     if (item.dataset.menuId) menuOpenItem(item.dataset.menuId);
@@ -210,6 +197,11 @@ function navigateTo(viewId, tab) {
     if (viewId === 'home') loadHomeView();
     else if (viewId === 'board') loadBoardView();
     else if (viewId === 'teaching') loadTeachingView();
+    else if (viewId === 'classes') loadClassesView();
+    else if (viewId === 'timetable') loadTimetableView();
+    else if (viewId === 'progress') loadProgressView();
+    else if (viewId === 'homework') loadHomeworkView();
+    else if (viewId === 'scores') loadScoresView();
     else if (viewId === 'config') { loadConfigView(); switchConfigTab(tab || 'basic'); }
     else if (viewId === 'skills') { resetSkillViewer(); loadSkillsView(); }
     else if (viewId === 'memory') {

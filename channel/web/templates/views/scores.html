@@ -1,0 +1,141 @@
+                <!-- ====================================================== -->
+                <!-- VIEW: Scores                                             -->
+                <!-- ====================================================== -->
+                <div id="view-scores" class="view tw-view">
+                    <div class="tw-scroll">
+                        <div class="tw-page">
+
+                            <header class="tw-page-head">
+                                <div>
+                                    <h1 data-i18n="tw_sc_title">成绩</h1>
+                                    <p data-i18n="tw_sc_desc">建考试、录分、看分析。缺考留空，不计入统计。</p>
+                                </div>
+                                <div class="tw-head-controls">
+                                    <button type="button" class="tw-btn tw-btn-primary" onclick="twScOpenExamDialog()">
+                                        <i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="tw_sc_new">新建考试</span>
+                                    </button>
+                                </div>
+                            </header>
+
+                            <p id="scores-status" class="tw-status" role="status"></p>
+
+                            <div class="tw-acad-split">
+                                <aside class="tw-card tw-acad-side" aria-labelledby="scores-exams-h">
+                                    <div class="tw-card-head">
+                                        <h2 id="scores-exams-h" data-i18n="tw_sc_exams">考试</h2>
+                                    </div>
+                                    <div id="scores-exam-list" class="tw-acad-list">
+                                        <div class="tw-loading" data-i18n="tw_loading">加载中…</div>
+                                    </div>
+                                </aside>
+
+                                <section class="tw-card tw-acad-main" aria-labelledby="scores-exam-h">
+                                    <div class="tw-card-head tw-acad-head">
+                                        <div>
+                                            <h2 id="scores-exam-h" data-i18n="tw_sc_pick_exam">选择一次考试</h2>
+                                            <p id="scores-meta" class="tw-hint"></p>
+                                        </div>
+                                        <div class="tw-head-controls">
+                                            <label class="tw-field tw-field-inline">
+                                                <span data-i18n="tw_c_class">班级</span>
+                                                <select id="scores-class" class="tw-select" onchange="twScClassChanged()"></select>
+                                            </label>
+                                            <button type="button" id="scores-delete" class="tw-icon-btn is-danger" onclick="twScDeleteExam()"
+                                                    disabled aria-label="删除考试" data-i18n-aria-label="tw_sc_delete">
+                                                <i class="fas fa-trash" aria-hidden="true"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="tw-segs tw-sc-segs" role="tablist" aria-label="成绩">
+                                        <button type="button" class="tw-seg" role="tab" id="scores-seg-enter"
+                                                aria-selected="true" onclick="twScSwitchTab('enter')">
+                                            <i class="fas fa-keyboard" aria-hidden="true"></i><span data-i18n="tw_sc_enter_tab">录分</span>
+                                        </button>
+                                        <button type="button" class="tw-seg" role="tab" id="scores-seg-analysis"
+                                                aria-selected="false" onclick="twScSwitchTab('analysis')">
+                                            <i class="fas fa-chart-line" aria-hidden="true"></i><span data-i18n="tw_sc_analysis_tab">分析</span>
+                                        </button>
+                                    </div>
+
+                                    <div id="scores-enter-panel" class="tw-sc-panel">
+                                        <div class="tw-sc-toolbar">
+                                            <p class="tw-hint" data-i18n="tw_sc_enter_hint">回车下移，方向键移动，可直接粘贴整块成绩。留空即为缺考。</p>
+                                            <button type="button" id="scores-save" class="tw-btn tw-btn-sm tw-btn-primary"
+                                                    onclick="twScSaveScores()" disabled>
+                                                <i class="fas fa-floppy-disk" aria-hidden="true"></i><span data-i18n="tw_sc_save">保存成绩</span>
+                                            </button>
+                                        </div>
+                                        <div id="scores-grid">
+                                            <div class="tw-empty">
+                                                <i class="fas fa-table-cells" aria-hidden="true"></i>
+                                                <p data-i18n="tw_sc_pick_exam">选择一次考试</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div id="scores-analysis-panel" class="tw-sc-panel hidden">
+                                        <div id="scores-analysis">
+                                            <div class="tw-empty">
+                                                <i class="fas fa-chart-simple" aria-hidden="true"></i>
+                                                <p data-i18n="tw_sc_analysis_empty">录入成绩后这里显示分析。</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- New exam: classes, full score, optional items. -->
+                    <div id="exam-dialog" class="tw-modal hidden">
+                        <div class="tw-modal-scrim" onclick="twScCloseDialogs()"></div>
+                        <div class="tw-modal-card" role="dialog" aria-modal="true" aria-labelledby="exam-dialog-title">
+                            <div class="tw-modal-head">
+                                <h2 id="exam-dialog-title" data-i18n="tw_sc_new">新建考试</h2>
+                                <button type="button" class="tw-icon-btn" onclick="twScCloseDialogs()"
+                                        data-i18n-aria-label="tw_cancel" aria-label="取消">
+                                    <i class="fas fa-xmark" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <form id="exam-form" onsubmit="twScSubmitExam(event)">
+                                <label class="tw-field">
+                                    <span data-i18n="tw_sc_exam_name">考试名称</span>
+                                    <input id="exam-name" class="tw-input" type="text" maxlength="120" required
+                                           data-i18n-placeholder="tw_sc_exam_name_ph" placeholder="例如：Unit 3 单元测">
+                                </label>
+                                <div class="tw-field-row">
+                                    <label class="tw-field">
+                                        <span data-i18n="tw_c_date">日期</span>
+                                        <input id="exam-date" class="tw-input" type="date">
+                                    </label>
+                                    <label class="tw-field">
+                                        <span data-i18n="tw_c_subject">学科</span>
+                                        <input id="exam-subject" class="tw-input" type="text" maxlength="30">
+                                    </label>
+                                </div>
+                                <label class="tw-field">
+                                    <span data-i18n="tw_sc_full_score">满分</span>
+                                    <input id="exam-full-score" class="tw-input" type="number" min="1" max="1000" value="100" required>
+                                </label>
+                                <fieldset class="tw-field">
+                                    <legend><span data-i18n="tw_hw_classes">班级</span></legend>
+                                    <div id="exam-class-picks" class="tw-hw-class-picks"></div>
+                                </fieldset>
+                                <fieldset class="tw-field tw-sc-items-field">
+                                    <legend><span data-i18n="tw_sc_items">分项（可选）</span></legend>
+                                    <div id="exam-items-box" class="tw-sc-items-box"></div>
+                                    <button type="button" class="tw-btn tw-btn-sm" onclick="twScAddItemRow()">
+                                        <i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="tw_sc_add_item">添加分项</span>
+                                    </button>
+                                </fieldset>
+                                <p id="exam-dialog-status" class="tw-status" role="status"></p>
+                                <div class="tw-modal-actions">
+                                    <button type="button" class="tw-btn" onclick="twScCloseDialogs()" data-i18n="tw_cancel">取消</button>
+                                    <button type="submit" class="tw-btn tw-btn-primary" data-i18n="tw_save">保存</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>

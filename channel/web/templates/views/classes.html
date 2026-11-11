@@ -1,0 +1,187 @@
+                <!-- ====================================================== -->
+                <!-- VIEW: Classes & students                                 -->
+                <!-- ====================================================== -->
+                <div id="view-classes" class="view tw-view">
+                    <div class="tw-scroll">
+                        <div class="tw-page">
+
+                            <header class="tw-page-head">
+                                <div>
+                                    <h1 data-i18n="tw_cls_title">班级与学生</h1>
+                                    <p data-i18n="tw_cls_desc">建班、粘贴导入名单；学号唯一，重名靠学号区分。</p>
+                                </div>
+                                <div class="tw-head-controls">
+                                    <button type="button" class="tw-btn tw-btn-primary" onclick="twClsOpenClassDialog()">
+                                        <i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="tw_cls_new">新建班级</span>
+                                    </button>
+                                </div>
+                            </header>
+
+                            <p id="classes-status" class="tw-status" role="status"></p>
+
+                            <div class="tw-acad-split">
+                                <aside class="tw-card tw-acad-side" aria-labelledby="classes-side-h">
+                                    <div class="tw-card-head">
+                                        <h2 id="classes-side-h" data-i18n="tw_cls_classes">班级</h2>
+                                        <span id="classes-count" class="tw-footnote"></span>
+                                    </div>
+                                    <div id="classes-list" class="tw-acad-list">
+                                        <div class="tw-loading" data-i18n="tw_loading">加载中…</div>
+                                    </div>
+                                </aside>
+
+                                <section class="tw-card tw-acad-main" aria-labelledby="roster-title">
+                                    <div class="tw-card-head tw-acad-head">
+                                        <div>
+                                            <h2 id="roster-title" data-i18n="tw_cls_roster">花名册</h2>
+                                            <p id="roster-meta" class="tw-hint"></p>
+                                        </div>
+                                        <div class="tw-head-controls">
+                                            <input id="roster-search" class="tw-input tw-input-sm" type="search"
+                                                   data-i18n-placeholder="tw_cls_search_ph" placeholder="搜索姓名或学号"
+                                                   oninput="twClsRenderRoster()">
+                                            <select id="roster-sort" class="tw-select tw-select-sm" onchange="twClsRenderRoster()">
+                                                <option value="no" data-i18n="tw_cls_sort_no">按学号</option>
+                                                <option value="name" data-i18n="tw_cls_sort_name">按姓名</option>
+                                            </select>
+                                            <button type="button" id="roster-import" class="tw-btn" disabled onclick="twClsOpenImportDialog()">
+                                                <i class="fas fa-paste" aria-hidden="true"></i><span data-i18n="tw_cls_import">粘贴导入</span>
+                                            </button>
+                                            <button type="button" id="roster-add" class="tw-btn" disabled onclick="twClsOpenStudentDialog()">
+                                                <i class="fas fa-user-plus" aria-hidden="true"></i><span data-i18n="tw_cls_new_student">添加学生</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div id="roster-body">
+                                        <div class="tw-empty">
+                                            <i class="fas fa-users" aria-hidden="true"></i>
+                                            <p data-i18n="tw_cls_pick">选择左侧班级查看花名册。</p>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- Class dialog: create and rename share it. -->
+                    <div id="class-dialog" class="tw-modal hidden">
+                        <div class="tw-modal-scrim" onclick="twClsCloseDialogs()"></div>
+                        <div class="tw-modal-card" role="dialog" aria-modal="true" aria-labelledby="class-dialog-title">
+                            <div class="tw-modal-head">
+                                <h2 id="class-dialog-title" data-i18n="tw_cls_new">新建班级</h2>
+                                <button type="button" class="tw-icon-btn" onclick="twClsCloseDialogs()"
+                                        data-i18n-aria-label="tw_cancel" aria-label="取消">
+                                    <i class="fas fa-xmark" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <form id="class-form" onsubmit="twClsSubmitClass(event)">
+                                <input type="hidden" id="class-id" value="">
+                                <label class="tw-field">
+                                    <span data-i18n="tw_c_class">班级</span>
+                                    <input id="class-name" class="tw-input" type="text" maxlength="60" required
+                                           data-i18n-placeholder="tw_cls_name_ph" placeholder="例如：七（1）班">
+                                </label>
+                                <div class="tw-field-row">
+                                    <label class="tw-field">
+                                        <span data-i18n="tw_cls_grade">年级</span>
+                                        <input id="class-grade" class="tw-input" type="text" maxlength="30"
+                                               data-i18n-placeholder="tw_cls_grade_ph" placeholder="例如：七年级">
+                                    </label>
+                                    <label class="tw-field">
+                                        <span data-i18n="tw_cls_subject">学科</span>
+                                        <input id="class-subject" class="tw-input" type="text" maxlength="30"
+                                               data-i18n-placeholder="tw_cls_subject_ph" placeholder="例如：英语">
+                                    </label>
+                                </div>
+                                <label class="tw-field">
+                                    <span data-i18n="tw_cls_room">教室</span>
+                                    <input id="class-room" class="tw-input" type="text" maxlength="40"
+                                           data-i18n-placeholder="tw_cls_room_ph" placeholder="例如：教学楼 302">
+                                </label>
+                                <p id="class-dialog-status" class="tw-status" role="status"></p>
+                                <div class="tw-modal-actions">
+                                    <button type="button" class="tw-btn" onclick="twClsCloseDialogs()" data-i18n="tw_cancel">取消</button>
+                                    <button type="submit" class="tw-btn tw-btn-primary" data-i18n="tw_save">保存</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- One student: add and edit share it. -->
+                    <div id="student-dialog" class="tw-modal hidden">
+                        <div class="tw-modal-scrim" onclick="twClsCloseDialogs()"></div>
+                        <div class="tw-modal-card" role="dialog" aria-modal="true" aria-labelledby="student-dialog-title">
+                            <div class="tw-modal-head">
+                                <h2 id="student-dialog-title" data-i18n="tw_cls_new_student">添加学生</h2>
+                                <button type="button" class="tw-icon-btn" onclick="twClsCloseDialogs()"
+                                        data-i18n-aria-label="tw_cancel" aria-label="取消">
+                                    <i class="fas fa-xmark" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <form id="student-form" onsubmit="twClsSubmitStudent(event)">
+                                <input type="hidden" id="student-id" value="">
+                                <div class="tw-field-row">
+                                    <label class="tw-field">
+                                        <span data-i18n="tw_cls_no">学号</span>
+                                        <input id="student-no" class="tw-input" type="text" maxlength="20"
+                                               data-i18n-placeholder="tw_cls_no_ph" placeholder="例如：01">
+                                    </label>
+                                    <label class="tw-field">
+                                        <span data-i18n="tw_c_name">姓名</span>
+                                        <input id="student-name" class="tw-input" type="text" maxlength="40" required>
+                                    </label>
+                                </div>
+                                <div class="tw-field-row">
+                                    <label class="tw-field">
+                                        <span data-i18n="tw_cls_gender">性别</span>
+                                        <select id="student-gender" class="tw-select">
+                                            <option value="" data-i18n="tw_c_none">无</option>
+                                            <option value="男" data-i18n="tw_cls_gender_m">男</option>
+                                            <option value="女" data-i18n="tw_cls_gender_f">女</option>
+                                        </select>
+                                    </label>
+                                    <label class="tw-field">
+                                        <span data-i18n="tw_cls_tags">标签</span>
+                                        <input id="student-tags" class="tw-input" type="text" maxlength="120"
+                                               data-i18n-placeholder="tw_cls_tags_ph" placeholder="用逗号分隔，例如：分层、走读">
+                                    </label>
+                                </div>
+                                <label class="tw-field">
+                                    <span data-i18n="tw_cls_note">备注</span>
+                                    <textarea id="student-note" class="tw-textarea" rows="2" maxlength="500"></textarea>
+                                </label>
+                                <p id="student-dialog-status" class="tw-status" role="status"></p>
+                                <div class="tw-modal-actions">
+                                    <button type="button" class="tw-btn" onclick="twClsCloseDialogs()" data-i18n="tw_cancel">取消</button>
+                                    <button type="submit" class="tw-btn tw-btn-primary" data-i18n="tw_save">保存</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Paste import: parse first, write after the preview. -->
+                    <div id="import-dialog" class="tw-modal hidden">
+                        <div class="tw-modal-scrim" onclick="twClsCloseDialogs()"></div>
+                        <div class="tw-modal-card tw-modal-wide" role="dialog" aria-modal="true" aria-labelledby="import-dialog-title">
+                            <div class="tw-modal-head">
+                                <h2 id="import-dialog-title" data-i18n="tw_cls_import_title">粘贴导入名单</h2>
+                                <button type="button" class="tw-icon-btn" onclick="twClsCloseDialogs()"
+                                        data-i18n-aria-label="tw_cancel" aria-label="取消">
+                                    <i class="fas fa-xmark" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <p class="tw-hint" data-i18n="tw_cls_import_desc">从 Excel 复制整块区域粘贴到这里。识别 姓名/学号/性别/标签/备注 表头；没有表头时按「学号, 姓名」读取，制表符或逗号分隔。</p>
+                            <textarea id="import-text" class="tw-textarea tw-import-text" rows="7"
+                                      data-i18n-placeholder="tw_cls_import_ph" placeholder="学号&#9;姓名&#9;性别"
+                                      oninput="twClsPreviewImport()"></textarea>
+                            <div id="import-preview" class="tw-import-preview"></div>
+                            <p id="import-dialog-status" class="tw-status" role="status"></p>
+                            <div class="tw-modal-actions">
+                                <button type="button" class="tw-btn" onclick="twClsCloseDialogs()" data-i18n="tw_cancel">取消</button>
+                                <button type="button" id="import-submit" class="tw-btn tw-btn-primary" disabled
+                                        onclick="twClsSubmitImport()" data-i18n="tw_cls_import">导入</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>

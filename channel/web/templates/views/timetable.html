@@ -1,0 +1,107 @@
+                <!-- ====================================================== -->
+                <!-- VIEW: Timetable                                          -->
+                <!-- ====================================================== -->
+                <div id="view-timetable" class="view tw-view">
+                    <div class="tw-scroll">
+                        <div class="tw-page">
+
+                            <header class="tw-page-head">
+                                <div>
+                                    <h1 data-i18n="tw_tt_title">课表</h1>
+                                    <p data-i18n="tw_tt_desc">周一至周五 × 节次。点格子排课；单次调课与停课只影响那一天，不改固定表。</p>
+                                </div>
+                                <div class="tw-head-controls tw-tt-controls">
+                                    <button type="button" class="tw-btn" onclick="twTtAddPeriod()">
+                                        <i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="tw_tt_add_period">加一节</span>
+                                    </button>
+                                    <button type="button" class="tw-btn" onclick="twTtDropPeriod()">
+                                        <i class="fas fa-minus" aria-hidden="true"></i><span data-i18n="tw_tt_drop_period">删除最后一节</span>
+                                    </button>
+                                    <button type="button" class="tw-btn" onclick="twTtPrint()">
+                                        <i class="fas fa-print" aria-hidden="true"></i><span data-i18n="tw_tt_print">打印</span>
+                                    </button>
+                                </div>
+                            </header>
+
+                            <p id="timetable-status" class="tw-status" role="status"></p>
+
+                            <div class="tw-tt-layout">
+                                <section class="tw-card tw-tt-grid-card" aria-labelledby="tt-grid-h">
+                                    <div class="tw-card-head">
+                                        <h2 id="tt-grid-h" data-i18n="tw_tt_week_title">每周课表</h2>
+                                        <span id="tt-week-note" class="tw-footnote"></span>
+                                    </div>
+                                    <div id="tt-grid" class="tw-tt-grid-wrap">
+                                        <div class="tw-loading" data-i18n="tw_loading">加载中…</div>
+                                    </div>
+                                </section>
+
+                                <aside class="tw-card tw-tt-side" aria-labelledby="tt-stats-h">
+                                    <div class="tw-card-head">
+                                        <h2 id="tt-stats-h" data-i18n="tw_tt_stats">课时统计</h2>
+                                    </div>
+                                    <p class="tw-hint" data-i18n="tw_tt_stats_hint">按固定表统计每周节数。</p>
+                                    <div id="tt-stats" class="tw-tt-stats"></div>
+
+                                    <div class="tw-card-head tw-tt-override-head">
+                                        <h2 data-i18n="tw_tt_overrides">单次调整</h2>
+                                    </div>
+                                    <div id="tt-overrides" class="tw-tt-overrides"></div>
+                                </aside>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- One cell: fixed slot, a dated change, or a cancellation. -->
+                    <div id="tt-dialog" class="tw-modal hidden">
+                        <div class="tw-modal-scrim" onclick="twTtCloseDialog()"></div>
+                        <div class="tw-modal-card" role="dialog" aria-modal="true" aria-labelledby="tt-dialog-title">
+                            <div class="tw-modal-head">
+                                <h2 id="tt-dialog-title" data-i18n="tw_tt_dialog_title">安排这节课</h2>
+                                <button type="button" class="tw-icon-btn" onclick="twTtCloseDialog()"
+                                        data-i18n-aria-label="tw_cancel" aria-label="取消">
+                                    <i class="fas fa-xmark" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <form id="tt-form" onsubmit="twTtSubmit(event)">
+                                <p id="tt-dialog-where" class="tw-hint"></p>
+                                <label class="tw-field">
+                                    <span data-i18n="tw_c_class">班级</span>
+                                    <select id="tt-class" class="tw-select" onchange="twTtClassChanged()">
+                                        <option value="">—</option>
+                                    </select>
+                                </label>
+                                <div class="tw-field-row">
+                                    <label class="tw-field">
+                                        <span data-i18n="tw_tt_subject">科目</span>
+                                        <input id="tt-subject" class="tw-input" type="text" maxlength="30" list="tt-subject-options">
+                                        <datalist id="tt-subject-options"></datalist>
+                                    </label>
+                                    <label class="tw-field">
+                                        <span data-i18n="tw_tt_kind">类型</span>
+                                        <select id="tt-kind" class="tw-select"></select>
+                                    </label>
+                                </div>
+                                <label class="tw-field">
+                                    <span data-i18n="tw_tt_mode">生效</span>
+                                    <select id="tt-mode" class="tw-select" onchange="twTtModeChanged()">
+                                        <option value="fixed" data-i18n="tw_tt_mode_fixed">固定（每周）</option>
+                                        <option value="once" data-i18n="tw_tt_mode_once">单次（指定日期）</option>
+                                    </select>
+                                </label>
+                                <label class="tw-field hidden" id="tt-date-field">
+                                    <span data-i18n="tw_c_date">日期</span>
+                                    <input id="tt-date" class="tw-input" type="date">
+                                </label>
+                                <p id="tt-dialog-status" class="tw-status" role="status"></p>
+                                <div class="tw-modal-actions tw-tt-dialog-actions">
+                                    <button type="button" class="tw-btn tw-tt-clear" onclick="twTtClearCell()" data-i18n="tw_tt_clear">清空</button>
+                                    <button type="button" class="tw-btn tw-tt-danger" onclick="twTtCancelSlot()" data-i18n="tw_tt_cancel_slot">停课（当天）</button>
+                                    <button type="button" class="tw-btn" onclick="twTtCloseDialog()" data-i18n="tw_cancel">取消</button>
+                                    <button type="submit" class="tw-btn tw-btn-primary" data-i18n="tw_save">保存</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>

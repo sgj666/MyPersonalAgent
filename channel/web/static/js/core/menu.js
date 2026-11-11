@@ -13,6 +13,11 @@ const MENU_BUILTINS = {
     home:      { icon: 'fa-house',            label: 'menu_home' },
     board:     { icon: 'fa-table-columns',    label: 'menu_board' },
     teaching:  { icon: 'fa-pen-ruler',        label: 'menu_teaching' },
+    classes:   { icon: 'fa-users',            label: 'menu_classes' },
+    timetable: { icon: 'fa-calendar-days',    label: 'menu_timetable' },
+    progress:  { icon: 'fa-bars-progress',    label: 'menu_progress' },
+    homework:  { icon: 'fa-clipboard-check',  label: 'menu_homework' },
+    scores:    { icon: 'fa-chart-simple',     label: 'menu_scores' },
     chat:      { icon: 'fa-message',          label: 'menu_chat' },
     artifacts: { icon: 'fa-layer-group',      label: 'menu_artifacts' },
     agents:    { icon: 'fa-people-group',     label: 'menu_agents' },
@@ -26,14 +31,15 @@ const MENU_BUILTINS = {
 };
 
 // The built-in menu, as sidebar.html draws it before any script runs.
+// Groups are drawn in this order and never fold; the order runs from the
+// daily work outwards, which is what docs/plans/teacher-academics.md §1 fixes.
 const MENU_DEFAULT = [
-    { id: 'teach',   views: ['home', 'board', 'teaching'] },
     { id: 'chat',    views: ['chat', 'artifacts'] },
-    { id: 'manage',  views: ['agents', 'config', 'skills', 'memory', 'knowledge', 'channels', 'tasks'] },
+    { id: 'teach',   views: ['home', 'classes', 'timetable', 'progress', 'homework', 'scores',
+                             'board', 'teaching', 'knowledge'] },
+    { id: 'manage',  views: ['agents', 'config', 'skills', 'memory', 'channels', 'tasks'] },
     { id: 'monitor', views: ['logs'] },
 ];
-// Built-in pages that start hidden, so only the menu editor offers them.
-const MENU_DEFAULT_HIDDEN = new Set(['artifacts']);
 const MENU_GROUP_LABELS = { teach: 'nav_teach', chat: 'nav_chat', manage: 'nav_manage', monitor: 'nav_monitor' };
 // Pages a menu must always lead to; mirrors REQUIRED_VIEWS in api/menu.py.
 const MENU_REQUIRED = ['chat', 'config'];
@@ -68,7 +74,7 @@ function menuBuiltinItem(view) {
 }
 
 function _menuDefaultItem(view) {
-    return Object.assign(menuBuiltinItem(view), { hidden: MENU_DEFAULT_HIDDEN.has(view) });
+    return menuBuiltinItem(view);
 }
 
 /** The menu to draw: the saved one, plus any page this version added since. */
@@ -140,18 +146,16 @@ function _menuItemHTML(item) {
 function menuRenderSidebar() {
     const nav = document.getElementById('sidebar-nav');
     if (!nav) return;
-    let folded = {};
-    try { folded = JSON.parse(localStorage.getItem(SIDEBAR_GROUPS_KEY) || '{}'); } catch (_) { /* keep defaults */ }
     nav.innerHTML = menuDoc.groups.map(group => {
         const items = group.items.filter(menuShows);
         if (!items.length) return '';
         const title = !group.title && MENU_GROUP_LABELS[group.id]
             ? `<span data-i18n="${MENU_GROUP_LABELS[group.id]}">${escapeHtml(menuGroupLabel(group))}</span>`
             : `<span>${escapeHtml(menuGroupLabel(group))}</span>`;
-        return `<div class="menu-group${folded[group.id] === false ? '' : ' open'}" data-group="${escapeHtml(group.id)}">
-            <button class="menu-group-head w-full flex items-center gap-2 pl-3 pr-8 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-500 hover:text-neutral-300 cursor-pointer transition-colors duration-150">
-                <i class="fas fa-chevron-right text-[10px] chevron"></i>${title}
-            </button>
+        return `<div class="menu-group open" data-group="${escapeHtml(group.id)}">
+            <div class="menu-group-head w-full flex items-center gap-2 pl-3 pr-8 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                ${title}
+            </div>
             <button class="menu-group-edit" onclick="menuEditorOpen()" data-tip-key="menu_edit" data-tooltip="${escapeHtml(t('menu_edit'))}"
                     data-tip-float data-tooltip-pos="right" aria-label="${escapeHtml(t('menu_edit'))}"><i class="fas fa-pen"></i></button>
             <div class="menu-group-items pl-2">${items.map(_menuItemHTML).join('')}</div>
