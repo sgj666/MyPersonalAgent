@@ -70,11 +70,11 @@ function agentAvatarHTML(agent, size) {
         const v = avatarVersions[agent.id] || agent.avatar_rev || rosterRevision || agent.id;
         return `<img class="${cls}" src="/api/agents/${encodeURIComponent(agent.id)}/avatar?v=${encodeURIComponent(v)}" alt="">`;
     }
-    // The default (first) Agent falls back to the product logo when it has no
-    // uploaded picture, so the instance's own Agent wears the CowAgent face.
+    // The default (first) Agent falls back to the workbench mascot when it has
+    // no uploaded picture: the built-in teacher assistant, not the product logo.
     // Added Agents keep the initial-disc fallback so a team stays distinguishable.
     if (agent && agent.id && agent.id === defaultAgentId) {
-        return `<img class="${cls}" src="/assets/logo.jpg" alt="">`;
+        return `<img class="${cls}" src="/assets/agent-qinghe.png" alt="">`;
     }
     const initial = avatarInitial(agent && (agent.name || agent.id));
     return `<span class="${cls} agent-avatar-tone-${avatarTone(agent && agent.id)}">${escapeHtml(initial)}</span>`;

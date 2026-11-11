@@ -11,6 +11,7 @@ import {
   termFraction,
 } from '../lib/teaching'
 import { EditableCell, Empty, Loading, Modal, PageError, Status } from './teachingShared'
+import AiAssistButton from '../components/AiAssistButton'
 import type { ProgressFields, ProgressItem, TeachingClass } from '../types'
 
 interface ProgressPageProps {
@@ -233,6 +234,11 @@ const ProgressPage: React.FC<ProgressPageProps> = ({ baseUrl }) => {
                 <ClipboardPaste size={15} />
                 <span>{t('tw_prog_paste')}</span>
               </button>
+              <AiAssistButton
+                dataTool="progress"
+                scene={t('ai_scene_progress')}
+                examples={[t('ai_ex_progress_1'), t('ai_ex_progress_2'), t('ai_ex_progress_3')]}
+              />
             </div>
           </header>
 

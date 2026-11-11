@@ -40,7 +40,7 @@ const MENU_BUILTINS = {
 // built-in page" list, which reads MENU_BUILTINS, without cluttering a menu
 // most teachers never use those for.
 const MENU_DEFAULT = [
-    { id: 'workbench', views: ['home'] },
+    { id: 'daily', views: ['home'] },
     { id: 'chat',    views: ['chat', 'artifacts'] },
     { id: 'teach',   views: ['classes', 'timetable', 'progress', 'homework', 'scores',
                              'teaching', 'board', 'knowledge'] },
@@ -66,7 +66,7 @@ const MENU_DEFAULT_CHILDREN = {
     teaching: ['plan', 'courseware', 'card', 'advice', 'schedule'],
 };
 const MENU_GROUP_LABELS = {
-    workbench: 'nav_workbench', teach: 'nav_teach', chat: 'nav_chat',
+    daily: 'nav_daily', teach: 'nav_teach', chat: 'nav_chat',
     manage: 'nav_manage', monitor: 'nav_monitor',
 };
 // Pages a menu must always lead to; mirrors REQUIRED_VIEWS in api/menu.py.

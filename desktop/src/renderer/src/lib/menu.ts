@@ -119,7 +119,7 @@ export function defaultTeachingChildren(): MenuChild[] {
 // default groups — they stay registered in MENU_BUILTINS, so the menu editor
 // can still add them back.
 export const MENU_DEFAULT: { id: string; views: string[] }[] = [
-  { id: 'chat', views: ['home', 'chat', 'artifacts'] },
+  { id: 'daily', views: ['home', 'chat', 'artifacts'] },
   {
     id: 'teach',
     views: ['classes', 'timetable', 'progress', 'homework', 'scores', 'teaching', 'board', 'knowledge'],
@@ -129,6 +129,7 @@ export const MENU_DEFAULT: { id: string; views: string[] }[] = [
 ]
 
 export const MENU_GROUP_LABELS: Record<string, string> = {
+  daily: 'nav_daily',
   teach: 'nav_teach',
   chat: 'nav_chat',
   manage: 'nav_manage',

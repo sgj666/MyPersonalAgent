@@ -13,6 +13,7 @@ import {
   wholeText,
 } from '../lib/teaching'
 import { Empty, Loading, Modal, PageError, Status } from './teachingShared'
+import AiAssistButton from '../components/AiAssistButton'
 import type {
   AnalysisTrendPoint,
   ExamFields,
@@ -584,6 +585,11 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
                 <Plus size={15} />
                 <span>{t('tw_sc_exam_new')}</span>
               </button>
+              <AiAssistButton
+                dataTool="exam_analysis"
+                scene={t('ai_scene_scores')}
+                examples={[t('ai_ex_scores_1'), t('ai_ex_scores_2'), t('ai_ex_scores_3')]}
+              />
             </div>
           </header>
 

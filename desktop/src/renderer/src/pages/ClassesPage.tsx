@@ -5,6 +5,7 @@ import apiClient from '../api/client'
 import { askConfirm } from '../store/confirmStore'
 import { errorText, parseRosterPaste } from '../lib/teaching'
 import { EditableCell, Empty, Loading, Modal, PageError, Status } from './teachingShared'
+import AiAssistButton from '../components/AiAssistButton'
 import type { TeachingClass, TeachingClassFields, TeachingStudent } from '../types'
 
 interface ClassesPageProps {
@@ -331,6 +332,11 @@ const ClassesPage: React.FC<ClassesPageProps> = ({ baseUrl }) => {
                 <ClipboardPaste size={15} />
                 <span>{t('tw_classes_import')}</span>
               </button>
+              <AiAssistButton
+                dataTool="class_list"
+                scene={t('ai_scene_classes')}
+                examples={[t('ai_ex_classes_1'), t('ai_ex_classes_2'), t('ai_ex_classes_3')]}
+              />
             </div>
           </header>
 

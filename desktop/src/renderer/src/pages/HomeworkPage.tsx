@@ -11,6 +11,7 @@ import {
   todayISO,
 } from '../lib/teaching'
 import { Empty, Loading, Modal, PageError, Status, copyToClipboard } from './teachingShared'
+import AiAssistButton from '../components/AiAssistButton'
 import type {
   HomeworkFields,
   HomeworkItem,
@@ -377,6 +378,11 @@ const HomeworkPage: React.FC<HomeworkPageProps> = ({ baseUrl }) => {
                 <Plus size={15} />
                 <span>{t('tw_hw_new')}</span>
               </button>
+              <AiAssistButton
+                dataTool="homework"
+                scene={t('ai_scene_homework')}
+                examples={[t('ai_ex_homework_1'), t('ai_ex_homework_2'), t('ai_ex_homework_3')]}
+              />
             </div>
           </header>
 

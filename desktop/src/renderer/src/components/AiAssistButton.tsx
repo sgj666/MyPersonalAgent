@@ -120,7 +120,7 @@ const AiAssistButton: React.FC<AiAssistButtonProps> = ({ dataTool, scene, exampl
     <>
       <button
         type="button"
-        className="twb-btn twb-ai-open"
+        className="twb-btn"
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen(true)}

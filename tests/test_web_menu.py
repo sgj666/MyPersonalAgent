@@ -1,4 +1,6 @@
 import json
+import os
+import re
 from unittest.mock import patch
 
 import pytest
@@ -127,3 +129,65 @@ def test_an_unreadable_file_falls_back_to_the_built_in_menu(menu_path):
     menu_path.parent.mkdir(parents=True)
     menu_path.write_text("{not json", encoding="utf-8")
     assert _get()["menu"] is None
+
+
+# ---------------------------------------------------------------------------
+# The built-in menu itself. It is a frontend constant, but it is also what a
+# user without a saved menu sees: which page the console opens with, and which
+# pages are one click away, is a decision this file pins rather than leaves to
+# whoever edits menu.js next.
+# ---------------------------------------------------------------------------
+
+MENU_JS = os.path.join(os.path.dirname(__file__), "..", "channel", "web",
+                       "static", "js", "core", "menu.js")
+I18N_JS = os.path.join(os.path.dirname(__file__), "..", "channel", "web",
+                       "static", "js", "core", "i18n.js")
+
+
+def _menu_js():
+    with open(MENU_JS, encoding="utf-8") as f:
+        return f.read()
+
+
+def _default_groups():
+    """The built-in menu, as (group id, views) in the order the sidebar draws."""
+    block = re.search(r"const MENU_DEFAULT = \[(.*?)\n\];", _menu_js(), re.S)
+    assert block, "MENU_DEFAULT is no longer where the tests can read it"
+    return [(gid, re.findall(r"'([^']+)'", views))
+            for gid, views in re.findall(r"id: '(\w+)',\s*views: \[([^\]]*)\]",
+                                         block.group(1))]
+
+
+def _registered_views():
+    block = re.search(r"const MENU_BUILTINS = \{(.*?)\n\};", _menu_js(), re.S)
+    assert block, "MENU_BUILTINS is no longer where the tests can read it"
+    return re.findall(r"^\s+(\w+):\s*\{", block.group(1), re.M)
+
+
+def test_the_menu_opens_on_the_workbench_with_home_before_chat():
+    groups = _default_groups()
+    assert [gid for gid, _ in groups][:2] == ["daily", "chat"]
+    assert groups[0][1] == ["home"]
+    # 对话 is still the second group, after 首页 rather than before it.
+    assert groups[1][1][0] == "chat"
+
+
+def test_agents_and_tasks_are_registered_but_out_of_the_default_menu():
+    default = {view for _, views in _default_groups() for view in views}
+    assert "agents" not in default and "tasks" not in default
+    # They stay pages a menu can point at: the menu editor's candidate list is
+    # Object.keys(MENU_BUILTINS), so removing the registration would remove
+    # the page from the console's vocabulary, not just from the default menu.
+    registered = set(_registered_views())
+    assert {"agents", "tasks", "home", "config"} <= registered
+
+
+def test_the_workbench_group_and_home_page_are_named_in_every_language():
+    with open(I18N_JS, encoding="utf-8") as f:
+        i18n = f.read()
+    # One entry per language table (zh, zh-Hant, en).
+    assert len(re.findall(r"\bnav_daily:", i18n)) == 3
+    # The old group id stays in the tables so a saved menu naming it still
+    # resolves to a label.
+    assert len(re.findall(r"\bnav_workbench:", i18n)) == 3
+    assert len(re.findall(r"\bmenu_home:", i18n)) == 3

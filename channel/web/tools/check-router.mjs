@@ -39,14 +39,17 @@ function navigateTo(viewId, tab) {
 }
 `;
 
-function makeApp(startPath) {
+// `navType` is what the page load was, as performance.navigation reports it:
+// 'navigate' for a fresh start, 'reload' or 'back_forward' for a return.
+function makeApp(startPath, navType = 'navigate') {
     const log = { nav: [], tabs: [], writes: [] };
     const state = { path: startPath || '/' };
 
     const VIEW_META = {};
-    for (const v of ['chat', 'agents', 'config', 'skills', 'memory',
+    for (const v of ['home', 'chat', 'agents', 'config', 'skills', 'memory',
                      'knowledge', 'channels', 'tasks', 'logs']) VIEW_META[v] = {};
 
+    const performance = { getEntriesByType: () => [{ type: navType }] };
     const location = { get pathname() { return state.path; } };
     const history = {
         pushState(_s, _t, p) { log.writes.push('push ' + p); state.path = p; },
@@ -56,7 +59,7 @@ function makeApp(startPath) {
     const window = { addEventListener(ev, fn) { if (ev === 'popstate') fire = fn; } };
 
     const factory = new Function('env', `
-        const { VIEW_META, location, history, window, log } = env;
+        const { VIEW_META, location, history, window, log, performance } = env;
         let currentView = 'chat';
         let guardRefuses = false;
         ${fakeNav}
@@ -69,7 +72,7 @@ function makeApp(startPath) {
         };
     `);
 
-    const app = factory({ VIEW_META, location, history, window, log });
+    const app = factory({ VIEW_META, location, history, window, log, performance });
     // Back/Forward: the browser moves the URL, then notifies.
     app.back = (path) => { state.path = path; fire(); };
     app.log = log;
@@ -86,11 +89,21 @@ function check(label, actual, expected) {
     if (!ok) console.log(`        got      ${a}\n        expected ${e}`);
 }
 
-// --- the console root opens chat and writes nothing -----------------------
+// --- the console starts on the home page ---------------------------------
 let app = makeApp('/');
 app.routeApply();
-check('root: no navigation', app.log.nav, []);
-check('root: address bar untouched', app.log.writes, []);
+check('start: opens home', app.log.nav, ['home']);
+check('start: address bar rewritten, not added', app.log.writes, ['replace /home']);
+check('start: lands on home', app.currentView, 'home');
+check('start: address bar says /home', app.path(), '/home');
+
+// A reload is the teacher returning to the view the address bar names, and
+// the root names chat: only a new navigation to it is a start.
+app = makeApp('/', 'reload');
+app.routeApply();
+check('reload at the root: navigates nowhere', app.log.nav, []);
+check('reload at the root: keeps what the bar says', app.currentView, 'chat');
+check('reload at the root: address bar untouched', app.log.writes, []);
 
 // --- a shared link opens the view and tab it names, without churn ---------
 app = makeApp('/settings/models');
@@ -179,7 +192,11 @@ app.navigateTo('skills');
 check('re-entry: a tabless view stays at one entry', app.log.writes, []);
 
 // --- Back returns to the previous view -----------------------------------
+// Home is the entry the console opened on; chatting then settings puts the
+// root on the stack, and Back has to land on the chat it named.
 app = makeApp('/');
+app.routeApply();
+app.navigateTo('chat');
 app.navigateTo('config');
 app.log.nav.length = 0;
 app.back('/');
@@ -203,6 +220,8 @@ check('back out of a tab: Back is not undone', app.log.writes, []);
 
 // --- Back with unsaved edits puts the address bar back --------------------
 app = makeApp('/');
+app.routeApply();
+app.navigateTo('chat');
 app.navigateTo('config');
 app.guardRefuses = true;
 app.log.writes.length = 0;

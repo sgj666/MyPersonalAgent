@@ -13,6 +13,7 @@ import {
   weekdayOf,
 } from '../lib/teaching'
 import { Empty, Loading, Modal, PageError, Status } from './teachingShared'
+import AiAssistButton from '../components/AiAssistButton'
 import type {
   TeachingClass,
   TeachingTimetable,
@@ -452,6 +453,11 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                 <Printer size={14} />
                 <span>{t('tw_tt_print')}</span>
               </button>
+              <AiAssistButton
+                dataTool="timetable"
+                scene={t('ai_scene_timetable')}
+                examples={[t('ai_ex_timetable_1'), t('ai_ex_timetable_2'), t('ai_ex_timetable_3')]}
+              />
             </div>
           </header>
 

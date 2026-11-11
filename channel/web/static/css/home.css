@@ -79,7 +79,7 @@ html.dark #view-teaching.tw-view {
    hero, metrics, today's row, quick tools and the board in view together
    instead of leaving a blank half-page below the fold. Declared before the
    mobile rule below, which then keeps the last word on narrow screens. */
-#view-home .tw-scroll { padding: 20px 28px 28px; }
+#view-home .tw-scroll { padding: 16px 26px 24px; }
 #view-home .tw-page { gap: 18px; }
 
 @media (max-width: 767px) {
@@ -133,7 +133,7 @@ html.dark #view-teaching.tw-view {
     border: 1px solid var(--tw-rim);
     border-radius: 18px;
     box-shadow: var(--twb-shadow);
-    padding: 18px 24px;
+    padding: 16px 22px;
 }
 
 .tw-hero-copy { max-width: 780px; }
@@ -157,7 +157,7 @@ html.dark #view-teaching.tw-view {
 .tw-hero-title {
     font-size: clamp(24px, 2.6vw, 32px);
     line-height: 1.25;
-    margin: 10px 0 6px;
+    margin: 8px 0 4px;
 }
 
 .tw-hl {
@@ -310,7 +310,7 @@ html.dark #view-teaching.tw-view {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    padding: 14px 16px;
+    padding: 12px 14px;
     border: 1px solid var(--tw-rim);
     border-radius: 14px;
     box-shadow: var(--twb-shadow);
@@ -409,20 +409,29 @@ html.dark .tw-tool-e { background: var(--tw-card-e); }
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 38px;
-    height: 38px;
+    width: 30px;
+    height: 30px;
     border: 1px solid var(--tw-rim);
-    border-radius: 12px;
+    border-radius: 10px;
     background: var(--tw-surface);
     box-shadow: var(--twb-shadow-sm);
+    font-size: 13px;
     color: #4A4453;
+}
+
+@media (max-width: 1099px) {
+    .tw-tools { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+    .tw-tools { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* ---------- home grid ---------- */
 .tw-home-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 18px;
+    gap: 14px;
 }
 
 .tw-home-board { grid-column: span 1; }
@@ -505,3 +514,53 @@ html.dark .tw-tool-e { background: var(--tw-card-e); }
 .tw-list-item i { color: var(--tw-ink-3); width: 16px; text-align: center; }
 .tw-list-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tw-list-item small { margin-left: auto; color: var(--tw-ink-3); font-weight: 600; flex-shrink: 0; }
+
+/* ---------- today row ---------- */
+/* Today's lessons, the digest and the reminder form are one band: three equal
+   columns sharing a height, so the row reads as a strip rather than as three
+   cards of different depths with canvas under the short ones. teaching2.css
+   sizes this grid for the default page; naming the page and the grid parent
+   here keeps this rule in front of it whichever file loads last. */
+#view-home .tw-page > .tw-today-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 14px;
+}
+
+/* The columns share a height, so what is inside them takes up the slack: the
+   digest grows into it instead of leaving a white block under a short card. */
+#view-home .tw-page > .tw-today-grid > .tw-card { display: flex; flex-direction: column; }
+#view-home .tw-page > .tw-today-grid > .tw-card > .tw-card-head { flex-shrink: 0; }
+#view-home .tw-page > .tw-today-grid > .tw-card > .tw-digest { flex: 1 1 auto; }
+
+@media (max-width: 1279px) {
+    #view-home .tw-page > .tw-today-grid {
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    }
+}
+
+/* Inside those columns the reminder form is the tallest thing on the page, so
+   it carries the least air: each switch keeps its own time beside it instead
+   of on a row of its own, and the preview samples the two messages rather
+   than holding a whole digest. */
+#view-home .tw-remind-form { gap: 8px; }
+#view-home .tw-switch-row { padding: 8px 10px; }
+#view-home .tw-remind-pair {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+}
+#view-home .tw-remind-pair .tw-remind-inline {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+}
+#view-home .tw-remind-pair .tw-remind-inline .tw-input { width: 92px; }
+#view-home .tw-remind-pair .tw-remind-inline > span { font-size: 11px; }
+#view-home .tw-remind-preview .tw-digest { min-height: 44px; max-height: 80px; padding: 8px 10px; }
+
+@media (max-width: 520px) {
+    #view-home .tw-remind-pair { grid-template-columns: minmax(0, 1fr); }
+    #view-home .tw-remind-pair .tw-remind-inline { flex-direction: row; align-items: center; }
+}

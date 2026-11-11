@@ -88,8 +88,8 @@ const AgentAvatar: React.FC<AgentAvatarProps> = ({ agent, size = 32, className =
     }
     return (
       <img
-        src="./logo.jpg"
-        alt={agent?.name || 'CowAgent'}
+        src="./agent-qinghe.png"
+        alt={agent?.name || '青禾'}
         draggable={false}
         style={px}
         className={`${radius} object-cover flex-shrink-0 ${className}`}

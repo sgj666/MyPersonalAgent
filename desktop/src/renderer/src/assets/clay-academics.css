@@ -1232,3 +1232,458 @@
     box-shadow: none;
   }
 }
+
+/* ---------- home: dashboard ---------- */
+/* One canvas, two card rows: the three metrics across, then 今日课程 /
+   今日简报 / 提醒设置 (the last spanning both rows) next to the board, 产出 and
+   知识库 lists, and the quick-create row below. Cards keep the clay 1px rim
+   and soft shadow; only the gaps and paddings are tightened so a 1440x900
+   window has no dead space. */
+html:not(.dark) #twb-home {
+  /* The site's cream canvas; the dark tokens in clay.css stay untouched. */
+  --twb-bg: #fffaf4;
+}
+
+#twb-home .twb-page {
+  gap: 16px;
+}
+
+#twb-home .twb-home-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(288px, 336px);
+  grid-template-rows: auto auto;
+  gap: 14px;
+  align-items: stretch;
+}
+
+#twb-home .twb-home-cell {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 196px;
+  padding: 16px 18px;
+}
+
+#twb-home .twb-home-cell .twb-card-head {
+  margin-bottom: 12px;
+}
+
+/* The scrollable body of a card (a list, the board columns, the brief) takes
+   whatever height the row leaves; it is a floor, never a fixed height. */
+#twb-home .twb-home-cell .twb-lessons,
+#twb-home .twb-home-cell .twb-list,
+#twb-home .twb-home-cell .twb-mini-board,
+#twb-home .twb-home-cell .twb-digest,
+#twb-home .twb-home-cell .twb-empty,
+#twb-home .twb-home-cell .twb-rem-preview {
+  flex: 1 1 auto;
+  min-height: 120px;
+}
+
+#twb-home .twb-home-cell .twb-rem-preview .twb-digest {
+  min-height: 0;
+}
+
+#twb-home .twb-home-lessons {
+  grid-area: 1 / 1 / 2 / 2;
+}
+
+#twb-home .twb-home-digest {
+  grid-area: 1 / 2 / 2 / 4;
+}
+
+#twb-home .twb-home-rem {
+  grid-area: 1 / 4 / 3 / 5;
+  overflow: auto;
+}
+
+#twb-home .twb-home-board {
+  grid-area: 2 / 1 / 3 / 2;
+}
+
+#twb-home .twb-home-artifacts {
+  grid-area: 2 / 2 / 3 / 3;
+}
+
+#twb-home .twb-home-knowledge {
+  grid-area: 2 / 3 / 3 / 4;
+}
+
+/* Three metrics on one line, whatever the window width. */
+#twb-home .twb-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+#twb-home .twb-metric {
+  padding: 16px 18px;
+}
+
+/* 已完成 reads as a cream note, not a lavender card. */
+#twb-home .twb-metric-c {
+  background: #fff6da;
+  color: #5c554b;
+}
+
+#twb-home .twb-metric-c .twb-metric-label {
+  color: #5c554b;
+}
+
+html.dark #twb-home .twb-metric-c {
+  background: var(--twb-card-d);
+  color: var(--twb-ink);
+}
+
+html.dark #twb-home .twb-metric-c .twb-metric-label {
+  color: var(--twb-ink-2);
+}
+
+/* Quick create: one compact row of the five tools. */
+#twb-home .twb-section-head {
+  margin-bottom: 10px;
+}
+
+#twb-home .twb-tools {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+}
+
+#twb-home .twb-tool {
+  min-height: 0;
+  padding: 12px 14px;
+  gap: 4px;
+}
+
+#twb-home .twb-tool b {
+  font-size: 15px;
+}
+
+#twb-home .twb-tool-ico {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+}
+
+#twb-home .twb-tool > span:last-child {
+  width: 100%;
+  font-size: 11.5px;
+  line-height: 1.45;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 1180px) {
+  #twb-home .twb-home-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto;
+  }
+
+  #twb-home .twb-home-cell {
+    grid-area: auto;
+  }
+
+  #twb-home .twb-home-rem {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 767px) {
+  #twb-home .twb-home-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #twb-home .twb-home-rem {
+    grid-column: auto;
+  }
+
+  #twb-home .twb-tools {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ---------- teaching tools: form left, result right ----------
+   The result column owns the larger half and scrolls inside itself, so the two
+   cards stay top-aligned and equal height however long the answer is. */
+#twb-teaching .twb-teach-grid {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  align-items: stretch;
+}
+
+#twb-teaching .twb-page-head .twb-eyebrow {
+  margin-bottom: 8px;
+}
+
+@media (max-width: 1000px) {
+  #twb-teaching .twb-teach-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.twb-teach-out {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.twb-teach-out-body {
+  flex: 1;
+  min-height: 0;
+  max-height: min(62vh, 760px);
+  overflow-y: auto;
+  padding: 2px 4px 2px 2px;
+}
+
+.twb-teach-text {
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--twb-ink);
+}
+
+.twb-teach-text .msg-content {
+  color: inherit;
+}
+
+.twb-teach-out-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--twb-line);
+}
+
+.twb-teach-status {
+  margin-left: auto;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60%;
+}
+
+.twb-teach-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 220px;
+  padding: 24px;
+  border: 2px dashed var(--twb-rim);
+  border-radius: 16px;
+  background: var(--twb-surface-2);
+  color: var(--twb-ink-2);
+  text-align: center;
+}
+
+.twb-teach-empty p {
+  max-width: 360px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* A failed run prints the backend's own words, so give them a block that reads
+   as a message rather than as a caption. */
+.twb-teach-out-body .twb-status.is-error,
+.twb-ai-result .twb-status.is-error {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--twb-rim);
+  border-radius: 12px;
+  background: var(--twb-urgent-soft);
+  font-weight: 700;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+/* Skeleton while the Agent thinks: the same bar the drawer shows. */
+.twb-teach-skel,
+.twb-ai-skel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 6px 2px;
+}
+
+.twb-teach-skel i,
+.twb-ai-skel i {
+  height: 14px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--twb-surface-2), var(--twb-surface-3), var(--twb-surface-2));
+  background-size: 200% 100%;
+  animation: twb-skel 1.4s ease-in-out infinite;
+}
+
+.twb-teach-skel i:nth-child(2),
+.twb-ai-skel i:nth-child(2) {
+  width: 86%;
+}
+
+.twb-teach-skel i:nth-child(3),
+.twb-ai-skel i:nth-child(3) {
+  width: 70%;
+}
+
+.twb-teach-skel i:nth-child(4) {
+  width: 92%;
+}
+
+.twb-teach-skel i:nth-child(5) {
+  width: 54%;
+}
+
+@keyframes twb-skel {
+  0% {
+    background-position: 160% 0;
+  }
+  100% {
+    background-position: -60% 0;
+  }
+}
+
+.twb-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 16px;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: var(--twb-accent);
+  border-radius: 2px;
+  animation: twb-cursor 1s steps(1) infinite;
+}
+
+@keyframes twb-cursor {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ---------- page AI assistant drawer ---------- */
+.twb-ai-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 78;
+}
+
+.twb-ai-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 26, 33, 0.32);
+}
+
+.twb-ai-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  width: 420px;
+  max-width: 100%;
+  height: 100%;
+  padding: 20px 20px 16px;
+  background: var(--twb-surface);
+  border-left: 3px solid rgba(96, 84, 74, 0.55);
+  box-shadow: -18px 0 40px rgba(80, 64, 48, 0.22);
+  color: var(--twb-ink);
+  font-family: var(--font-sans);
+}
+
+.twb-ai-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.twb-ai-head h2 {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--twb-ink);
+}
+
+.twb-ai-head p {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--twb-ink-2);
+}
+
+.twb-ai-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 16px;
+  padding-right: 4px;
+}
+
+.twb-ai-examples {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.twb-ai-example {
+  padding: 10px 12px;
+  border: 1px solid var(--twb-rim);
+  border-radius: 12px;
+  background: var(--twb-surface-2);
+  color: var(--twb-ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.55;
+  text-align: left;
+  cursor: pointer;
+}
+
+.twb-ai-example:hover {
+  background: var(--twb-accent-soft);
+  border-color: rgba(82, 162, 119, 0.4);
+  color: var(--twb-ink);
+}
+
+.twb-ai-example:focus-visible {
+  outline: 3px solid var(--twb-accent);
+  outline-offset: 2px;
+}
+
+.twb-ai-status {
+  margin: 0;
+}
+
+.twb-ai-result {
+  flex: 1;
+  min-height: 140px;
+  padding: 12px;
+  border: 1px dashed var(--twb-rim);
+  border-radius: 14px;
+  background: var(--twb-surface-2);
+}
+
+.twb-ai-text {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--twb-ink);
+}
+
+.twb-ai-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--twb-line);
+}
+
+@media (max-width: 520px) {
+  .twb-ai-drawer {
+    width: 100%;
+    border-left: 0;
+  }
+}
