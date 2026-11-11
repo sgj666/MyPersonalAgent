@@ -107,6 +107,9 @@ def _endpoint(method):
     def wrapper(self, *args):
         _require_auth()
         web.header('Content-Type', 'application/json; charset=utf-8')
+        # Live teaching data (greeting, today, settings) must never be replayed
+        # from the browser cache.
+        web.header('Cache-Control', 'no-store')
         try:
             return method(self, *args)
         except KeyError as e:

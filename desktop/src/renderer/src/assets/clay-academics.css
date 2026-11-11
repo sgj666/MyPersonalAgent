@@ -1860,17 +1860,14 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
 }
 
 .twb-motto-line {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-  max-height: 3.1em;
+  margin: 0;
+  min-width: 0;
+  flex: 1 1 320px;
   line-height: 1.55;
   font-size: 15px;
   font-weight: 600;
   color: var(--twb-ink-2);
-  flex: 1 1 320px;
-  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .twb-hero-motto {

@@ -161,16 +161,14 @@ html.dark #view-teaching.tw-view {
 }
 
 .tw-motto {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    overflow: hidden;
+    display: block;
     margin-top: 6px;
     max-width: min(100%, 760px);
     font-size: 16px;
     font-weight: 600;
     line-height: 1.55;
     color: var(--tw-ink-2);
+    overflow-wrap: anywhere;
 }
 
 .tw-hl {

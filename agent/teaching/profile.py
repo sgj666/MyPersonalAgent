@@ -156,39 +156,31 @@ def _fallback_motives(day: date) -> List[str]:
 
 
 def _split_motives(raw: str) -> List[str]:
-    """Up to three lines, with list numbering and stray quotes removed."""
-    lines = []
-    for line in (raw or "").splitlines():
-        text = re.sub(r"^\s*(?:\d+[.、)]|[-*•])\s*", "", line).strip().strip('"“”')
-        # A model that numbers inline leaves a trailing "2" behind.
-        text = re.sub(r"\s+\d{1,2}[.、)]?\s*$", "", text).strip()
-        if len(text) >= 8:
-            lines.append(text)
-    return lines[:3]
+    """Up to three lines, with any list numbering removed.
 
-
-def _motto_prompt(profile: dict, day: date, lessons: List[dict]) -> str:
-    """Three short lines for the hero: a lift, a fact, a small wonder.
-
-    The hero is not a task panel — the digest already reports the day. These
-    lines are meant to be read while the kettle boils, so they carry no work
-    items at all.
+    The model often answers ``1. … 2. … 3. …`` on a single line, so split at
+    the numbering itself instead of at newlines.
     """
-    return (
-        "给一位老师写今天首页上的三条短句，放进轮播里。\n"
-        "三条各写一种：一条温和的鼓励；一条教育/脑科学/学习方法的小知识；"
-        "一条自然、历史或语言的小趣闻。\n"
-        "每条 18-32 个汉字，具体、有信息量，不喊口号、不写鸡汤、不提今天的工作和课程；"
-        "每条最多一个 emoji；用 1. 2. 3. 编号，每行一条，不要引号，不要解释。"
-    )
+    entries: List[str] = []
+    for part in re.split(r"(?:^|\s)\d{1,2}[.、)]\s*", str(raw or "")):
+        for line in part.splitlines():
+            text = line.strip().strip('"\'“”‘’「」『』')
+            text = re.sub(r"\s+\d{1,2}[.、)]?\s*$", "", text).strip()
+            if len(text) >= 8:
+                entries.append(text)
+    return entries[:3]
 
 
 def _clean_motto(raw: str) -> str:
     """One usable line, 18-30 characters, or empty when the answer is unusable."""
     text = " ".join(str(raw or "").split()).strip()
     text = text.strip('"\'“”‘’「」『』 \t')
-    if len(text) > 30:
-        text = text[:30].rstrip("，、；：,;: ")
+    # Long answers are kept whole: the card clamps the display and the tooltip
+    # needs the real sentence. Only an absurd length is trimmed, at punctuation.
+    if len(text) > 80:
+        head = text[:80]
+        cut = max(head.rfind(ch) for ch in "，。！？；、,.!?;")
+        text = (head[:cut] if cut >= 18 else head).rstrip("，、；：,;: ") + "…"
     if len(text) < 18:
         return ""
     return text

@@ -20,6 +20,7 @@ import {
 import { t, tf, getLang } from '../i18n'
 import apiClient from '../api/client'
 import OnboardingDialog from '../components/OnboardingDialog'
+import ClampedText from '../components/ClampedText'
 import { iconFor } from '../lib/fileKind'
 import { todayISO } from '../lib/teaching'
 import { dateTime } from './artifacts/format'
@@ -368,11 +369,13 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
               </h1>
               <div className="twb-hero-motto">
                 <Sparkles size={15} />
-                {/* One line at a time: two lines of text, then an ellipsis; the
-                    full sentence is in the tooltip. */}
-                <p className="twb-motto-line" title={mottoLines[0] || ''}>
-                  {mottoLines[0] || t('tw_greeting_pending')}
-                </p>
+                {/* Two lines of text, then an ellipsis; the whole sentence is
+                    in the tooltip (the CSS line-clamp is inert in this Chromium). */}
+                <ClampedText
+                  className="twb-motto-line"
+                  text={mottoLines[0] || t('tw_greeting_pending')}
+                  lines={2}
+                />
                 <button
                   type="button"
                   className="twb-link"

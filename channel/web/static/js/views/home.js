@@ -44,11 +44,30 @@ function twHomeRenderDate() {
         if (hello && data.greeting) hello.textContent = data.greeting;
         const motto = document.getElementById('home-motto');
         if (motto) {
-            motto.textContent = data.motto || '';
-            // Two lines at most; the rest is in the tooltip.
-            motto.setAttribute('title', data.motto || '');
+            // Two lines at most; the rest is in the tooltip. The CSS line-clamp
+            // is inert in this Chromium, so cut the text here instead.
+            twClampLines(motto, data.motto || '', 2);
         }
     }).catch(() => {});
+}
+
+/** Show at most `lines` lines of `text`, ending with an ellipsis, title full. */
+function twClampLines(el, text, lines) {
+    el.textContent = text;
+    el.setAttribute('title', text);
+    const style = getComputedStyle(el);
+    const lineHeight = parseFloat(style.lineHeight) || 24;
+    const max = lineHeight * lines + 1;
+    if (el.scrollHeight <= max || !text) return;
+    let lo = 0;
+    let hi = text.length;
+    while (lo < hi) {
+        const mid = Math.ceil((lo + hi) / 2);
+        el.textContent = text.slice(0, mid) + '…';
+        if (el.scrollHeight <= max) lo = mid;
+        else hi = mid - 1;
+    }
+    el.textContent = text.slice(0, lo).replace(/[，、；：,;:\s]+$/, '') + '…';
 }
 
 function twHomeOpenTool(tool) {
@@ -437,3 +456,15 @@ function twHomeRenderKnowledge(data) {
         </button>`).join('')
         + `<p class="tw-footnote">${escapeHtml(t('tw_knowledge_pages').replace('{n}', String(pages)))}</p>`;
 }
+
+// The clamp depends on width; re-measure after a resize.
+let twMottoResizeTimer = null;
+window.addEventListener('resize', () => {
+    clearTimeout(twMottoResizeTimer);
+    twMottoResizeTimer = setTimeout(() => {
+        const motto = document.getElementById('home-motto');
+        if (!motto) return;
+        const full = motto.getAttribute('title') || '';
+        if (full) twClampLines(motto, full, 2);
+    }, 150);
+});
