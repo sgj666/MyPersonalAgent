@@ -245,6 +245,7 @@ const translations: Record<string, Record<string, string>> = {
     knowledge_save_first_msg: '当前文档正在编辑，移动或重命名前需要先保存并退出编辑。',
     nav_expand: '展开侧栏',
     nav_collapse: '收起侧栏',
+    session_history_close: '收起历史会话',
     session_history: '历史会话',
     // workspace panel
     ws_toggle: '工作空间',
@@ -1898,6 +1899,7 @@ const translations: Record<string, Record<string, string>> = {
     menu_settings: 'Settings',
     nav_expand: 'Expand sidebar',
     nav_collapse: 'Collapse sidebar',
+    session_history_close: 'Hide history',
     session_history: 'Chat history',
     // workspace panel
     ws_toggle: 'Workspace',

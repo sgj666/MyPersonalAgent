@@ -1,7 +1,9 @@
 import { create } from 'zustand'
 
 const NAV_KEY = 'cow_nav_collapsed'
-const SESSIONS_KEY = 'cow_sessions_collapsed'
+// v2: the drawer starts closed; the old key keeps the previous default for
+// anyone upgrading.
+const SESSIONS_KEY = 'cow_sessions_collapsed_v2'
 const TASK_NOTIFY_KEY = 'cow_task_notify'
 const TASK_NOTIFY_SOUND_KEY = 'cow_task_notify_sound'
 
@@ -46,7 +48,7 @@ export const useUIStore = create<UIState>((set) => ({
     set({ navCollapsed: v })
   },
 
-  sessionsCollapsed: readBool(SESSIONS_KEY),
+  sessionsCollapsed: readBool(SESSIONS_KEY, true),
   toggleSessions: () =>
     set((s) => {
       const next = !s.sessionsCollapsed

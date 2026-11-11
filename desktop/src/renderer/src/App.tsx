@@ -60,7 +60,7 @@ const App: React.FC = () => {
     navigate('/home', { replace: true })
   }, [navigate])
   const { isWin, isMac } = usePlatform()
-  const { sessionsCollapsed, toggleSessions, navCollapsed } = useUIStore()
+  const { sessionsCollapsed, setSessionsCollapsed, toggleSessions, navCollapsed } = useUIStore()
   const toggleWorkspace = useWorkspaceStore((s) => s.togglePanel)
   const workspaceOpen = useWorkspaceStore((s) => s.open)
   const onboardingOpen = useOnboardingStore((s) => s.open)
@@ -278,12 +278,24 @@ const App: React.FC = () => {
       <MenuEditor />
       <NavRail onLangChange={handleLangChange} />
 
-      {showSessions && <SessionList />}
+      <div className="relative flex-1 flex flex-col min-w-0 h-screen">
+        {showSessions && (
+          <>
+            <button
+              type="button"
+              aria-label={t('session_history_close')}
+              className="session-scrim"
+              onClick={() => setSessionsCollapsed(true)}
+            />
+            <div className="session-drawer">
+              <SessionList onClose={() => setSessionsCollapsed(true)} />
+            </div>
+          </>
+        )}
 
-      <div className="flex-1 flex flex-col min-w-0 h-screen">
         {/* Top titlebar strip — drag region + Windows controls */}
         <header className="h-[44px] flex items-center gap-1 px-2 flex-shrink-0 titlebar-drag bg-base border-b border-default">
-          {isChat && sessionsCollapsed && (
+          {isChat && (
             <button
               onClick={toggleSessions}
               title={t('session_history')}

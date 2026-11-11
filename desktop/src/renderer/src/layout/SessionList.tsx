@@ -153,7 +153,7 @@ function buildGroups(
   return groups
 }
 
-const SessionList: React.FC = () => {
+const SessionList: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
   const {
     sessions,
     activeId,
@@ -335,7 +335,7 @@ const SessionList: React.FC = () => {
   }
 
   return (
-    <div className="session-list w-[172px] flex-shrink-0 flex flex-col h-full bg-surface border-r border-default">
+    <div className="session-list w-[240px] flex-shrink-0 flex flex-col h-full bg-surface">
       <div className="flex items-center justify-between px-1.5 h-[44px] flex-shrink-0 titlebar-drag border-b border-default">
         <Tooltip label={t('session_history')}>
           <button
@@ -493,7 +493,7 @@ const SessionList: React.FC = () => {
                     <div
                       key={s.session_id}
                       ref={isActive ? activeRef : undefined}
-                      onClick={() => !isEditing && setActive(s.session_id)}
+                      onClick={() => { if (isEditing) return; setActive(s.session_id); onClose?.() }}
                       className={`session-row group relative flex items-center gap-1.5 pr-1.5 h-[34px] rounded-btn cursor-pointer transition-colors ${
                         indentSessions ? 'pl-[18px]' : 'pl-2.5'
                       } ${isActive ? 'is-active bg-accent-soft' : 'hover:bg-surface-2'}`}

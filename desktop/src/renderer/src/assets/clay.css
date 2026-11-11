@@ -1272,3 +1272,44 @@ html:not(.dark) .session-list .session-scroll.has-fade {
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
   mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
 }
+
+
+/* History is a drawer over the conversation, not a third column: it is
+   temporary, elevated, and never competes with the rail for structure. */
+.session-drawer {
+  position: absolute;
+  top: 44px;
+  bottom: 0;
+  left: 0;
+  z-index: 30;
+  display: flex;
+}
+
+html:not(.dark) .session-drawer .session-list {
+  width: 240px;
+  background: #fffdf8;
+  border-top-right-radius: 16px;
+  border-bottom-right-radius: 16px;
+  border-right: 1px solid rgba(96, 84, 74, 0.16);
+  box-shadow: 18px 0 40px rgba(80, 64, 48, 0.16);
+}
+
+html.dark .session-drawer .session-list {
+  width: 240px;
+  border-top-right-radius: 16px;
+  border-bottom-right-radius: 16px;
+  box-shadow: 18px 0 40px rgba(0, 0, 0, 0.4);
+}
+
+.session-scrim {
+  position: absolute;
+  top: 44px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  background: rgba(45, 40, 35, 0.12);
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
