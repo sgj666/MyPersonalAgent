@@ -30,6 +30,14 @@
   --twb-card-c: #ede6fe;
   --twb-card-d: #e3effb;
   --twb-card-e: #fff2cc;
+  --twb-q1: #b43d33;
+  --twb-q1-soft: #ffe3de;
+  --twb-q2: #9a6b12;
+  --twb-q2-soft: #fff1c9;
+  --twb-q3: #2f6f9f;
+  --twb-q3-soft: #e2f0fb;
+  --twb-q4: #6e6579;
+  --twb-q4-soft: #eeeaf2;
   --twb-shadow: 0 8px 24px rgba(120, 100, 80, 0.10);
   --twb-shadow-sm: 0 3px 10px rgba(120, 100, 80, 0.08);
   --twb-shadow-hover: 0 14px 32px rgba(120, 100, 80, 0.14);
@@ -63,6 +71,14 @@
   --twb-card-c: #1d1d28;
   --twb-card-d: #17202a;
   --twb-card-e: #3a331c;
+  --twb-q1: #ff9a8a;
+  --twb-q1-soft: #3b1d1a;
+  --twb-q2: #e8c06a;
+  --twb-q2-soft: #3a2f14;
+  --twb-q3: #7cc4f0;
+  --twb-q3-soft: #162c3a;
+  --twb-q4: #aebac7;
+  --twb-q4-soft: #232a32;
 }
 
 /* ---------- page frame ---------- */
@@ -753,6 +769,13 @@
   outline-offset: 2px;
 }
 
+.twb-input:disabled,
+.twb-select:disabled {
+  background: var(--twb-surface-2);
+  color: var(--twb-ink-3);
+  cursor: not-allowed;
+}
+
 .twb-textarea {
   resize: vertical;
   line-height: 1.55;
@@ -874,22 +897,28 @@
 
 .twb-task.is-overdue {
   border-color: var(--twb-urgent);
+  background: linear-gradient(180deg, var(--twb-urgent-soft) 0%, var(--twb-surface) 64%);
 }
 
-.twb-task-top {
+/* Labels: quadrant, category, overdue and lane, in one wrapping row. */
+.twb-task-labels {
   display: flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
-.twb-task h3 {
+.twb-task-title {
   font-size: 14px;
   font-weight: 800;
   line-height: 1.4;
   color: var(--twb-ink);
   overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .twb-task-note {
@@ -899,9 +928,37 @@
   font-weight: 600;
   margin-top: 4px;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* Deadline on the left, "updated" stamp on the right, both small. */
+.twb-task-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.twb-task-due {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--twb-ink-2);
+  white-space: nowrap;
+}
+
+.twb-task-due.is-overdue {
+  color: var(--twb-urgent);
+}
+
+.twb-task-stamp {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--twb-ink-3);
+  white-space: nowrap;
 }
 
 .twb-chip {
@@ -919,6 +976,41 @@
   white-space: nowrap;
 }
 
+/* Quadrant chips: the colour is the whole point, so it overrides .twb-chip. */
+.twb-quad {
+  border-color: transparent;
+}
+
+.twb-quad-urgent_important {
+  background: var(--twb-q1-soft);
+  color: var(--twb-q1);
+}
+
+.twb-quad-important {
+  background: var(--twb-q2-soft);
+  color: var(--twb-q2);
+}
+
+.twb-quad-urgent {
+  background: var(--twb-q3-soft);
+  color: var(--twb-q3);
+}
+
+.twb-quad-neither {
+  background: var(--twb-q4-soft);
+  color: var(--twb-q4);
+}
+
+.twb-quad.is-on,
+.twb-quad-filter-btn.is-on {
+  border-color: currentColor;
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+.twb-chip-category {
+  background: var(--twb-card-a);
+}
+
 .twb-chip-lane {
   background: var(--twb-card-c);
 }
@@ -927,19 +1019,52 @@
   background: var(--twb-surface-2);
 }
 
-.twb-chip-prio-high {
-  background: var(--twb-urgent-soft);
-  color: var(--twb-urgent);
-}
-
-.twb-chip-prio-low {
-  background: var(--twb-surface-2);
-  color: var(--twb-ink-2);
-}
-
 .twb-chip-overdue {
   background: var(--twb-urgent);
   color: #ffffff;
+}
+
+/* Filter pills above the lanes; a selected quadrant narrows all four lanes. */
+.twb-quad-filter,
+.twb-quad-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.twb-quad-filter {
+  margin-top: -20px;
+}
+
+/* Quadrant picker in the dialog: two columns, so all four stay readable. */
+.twb-quad-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.twb-quad-picker .twb-chip {
+  height: 32px;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.twb-task-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--twb-ink-3);
+}
+
+@media (max-width: 560px) {
+  .twb-quad-filter {
+    margin-top: -12px;
+  }
+
+  .twb-quad-picker {
+    grid-template-columns: 1fr;
+  }
 }
 
 .twb-task-foot {

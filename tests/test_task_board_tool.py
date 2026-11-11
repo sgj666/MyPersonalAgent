@@ -95,10 +95,10 @@ def test_tool_refuses_unknown_action_missing_id_and_bad_status(tmp_path):
 
     created = tool.execute({"action": "create", "title": "ok"}).result["task"]
     bad_update = tool.execute(
-        {"action": "update", "task_id": created["id"], "priority": "urgent"}
+        {"action": "update", "task_id": created["id"], "priority": "someday"}
     )
     assert bad_update.status == "error"
-    assert BoardStore(tmp_path / "board.json").get(created["id"])["priority"] == "normal"
+    assert BoardStore(tmp_path / "board.json").get(created["id"])["priority"] == "important"
 
     no_fields = tool.execute({"action": "update", "task_id": created["id"]})
     assert no_fields.status == "error"

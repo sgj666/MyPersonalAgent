@@ -9,7 +9,7 @@ from channel.web.api import tasks as tasks_api
 
 
 def _get(tmp_path, **params):
-    defaults = {"status": "", "lane": "", "agent_id": ""}
+    defaults = {"status": "", "lane": "", "sort": "", "mode": "", "agent_id": ""}
     defaults.update(params)
     with patch.object(tasks_api, "_require_auth"), \
          patch.object(tasks_api.web, "header"), \
@@ -64,16 +64,38 @@ def test_get_rejects_invalid_status_filter(tmp_path):
     assert response["code"] == "bad_request"
 
 
+def test_get_sorts_by_quadrant_when_asked(tmp_path):
+    _seed(tmp_path, title="neither", priority="neither")
+    _seed(tmp_path, title="urgent", priority="urgent")
+    _seed(tmp_path, title="important", priority="important")
+    _seed(tmp_path, title="urgent_important", priority="urgent_important")
+
+    response = _get(tmp_path, sort="priority")
+
+    assert response["status"] == "success"
+    assert [t["title"] for t in response["tasks"]] == [
+        "urgent_important", "important", "urgent", "neither",
+    ]
+    assert response["board"]["columns"][0]["tasks"][0]["title"] == "urgent_important"
+    assert [t["title"] for t in _get(tmp_path, mode="priority")["tasks"]] == [
+        "urgent_important", "important", "urgent", "neither",
+    ]
+    assert _get(tmp_path, sort="deadline")["code"] == "bad_request"
+
+
 def test_post_creates_task(tmp_path):
     response = _post(tasks_api.TasksHandler, tmp_path, {
-        "title": "  试卷分析 ", "lane": "英语", "due": "2026-12-05", "priority": "high",
+        "title": "  试卷分析 ", "lane": "英语", "due": "2026-12-05", "due_time": "14:30",
+        "category": "批改", "priority": "urgent_important",
         "source": {"type": "doc", "ref": "unit3.md"},
     })
 
     assert response["status"] == "success"
     task = response["task"]
     assert task["title"] == "试卷分析"
-    assert task["priority"] == "high"
+    assert task["priority"] == "urgent_important"
+    assert task["due_time"] == "14:30"
+    assert task["category"] == "批改"
     assert BoardStore(tmp_path / "board.json").get(task["id"])["source"]["type"] == "doc"
 
 
@@ -87,7 +109,25 @@ def test_post_rejects_invalid_or_missing_fields(tmp_path):
 
     bad_field = _post(tasks_api.TasksHandler, tmp_path, {"title": "x", "colour": "red"})
     assert bad_field["code"] == "bad_request"
+
+    bad_time = _post(tasks_api.TasksHandler, tmp_path, {"title": "x", "due_time": "9:00"})
+    assert bad_time["code"] == "bad_request"
+
+    time_without_due = _post(tasks_api.TasksHandler, tmp_path,
+                             {"title": "x", "due_time": "09:00"})
+    assert time_without_due["code"] == "bad_request"
+
+    long_category = _post(tasks_api.TasksHandler, tmp_path,
+                          {"title": "x", "category": "备" * 21})
+    assert long_category["code"] == "bad_request"
     assert not (tmp_path / "board.json").exists()
+
+
+def test_post_normalizes_legacy_priority_on_write(tmp_path):
+    response = _post(tasks_api.TasksHandler, tmp_path, {"title": "旧数据", "priority": "high"})
+
+    assert response["status"] == "success"
+    assert response["task"]["priority"] == "urgent_important"
 
 
 def test_update_moves_status_and_errors_are_typed(tmp_path):

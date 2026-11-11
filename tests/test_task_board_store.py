@@ -62,7 +62,9 @@ def test_create_normalizes_fields_and_writes_versioned_document(tmp_path):
         note="第一行\n第二行",
         lane=" 英语 ",
         due="2026-12-01",
-        priority="high",
+        due_time=" 18:00 ",
+        category=" 备课 ",
+        priority="urgent_important",
         source={"type": "chat", "ref": "sess-1"},
     )
 
@@ -72,7 +74,9 @@ def test_create_normalizes_fields_and_writes_versioned_document(tmp_path):
     assert task["status"] == "todo"
     assert task["lane"] == "英语"
     assert task["due"] == "2026-12-01"
-    assert task["priority"] == "high"
+    assert task["due_time"] == "18:00"
+    assert task["category"] == "备课"
+    assert task["priority"] == "urgent_important"
     assert task["source"] == {"type": "chat", "ref": "sess-1"}
     assert task["created_at"] and task["updated_at"]
     assert task["done_at"] == ""
@@ -100,7 +104,15 @@ def test_create_rejects_invalid_fields(tmp_path):
     with pytest.raises(ValueError):
         store.create(title="ok", due="12/01/2026")
     with pytest.raises(ValueError):
-        store.create(title="ok", priority="urgent")
+        store.create(title="ok", due="2026-12-01", due_time="8:00")
+    with pytest.raises(ValueError):
+        store.create(title="ok", due="2026-12-01", due_time="24:00")
+    with pytest.raises(ValueError):
+        store.create(title="ok", due_time="09:00")
+    with pytest.raises(ValueError):
+        store.create(title="ok", category="备" * 21)
+    with pytest.raises(ValueError):
+        store.create(title="ok", priority="someday")
     with pytest.raises(ValueError):
         store.create(title="ok", colour="red")
 
@@ -144,7 +156,11 @@ def test_update_rejects_unknown_or_invalid_fields_without_writing(tmp_path):
     with pytest.raises(ValueError):
         store.update(task["id"], due="2026-13-01")
     with pytest.raises(ValueError):
-        store.update(task["id"], priority="urgent")
+        store.update(task["id"], due_time="09:00")
+    with pytest.raises(ValueError):
+        store.update(task["id"], priority="someday")
+    with pytest.raises(ValueError):
+        store.update(task["id"], category="备" * 21)
     with pytest.raises(ValueError):
         # A rejected second field must not leave the first one applied.
         store.update(task["id"], note="changed", status="nope")
@@ -223,4 +239,91 @@ def test_hand_edited_entry_is_tolerated(tmp_path):
     tasks = _store(tmp_path).load_tasks()
     assert [t["id"] for t in tasks] == ["abc123abc123"]
     assert tasks[0]["status"] == "todo"
-    assert tasks[0]["priority"] == "normal"
+    assert tasks[0]["priority"] == "important"
+    assert tasks[0]["due_time"] == ""
+    assert tasks[0]["category"] == ""
+
+
+def test_legacy_priority_migrates_on_read_and_write(tmp_path):
+    (tmp_path / "board.json").write_text(json.dumps({
+        "version": 1,
+        "tasks": [
+            {"id": "aaa111", "title": "high", "priority": "high"},
+            {"id": "bbb222", "title": "normal", "priority": "normal"},
+            {"id": "ccc333", "title": "low", "priority": "low"},
+            {"id": "ddd444", "title": "unknown", "priority": "whenever"},
+        ],
+    }), encoding="utf-8")
+
+    store = _store(tmp_path)
+    assert {t["title"]: t["priority"] for t in store.load_tasks()} == {
+        "high": "urgent_important",
+        "normal": "important",
+        "low": "neither",
+        "unknown": "important",
+    }
+
+    # Writing a legacy code normalizes it rather than storing the old value.
+    assert store.create(title="迁移", priority="high")["priority"] == "urgent_important"
+    assert store.create(title="迁移2", priority="low")["priority"] == "neither"
+    stored = json.loads((tmp_path / "board.json").read_text(encoding="utf-8"))
+    written = {t["title"]: t["priority"] for t in stored["tasks"]}
+    assert written["迁移"] == "urgent_important"
+    assert written["迁移2"] == "neither"
+
+
+def test_priority_sort_orders_quadrants_then_due(tmp_path):
+    store = _store(tmp_path)
+    neither = store.create(title="不紧急不重要", priority="neither")
+    urgent_late = store.create(title="不重要紧急-晚", priority="urgent", due="2026-12-20")
+    urgent_soon = store.create(title="不重要紧急-早", priority="urgent", due="2026-12-01")
+    important = store.create(title="重要不紧急", priority="important")
+    first = store.create(title="重要紧急", priority="urgent_important", due="2026-12-10")
+
+    ordered = [t["id"] for t in store.list(mode="priority")]
+    assert ordered == [first["id"], important["id"], urgent_soon["id"],
+                       urgent_late["id"], neither["id"]]
+
+    # The default stays deadline-first.
+    due_first = [t["id"] for t in store.list()]
+    assert due_first == [urgent_soon["id"], first["id"], urgent_late["id"],
+                         important["id"], neither["id"]]
+
+    with pytest.raises(ValueError):
+        store.list(mode="whenever")
+
+
+def test_due_time_requires_due_and_is_dropped_with_it(tmp_path):
+    store = _store(tmp_path)
+    task = store.create(title="早读", due="2026-12-01", due_time="07:30")
+    assert task["due_time"] == "07:30"
+
+    # Adding a time to an undated task is refused without touching the file.
+    no_due = store.create(title="无期限")
+    board_path = tmp_path / "board.json"
+    before = board_path.read_bytes()
+    with pytest.raises(ValueError):
+        store.update(no_due["id"], due_time="09:00")
+    assert board_path.read_bytes() == before
+
+    cleared = store.update(task["id"], due="")
+    assert cleared["due"] == ""
+    assert cleared["due_time"] == ""
+
+    # A time sent together with its date in one update is accepted.
+    together = store.update(no_due["id"], due="2026-12-02", due_time="10:15")
+    assert together["due_time"] == "10:15"
+
+    # An unreadable stored time reads as absent rather than breaking the card.
+    stored = json.loads(board_path.read_text(encoding="utf-8"))
+    for row in stored["tasks"]:
+        if row["id"] == no_due["id"]:
+            row["due_time"] = "25:99"
+    board_path.write_text(json.dumps(stored), encoding="utf-8")
+    assert store.get(no_due["id"])["due_time"] == ""
+
+
+def test_category_and_due_time_default_empty_on_create(tmp_path):
+    task = _store(tmp_path).create(title="普通任务")
+    assert task["category"] == ""
+    assert task["due_time"] == ""

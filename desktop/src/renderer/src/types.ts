@@ -1356,7 +1356,11 @@ export interface TaskRecipient {
 /** The board's fixed lanes, in the order they render. */
 export type BoardStatus = 'todo' | 'doing' | 'blocked' | 'done'
 
-export type BoardPriority = 'low' | 'normal' | 'high'
+/**
+ * The four Eisenhower quadrants, in display order. The codes are the contract
+ * with the backend; labels live in i18n.
+ */
+export type BoardPriority = 'urgent_important' | 'important' | 'urgent' | 'neither'
 
 /** Where a task came from: the board itself, a chat turn, or a document. */
 export interface BoardTaskSource {
@@ -1379,6 +1383,10 @@ export interface BoardTask {
   lane: string
   /** `YYYY-MM-DD`, empty when it has no deadline. */
   due: string
+  /** `HH:MM`; only ever set while `due` is. */
+  due_time: string
+  /** Free-form bucket such as 备课 or 批改, at most 20 characters. */
+  category: string
   priority: BoardPriority
   source: BoardTaskSource
   created_at: string
@@ -1408,6 +1416,8 @@ export interface BoardTaskFields {
   status?: BoardStatus
   lane?: string
   due?: string
+  due_time?: string
+  category?: string
   priority?: BoardPriority
 }
 

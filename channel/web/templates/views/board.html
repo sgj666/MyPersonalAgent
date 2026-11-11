@@ -20,8 +20,19 @@
                                     <label class="tw-field tw-field-inline">
                                         <span data-i18n="tw_board_sort">排序</span>
                                         <select id="board-sort" class="tw-select" onchange="twBoardSetSort(this.value)">
-                                            <option value="due" data-i18n="tw_board_sort_due">截止日优先</option>
-                                            <option value="created" data-i18n="tw_board_sort_created">创建时间</option>
+                                            <option value="due" data-i18n="tw_board_sort_due">截止优先</option>
+                                            <option value="priority" data-i18n="tw_board_sort_priority">优先级</option>
+                                            <option value="created" data-i18n="tw_board_sort_created">最近创建</option>
+                                        </select>
+                                    </label>
+                                    <label class="tw-field tw-field-inline">
+                                        <span data-i18n="tw_board_quadrant">四象限</span>
+                                        <select id="board-quadrant-filter" class="tw-select" onchange="twBoardSetQuadrant(this.value)">
+                                            <option value="" data-i18n="tw_board_quadrant_all">全部象限</option>
+                                            <option value="urgent_important" data-i18n="tw_quad_urgent_important">重要紧急</option>
+                                            <option value="important" data-i18n="tw_quad_important">重要不紧急</option>
+                                            <option value="urgent" data-i18n="tw_quad_urgent">不重要紧急</option>
+                                            <option value="neither" data-i18n="tw_quad_neither">不重要不紧急</option>
                                         </select>
                                     </label>
                                     <button type="button" class="tw-btn tw-btn-primary" onclick="twBoardOpenCreate()">
@@ -70,29 +81,84 @@
                                            data-i18n-placeholder="tw_task_title_ph" placeholder="例如：Unit 3 读写课备课">
                                 </label>
                                 <label class="tw-field">
-                                    <span data-i18n="tw_task_note">备注</span>
+                                    <span data-i18n="tw_task_detail">详情</span>
                                     <textarea id="board-task-note" class="tw-textarea" rows="3" maxlength="2000"
-                                              data-i18n-placeholder="tw_task_note_ph" placeholder="需要准备的材料、思路或待确认事项"></textarea>
+                                              data-i18n-placeholder="tw_task_detail_ph" placeholder="需要准备的材料、思路或待确认事项"></textarea>
                                 </label>
+                                <fieldset class="tw-field tw-quad-field">
+                                    <legend data-i18n="tw_board_quadrant">四象限</legend>
+                                    <div class="tw-quad-picker">
+                                        <label class="tw-quad-pill tw-quad-urgent_important">
+                                            <input type="radio" name="board-task-priority" value="urgent_important">
+                                            <span data-i18n="tw_quad_urgent_important">重要紧急</span>
+                                        </label>
+                                        <label class="tw-quad-pill tw-quad-important">
+                                            <input type="radio" name="board-task-priority" value="important">
+                                            <span data-i18n="tw_quad_important">重要不紧急</span>
+                                        </label>
+                                        <label class="tw-quad-pill tw-quad-urgent">
+                                            <input type="radio" name="board-task-priority" value="urgent">
+                                            <span data-i18n="tw_quad_urgent">不重要紧急</span>
+                                        </label>
+                                        <label class="tw-quad-pill tw-quad-neither">
+                                            <input type="radio" name="board-task-priority" value="neither">
+                                            <span data-i18n="tw_quad_neither">不重要不紧急</span>
+                                        </label>
+                                    </div>
+                                </fieldset>
                                 <div class="tw-field-row">
-                                    <label class="tw-field">
-                                        <span data-i18n="tw_board_lane">泳道</span>
-                                        <input id="board-task-lane" class="tw-input" type="text" maxlength="40" list="board-lane-options">
-                                        <datalist id="board-lane-options"></datalist>
-                                    </label>
                                     <label class="tw-field">
                                         <span data-i18n="tw_task_due_label">截止日期</span>
                                         <input id="board-task-due" class="tw-input" type="date">
                                     </label>
+                                    <label class="tw-field">
+                                        <span data-i18n="tw_task_due_time">时间</span>
+                                        <input id="board-task-due-time" class="tw-input" type="time">
+                                    </label>
+                                </div>
+                                <div class="tw-field-row">
+                                    <label class="tw-field">
+                                        <span data-i18n="tw_task_category">类别</span>
+                                        <!-- Preset categories are stored verbatim as the task's own
+                                             wording, so they stay untranslated: a board written in
+                                             Chinese keeps its categories when the UI switches. -->
+                                        <input id="board-task-category" class="tw-input" type="text" maxlength="20"
+                                               list="board-category-options"
+                                               data-i18n-placeholder="tw_task_category_ph" placeholder="例如：备课">
+                                        <datalist id="board-category-options">
+                                            <option value="备课"></option>
+                                            <option value="批改"></option>
+                                            <option value="班级"></option>
+                                            <option value="教研"></option>
+                                            <option value="家校"></option>
+                                            <option value="其他"></option>
+                                        </datalist>
+                                    </label>
+                                    <label class="tw-field">
+                                        <span data-i18n="tw_task_status">状态</span>
+                                        <select id="board-task-status" class="tw-select">
+                                            <option value="todo" data-i18n="tw_status_todo">待办</option>
+                                            <option value="doing" data-i18n="tw_status_doing">进行中</option>
+                                            <option value="blocked" data-i18n="tw_status_blocked">受阻</option>
+                                            <option value="done" data-i18n="tw_status_done">已完成</option>
+                                        </select>
+                                    </label>
                                 </div>
                                 <label class="tw-field">
-                                    <span data-i18n="tw_task_priority">优先级</span>
-                                    <select id="board-task-priority" class="tw-select">
-                                        <option value="low" data-i18n="tw_priority_low">低</option>
-                                        <option value="normal" data-i18n="tw_priority_normal">普通</option>
-                                        <option value="high" data-i18n="tw_priority_high">高</option>
-                                    </select>
+                                    <span data-i18n="tw_board_lane">泳道</span>
+                                    <input id="board-task-lane" class="tw-input" type="text" maxlength="40" list="board-lane-options">
+                                    <datalist id="board-lane-options"></datalist>
                                 </label>
+                                <div id="board-task-meta" class="tw-task-meta hidden">
+                                    <div>
+                                        <span data-i18n="tw_task_created_at">创建时间</span>
+                                        <b id="board-task-created">—</b>
+                                    </div>
+                                    <div>
+                                        <span data-i18n="tw_task_updated_at">更新时间</span>
+                                        <b id="board-task-updated">—</b>
+                                    </div>
+                                </div>
                                 <p id="board-dialog-status" class="tw-status" role="status"></p>
                                 <div class="tw-modal-actions">
                                     <button type="button" class="tw-btn" onclick="twBoardCloseDialog()" data-i18n="tw_cancel">取消</button>

@@ -163,7 +163,9 @@
 | `status` | enum | `todo` / `doing` / `blocked` / `done`，四列固定顺序 |
 | `lane` | string | 泳道（学科或班级），≤40 字 |
 | `due` | string | `YYYY-MM-DD`，空表示无期限 |
-| `priority` | enum | `low` / `normal` / `high` |
+| `due_time` | string | `HH:MM`，可空；有值时必须同时有 `due`，清空 `due` 会一并清空 |
+| `category` | string | 类别，≤20 字，可空 |
+| `priority` | enum | 四象限：`urgent_important` / `important` / `urgent` / `neither`；旧值写入归一（`high`→`urgent_important`、`normal`→`important`、`low`→`neither`），未知读取按 `important` |
 | `source` | object | `{type: manual\|chat\|doc, ref}` |
 | `created_at` / `updated_at` | string | UTC ISO |
 | `done_at` | string | 仅 `done` 时有值，离开 `done` 清空 |
@@ -172,7 +174,7 @@
 
 | 方法 | 路径 | 语义 |
 |---|---|---|
-| GET | `/api/tasks?status=&lane=` | 任务列表 + 分组看板（空列也返回） |
+| GET | `/api/tasks?status=&lane=&sort=` | 任务列表 + 分组看板（空列也返回）；`sort=due\|priority\|created` |
 | POST | `/api/tasks` | 新建任务 |
 | POST | `/api/tasks/update` | 修改内容或状态 |
 | POST | `/api/tasks/delete` | 删除任务 |

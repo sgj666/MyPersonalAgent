@@ -37,19 +37,34 @@ STATUS_LABELS = {
     "blocked": "受阻",
     "done": "已完成",
 }
-PRIORITIES = ("low", "normal", "high")
+# The four quadrants, in display order. The codes are the contract the clients
+# sort and colour by, not labels: labels belong to each client's i18n.
+PRIORITIES = ("urgent_important", "important", "urgent", "neither")
+PRIORITY_ORDER = {code: index for index, code in enumerate(PRIORITIES)}
+# Boards written before the quadrants used a three-step scale. Reading maps it
+# forward so old files keep their intent without a migration pass.
+LEGACY_PRIORITIES = {
+    "high": "urgent_important",
+    "normal": "important",
+    "low": "neither",
+}
+DEFAULT_PRIORITY = "important"
 SOURCE_TYPES = ("manual", "chat", "doc")
 
 MAX_TITLE = 120
 MAX_NOTE = 2000
 MAX_LANE = 40
+MAX_CATEGORY = 20
 
 # Fields a caller may set. ``id``, the timestamps and ``done_at`` are derived
 # here: accepting them would let a caller forge the ordering the board relies
 # on.
-FIELDS = ("title", "note", "status", "lane", "due", "priority", "source")
+FIELDS = ("title", "note", "status", "lane", "due", "due_time", "category", "priority", "source")
+
+SORT_MODES = ("due", "priority", "created")
 
 _DUE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_TIME_RE = re.compile(r"^\d{2}:\d{2}$")
 
 _locks_guard = threading.Lock()
 _locks: Dict[str, threading.RLock] = {}
@@ -135,10 +150,47 @@ def _clean_due(value) -> str:
     return due
 
 
+def _clean_due_time(value) -> str:
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise ValueError("due_time must be a string")
+    due_time = value.strip()
+    if not due_time:
+        return ""
+    if not _TIME_RE.match(due_time):
+        raise ValueError("due_time must be HH:MM")
+    hour, minute = (int(part) for part in due_time.split(":"))
+    if hour > 23 or minute > 59:
+        raise ValueError(f"due_time is not a real time: {due_time}")
+    return due_time
+
+
+def _clean_category(value) -> str:
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise ValueError("category must be a string")
+    category = value.strip()
+    if len(category) > MAX_CATEGORY:
+        raise ValueError(f"category must be at most {MAX_CATEGORY} characters")
+    return category
+
+
+def _normalize_priority(value) -> str:
+    """Read side: legacy codes map forward, anything unknown is the default."""
+    if not isinstance(value, str):
+        return DEFAULT_PRIORITY
+    if value in PRIORITY_ORDER:
+        return value
+    return LEGACY_PRIORITIES.get(value, DEFAULT_PRIORITY)
+
+
 def _clean_priority(value) -> str:
-    if value not in PRIORITIES:
+    """Write side: new codes and legacy codes are both accepted, normalized."""
+    if not isinstance(value, str) or (value not in PRIORITY_ORDER and value not in LEGACY_PRIORITIES):
         raise ValueError(f"invalid priority: {value!r}")
-    return value
+    return _normalize_priority(value)
 
 
 def _clean_source(value) -> dict:
@@ -155,9 +207,30 @@ def _clean_source(value) -> dict:
     return {"type": source_type, "ref": ref.strip()}
 
 
-def _sort_tasks(tasks: List[dict]) -> List[dict]:
-    """Due date first, empty due last, newest-created as the tiebreak."""
+def _clean_sort_mode(value) -> str:
+    mode = (value or "due").strip() if isinstance(value, str) else "due"
+    if mode not in SORT_MODES:
+        raise ValueError(f"invalid sort: {value!r}")
+    return mode
+
+
+def _sort_tasks(tasks: List[dict], mode: str = "due") -> List[dict]:
+    """Display order.
+
+    ``due``: nearest deadline first, undated last.
+    ``priority``: quadrant 0..3, then the same due order inside each.
+    ``created``: newest first.
+    """
     ordered = sorted(tasks, key=lambda t: t.get("created_at") or "", reverse=True)
+    if mode == "created":
+        return ordered
+    if mode == "priority":
+        ordered.sort(key=lambda t: (
+            PRIORITY_ORDER.get(t.get("priority"), PRIORITY_ORDER[DEFAULT_PRIORITY]),
+            not t.get("due"),
+            t.get("due") or "",
+        ))
+        return ordered
     ordered.sort(key=lambda t: (not t.get("due"), t.get("due") or ""))
     return ordered
 
@@ -181,9 +254,7 @@ def _normalize_stored(raw) -> Optional[dict]:
     status = raw.get("status")
     if status not in STATUSES:
         status = "todo"
-    priority = raw.get("priority")
-    if priority not in PRIORITIES:
-        priority = "normal"
+    priority = _normalize_priority(raw.get("priority"))
     due = raw.get("due")
     if not isinstance(due, str) or not _DUE_RE.match(due.strip()):
         due = ""
@@ -193,6 +264,14 @@ def _normalize_stored(raw) -> Optional[dict]:
             datetime.strptime(due, "%Y-%m-%d")
         except ValueError:
             due = ""
+    due_time = raw.get("due_time")
+    if not isinstance(due_time, str) or not due:
+        due_time = ""
+    else:
+        due_time = due_time.strip()
+        if not _TIME_RE.match(due_time) or int(due_time[:2]) > 23 or int(due_time[3:]) > 59:
+            due_time = ""
+    category = raw.get("category")
     note = raw.get("note")
     lane = raw.get("lane")
     source = raw.get("source")
@@ -214,6 +293,8 @@ def _normalize_stored(raw) -> Optional[dict]:
         "status": status,
         "lane": lane.strip()[:MAX_LANE] if isinstance(lane, str) else "",
         "due": due,
+        "due_time": due_time,
+        "category": category.strip()[:MAX_CATEGORY] if isinstance(category, str) else "",
         "priority": priority,
         "source": source if isinstance(source, dict) else {"type": "manual", "ref": ""},
         "created_at": created_at if isinstance(created_at, str) else "",
@@ -283,10 +364,16 @@ class BoardStore:
             clean["lane"] = _clean_lane(fields["lane"])
         if "due" in fields:
             clean["due"] = _clean_due(fields["due"])
+        if "due_time" in fields:
+            clean["due_time"] = _clean_due_time(fields["due_time"])
+        if "category" in fields:
+            clean["category"] = _clean_category(fields["category"])
         if "priority" in fields:
             clean["priority"] = _clean_priority(fields["priority"])
         if "source" in fields:
             clean["source"] = _clean_source(fields["source"])
+        if "due" in clean and not clean["due"] and clean.get("due_time"):
+            raise ValueError("due_time requires a due date")
         return clean
 
     def load_tasks(self) -> List[dict]:
@@ -304,9 +391,11 @@ class BoardStore:
                     return task
         return None
 
-    def list(self, status: Optional[str] = None, lane: Optional[str] = None) -> List[dict]:
+    def list(self, status: Optional[str] = None, lane: Optional[str] = None,
+             mode: str = "due") -> List[dict]:
         if status:
             status = _clean_status(status)
+        mode = _clean_sort_mode(mode)
         lane = lane.strip() if isinstance(lane, str) else ""
         with self._lock():
             tasks = self._load()
@@ -314,15 +403,15 @@ class BoardStore:
             tasks = [t for t in tasks if t["status"] == status]
         if lane:
             tasks = [t for t in tasks if t["lane"] == lane]
-        return _sort_tasks(tasks)
+        return _sort_tasks(tasks, mode)
 
-    def board(self, lane: Optional[str] = None) -> dict:
+    def board(self, lane: Optional[str] = None, mode: str = "due") -> dict:
         """The four columns in fixed status order, plus counts and total.
 
         Empty columns are returned: the view draws a place to drop a task into,
         and a missing column would read as a missing status.
         """
-        tasks = self.list(lane=lane)
+        tasks = self.list(lane=lane, mode=mode)
         columns = []
         counts = {}
         for status in STATUSES:
@@ -339,6 +428,8 @@ class BoardStore:
         clean = self._validate_updates(fields)
         if not clean.get("title"):
             raise ValueError("title is required")
+        if clean.get("due_time") and not clean.get("due"):
+            raise ValueError("due_time requires a due date")
         now = _now()
         with self._lock():
             tasks = self._load()
@@ -354,7 +445,9 @@ class BoardStore:
                 "status": status,
                 "lane": clean.get("lane", ""),
                 "due": clean.get("due", ""),
-                "priority": clean.get("priority", "normal"),
+                "due_time": clean.get("due_time", ""),
+                "category": clean.get("category", ""),
+                "priority": clean.get("priority", DEFAULT_PRIORITY),
                 "source": clean.get("source", {"type": "manual", "ref": ""}),
                 "created_at": now,
                 "updated_at": now,
@@ -374,8 +467,17 @@ class BoardStore:
             task = next((t for t in tasks if t["id"] == task_id), None)
             if task is None:
                 raise KeyError(task_id)
+            effective_due = clean["due"] if "due" in clean else task.get("due", "")
+            effective_time = clean["due_time"] if "due_time" in clean else task.get("due_time", "")
+            clearing_due = "due" in clean and not clean["due"]
+            if effective_time and not effective_due and not clearing_due:
+                raise ValueError("due_time requires a due date")
             now = _now()
             task.update(clean)
+            if clearing_due:
+                # A time without a date would be unreachable, so dropping the
+                # date drops the time with it.
+                task["due_time"] = ""
             if "status" in clean:
                 if clean["status"] == "done":
                     # Keep the moment it was first completed while other fields

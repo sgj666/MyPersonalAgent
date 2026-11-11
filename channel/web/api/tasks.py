@@ -69,12 +69,16 @@ class TasksHandler:
         _require_auth()
         web.header('Content-Type', 'application/json; charset=utf-8')
         try:
-            params = web.input(status='', lane='', agent_id='')
+            params = web.input(status='', lane='', sort='', mode='', agent_id='')
             store = _store(_request_agent_id(params))
             lane = (params.lane or '').strip()
+            # ``mode`` is the documented name; ``sort`` is accepted so a client
+            # that spells the view's control after its label still works.
+            sort = (params.sort or params.mode or '').strip() or 'due'
             tasks = store.list(status=(params.status or '').strip() or None,
-                               lane=lane or None)
-            return _ok(tasks=tasks, board=store.board(lane=lane or None))
+                               lane=lane or None,
+                               mode=sort)
+            return _ok(tasks=tasks, board=store.board(lane=lane or None, mode=sort))
         except ValueError as e:
             return _fail("bad_request", str(e))
         except Exception as e:

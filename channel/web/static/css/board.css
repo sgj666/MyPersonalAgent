@@ -3,6 +3,37 @@
 
 #view-board .tw-page { gap: 20px; }
 
+/* ---------- quadrant colours ----------
+   One pair per Eisenhower quadrant, keyed by the API's priority code so a card
+   chip and a dialog pill for the same code can never drift apart. Warm, low
+   saturation: the clay language keeps colour as a wash behind a 1px line. */
+#view-board {
+    --tw-quad-1: #C2673F;
+    --tw-quad-1-soft: #FFE8DC;
+    --tw-quad-2: #9A7216;
+    --tw-quad-2-soft: #FFF2CC;
+    --tw-quad-3: #2E6FA3;
+    --tw-quad-3-soft: #E3EFFB;
+    --tw-quad-4: #6E6579;
+    --tw-quad-4-soft: #F4EFEA;
+}
+
+html.dark #view-board {
+    --tw-quad-1: #E8A87C;
+    --tw-quad-1-soft: #3A2318;
+    --tw-quad-2: #DFC070;
+    --tw-quad-2-soft: #3A331C;
+    --tw-quad-3: #8FB8DC;
+    --tw-quad-3-soft: #17202A;
+    --tw-quad-4: #AEBAC7;
+    --tw-quad-4-soft: #1E262E;
+}
+
+.tw-quad-urgent_important { --quad-ink: var(--tw-quad-1); --quad-soft: var(--tw-quad-1-soft); }
+.tw-quad-important { --quad-ink: var(--tw-quad-2); --quad-soft: var(--tw-quad-2-soft); }
+.tw-quad-urgent { --quad-ink: var(--tw-quad-3); --quad-soft: var(--tw-quad-3-soft); }
+.tw-quad-neither { --quad-ink: var(--tw-quad-4); --quad-soft: var(--tw-quad-4-soft); }
+
 .tw-page-head {
     display: flex;
     align-items: flex-end;
@@ -77,6 +108,11 @@
 }
 
 /* ---------- columns ---------- */
+/* The board always draws its four lanes, so the whole-board empty panel never
+   belongs in the flow. It carries `hidden`; this console has no global rule
+   for that class, so the view defines its own. */
+#view-board .tw-empty.hidden { display: none; }
+
 .tw-board {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -151,9 +187,9 @@
 .tw-task {
     background: var(--tw-surface);
     border: 1px solid var(--tw-rim);
-    border-radius: 14px;
+    border-radius: 16px;
     box-shadow: var(--twb-shadow-sm);
-    padding: 12px;
+    padding: 14px;
     cursor: grab;
     transition: transform 120ms var(--tw-ease), box-shadow 120ms var(--tw-ease);
 }
@@ -161,14 +197,18 @@
 .tw-task:hover { transform: translate(-1px, -1px); box-shadow: var(--twb-shadow); }
 .tw-task.is-dragging { opacity: 0.55; cursor: grabbing; }
 .tw-task.is-overdue { border-color: var(--tw-urgent); }
+.tw-task.is-done { background: var(--tw-surface-2); }
 
-.tw-task-top {
+/* Tag row (quadrant, category, lane) and mark row (deadline, overdue, done)
+   share one wrap layout; the marks sit apart so the deadline reads as meta. */
+.tw-task-tags {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     flex-wrap: wrap;
-    margin-bottom: 6px;
 }
+
+.tw-task-marks { margin-top: 8px; }
 
 .tw-task h3 {
     font-size: 14px;
@@ -176,6 +216,11 @@
     line-height: 1.4;
     color: var(--tw-ink);
     overflow-wrap: anywhere;
+    margin-top: 6px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 .tw-task-note {
@@ -184,10 +229,19 @@
     color: var(--tw-ink-2);
     font-weight: 600;
     margin-top: 4px;
+    overflow-wrap: anywhere;
     display: -webkit-box;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+}
+
+.tw-task-updated {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--tw-ink-3);
+    text-align: right;
+    margin-top: 8px;
 }
 
 .tw-chip {
@@ -205,11 +259,20 @@
     white-space: nowrap;
 }
 
+/* Quadrant chip: the soft wash and the 1px line both come from the code's
+   custom properties, so all four share one rule. */
+.tw-chip.tw-quad {
+    background: var(--quad-soft);
+    border-color: var(--quad-ink);
+    color: var(--quad-ink);
+}
+
 .tw-chip-lane { background: var(--tw-card-c); }
-.tw-chip-due { background: var(--tw-surface-2); }
-.tw-chip-prio-high { background: var(--tw-urgent-soft); color: var(--tw-urgent); }
-.tw-chip-prio-low { background: var(--tw-surface-2); color: var(--tw-ink-2); }
-.tw-chip-overdue { background: var(--tw-urgent); color: #FFFFFF; }
+.tw-chip-cat { background: var(--tw-surface-2); color: var(--tw-ink-2); }
+.tw-chip-due { background: var(--tw-surface); color: var(--tw-ink-2); }
+.tw-chip-due.is-overdue { border-color: var(--tw-urgent); color: var(--tw-urgent); }
+.tw-chip-overdue { background: var(--tw-urgent); border-color: var(--tw-urgent); color: #FFFFFF; }
+.tw-chip-done { background: var(--tw-accent-soft); border-color: var(--tw-accent); color: var(--tw-accent); }
 
 .tw-task-foot {
     display: flex;
@@ -292,6 +355,100 @@
 .tw-modal-head h2 { font-size: 24px; }
 
 #board-form { display: flex; flex-direction: column; gap: 12px; }
+
+/* Quadrant picker: radios stay in the DOM (arrow keys, screen readers), the
+   span next to each one is the pill that shows state. Colour comes from the
+   same .tw-quad-* code classes the cards use. */
+.tw-quad-field {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+}
+
+.tw-quad-field legend {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    color: var(--tw-ink-2);
+    padding: 0;
+    margin-bottom: 6px;
+}
+
+.tw-quad-picker {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.tw-quad-pill { position: relative; display: block; cursor: pointer; }
+
+.tw-quad-pill input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.tw-quad-pill span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: 6px 8px;
+    font-size: 12.5px;
+    font-weight: 800;
+    color: var(--tw-ink-2);
+    background: var(--tw-surface);
+    border: 1px solid var(--tw-rim);
+    border-radius: 12px;
+    transition: background 120ms var(--tw-ease), color 120ms var(--tw-ease);
+}
+
+.tw-quad-pill:hover span { background: var(--tw-surface-2); }
+
+.tw-quad-pill input:checked + span {
+    background: var(--quad-soft);
+    border-color: var(--quad-ink);
+    color: var(--quad-ink);
+    box-shadow: var(--twb-shadow-sm);
+}
+
+.tw-quad-pill input:focus-visible + span {
+    outline: 3px solid var(--tw-accent);
+    outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+    .tw-quad-picker { grid-template-columns: 1fr; }
+}
+
+/* Created/updated are server-derived; the edit dialog shows them read only. */
+.tw-task-meta {
+    display: grid;
+    gap: 4px;
+    padding: 10px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--tw-ink-2);
+    background: var(--tw-surface-2);
+    border: 1px solid var(--tw-line);
+    border-radius: 12px;
+}
+
+.tw-task-meta.hidden { display: none; }
+
+.tw-task-meta > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.tw-task-meta b { font-weight: 800; color: var(--tw-ink); }
 
 .tw-modal-actions {
     display: flex;

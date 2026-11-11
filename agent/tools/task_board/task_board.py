@@ -28,10 +28,11 @@ class TaskBoardTool(BaseTool):
         "用法：\n"
         "- 看板：action='board'（四列：待办/进行中/受阻/已完成），可按 lane 过滤\n"
         "- 列表：action='list'，可按 status、lane 过滤\n"
-        "- 新建：action='create', title='标题'（必填），可选 note/lane/due/priority\n"
+        "- 新建：action='create', title='标题'（必填），可选 note/lane/due/due_time/category/priority\n"
         "- 修改：action='update', task_id='任务ID'，传要改的字段（改状态也走这里）\n"
         "- 删除：action='delete', task_id='任务ID'\n"
-        "status: todo/doing/blocked/done；priority: low/normal/high；due: YYYY-MM-DD。"
+        "status: todo/doing/blocked/done；priority: urgent_important/important/urgent/neither；"
+        "due: YYYY-MM-DD；due_time: HH:MM（需先有 due）；category: 类别，最多 20 字。"
     )
     params: dict = {
         "type": "object",
@@ -51,7 +52,7 @@ class TaskBoardTool(BaseTool):
             },
             "note": {
                 "type": "string",
-                "description": "备注，可多行，最多 2000 字",
+                "description": "详情（备注），可多行，最多 2000 字",
             },
             "status": {
                 "type": "string",
@@ -66,10 +67,19 @@ class TaskBoardTool(BaseTool):
                 "type": "string",
                 "description": "截止日 YYYY-MM-DD，留空表示无期限",
             },
+            "due_time": {
+                "type": "string",
+                "description": "截止时间 HH:MM，可空；有值时必须同时有 due",
+            },
+            "category": {
+                "type": "string",
+                "description": "类别（如备课/批改/班级/教研/家校/其他），最多 20 字",
+            },
             "priority": {
                 "type": "string",
-                "enum": ["low", "normal", "high"],
-                "description": "优先级，默认 normal",
+                "enum": ["urgent_important", "important", "urgent", "neither"],
+                "description": "四象限：urgent_important 重要紧急 / important 重要不紧急 / "
+                               "urgent 不重要紧急 / neither 不重要不紧急，默认 important",
             },
         },
         "required": ["action"],
