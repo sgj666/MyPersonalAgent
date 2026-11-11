@@ -82,3 +82,49 @@
 
 - 桌面端 i18n 仅 zh/en（无繁体）；教学工具在桌面端为「预填输入框」，Web 端为直接发送
 - 演示用的测试班级/考试已从 `~/cow` 真实工作区清理
+
+---
+
+## 7 今日课程与提醒（第三期）
+
+### 7.1 数据
+
+- `timetable.slots[]` 增加 `mine: bool`（默认 true）与可选 `teacher`：同一张课表既能表示「我的课」，也能承载班级全科课表；非我的课仅展示、不触发提醒。
+- 新增 `teaching/settings.json`：
+  `{ "morning": {"enabled": true, "time": "07:30"}, "lesson": {"enabled": true, "minutes": 10}, "channel": "web" }`
+
+### 7.2 接口
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/teaching/today?date=YYYY-MM-DD` | 今日我的课（含讲课课题）、今日到期任务、今日作业、`digest_text` |
+| GET/PUT | `/api/teaching/settings` | 简报与课前提醒设置 |
+| POST | `/api/teaching/reminders/sync` | 按当前课表与设置重排调度任务（幂等，先删旧标签订单再建） |
+| GET | `/api/teaching/reminders/preview` | 返回 `digest` 与下一条 `lesson` 提醒文案，供 UI 预览 |
+
+### 7.3 调度与文案
+
+- **早晨简报**：每日 `morning.time`（默认 07:30），`ai_task=true`，提示词携带日期与「用教学工具汇总今天课程与待办干成一条消息」；无课程时只报待办。
+- **课前提醒**：每个 `mine=true` 的槽位生成一条 cron（`minutes` 分钟前，默认 10），固定文案：
+
+  简报：
+  ```
+  早上好，孙老师。今天周二，3 节课：
+  · 08:00–08:40 七（1）班 英语（Unit 3 My weekend plan）
+  · 10:00–10:40 七（2）班 英语
+  今日待办 2 项：批改周测（今天截止）、Unit 3 课件
+  作业未交 2 人：张三、李四
+  ```
+
+  课前：
+  ```
+  ⏰ 10 分钟后上课：第 3 节 10:00 七（1）班 · 英语
+  今天讲「Unit 3 My weekend plan」；作业：Unit 3 词汇练习
+  ```
+- 课表或设置变更后自动 `sync`；任务名统一前缀 `[teaching]` 便于幂等清理；投递走 scheduler 现有 recipient（Web 默认，绑定飞书/微信时同发）。
+
+### 7.4 UI
+
+- 工作台：新增「今日课程」卡（我的课标绿点，点击进课表）、「今日简报」卡（显示 `digest_text`，可复制）、「提醒设置」入口（开关 + 时间 + 提前分钟）。
+- 课表：格子显示是否我的课；工具条加「只看我的课」；编辑弹窗加「这是我的课」。
+- 课前提醒与简报均可在设置里关闭。
