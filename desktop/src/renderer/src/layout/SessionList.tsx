@@ -312,7 +312,7 @@ const SessionList: React.FC = () => {
   }
 
   return (
-    <div className="session-list w-[240px] flex-shrink-0 flex flex-col h-full bg-surface border-r border-default">
+    <div className="session-list w-[216px] flex-shrink-0 flex flex-col h-full bg-surface border-r border-default">
       <div className="flex items-center justify-between px-2 h-[44px] flex-shrink-0 titlebar-drag border-b border-default">
         <Tooltip label={t('session_history')}>
           <button
@@ -332,11 +332,11 @@ const SessionList: React.FC = () => {
           {({ onClick, open }) => (
             <button
               onClick={onClick}
-              className={`titlebar-no-drag inline-flex items-center gap-1.5 px-2.5 h-7 rounded-btn text-[12px] font-medium text-accent cursor-pointer transition-colors ${
+              className={`titlebar-no-drag inline-flex items-center gap-1 px-2 h-6 rounded-btn text-[11.5px] font-medium text-accent cursor-pointer transition-colors ${
                 open ? 'bg-accent-soft' : 'hover:bg-accent-soft'
               } ${trafficDrop}`}
             >
-              <Plus size={15} />
+              <Plus size={14} />
               {t('session_new')}
             </button>
           )}
@@ -460,7 +460,7 @@ const SessionList: React.FC = () => {
                   </span>
                 </div>
               ) : (
-                <div className="px-2 pt-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-content-disabled">
+                <div className="session-group-title px-2 pt-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-content-disabled">
                   {group.label}
                 </div>
               )}
@@ -474,9 +474,9 @@ const SessionList: React.FC = () => {
                       key={s.session_id}
                       ref={isActive ? activeRef : undefined}
                       onClick={() => !isEditing && setActive(s.session_id)}
-                      className={`group relative flex items-center gap-1.5 pr-2 h-9 rounded-btn cursor-pointer transition-colors ${
+                      className={`session-row group relative flex items-center gap-1.5 pr-2 h-9 rounded-btn cursor-pointer transition-colors ${
                         indentSessions ? 'pl-[22px]' : 'pl-2'
-                      } ${isActive ? 'bg-accent-soft' : 'hover:bg-surface-2'}`}
+                      } ${isActive ? 'is-active bg-accent-soft' : 'hover:bg-surface-2'}`}
                     >
                       {isEditing ? (
                         <input
@@ -508,7 +508,7 @@ const SessionList: React.FC = () => {
                             </span>
                           )}
                           <span
-                            className={`flex-1 min-w-0 truncate text-[13px] pr-5 group-hover:pr-0 ${
+                            className={`session-title flex-1 min-w-0 truncate text-[13px] pr-5 group-hover:pr-0 ${
                               isActive ? 'text-accent font-medium' : 'text-content-secondary'
                             }`}
                           >

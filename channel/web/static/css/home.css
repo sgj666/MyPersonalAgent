@@ -75,6 +75,13 @@ html.dark #view-teaching.tw-view {
     padding: 28px 32px 56px;
 }
 
+/* Home is one screen at 1440x900: a tighter gutter and section rhythm keep the
+   hero, metrics, today's row, quick tools and the board in view together
+   instead of leaving a blank half-page below the fold. Declared before the
+   mobile rule below, which then keeps the last word on narrow screens. */
+#view-home .tw-scroll { padding: 20px 28px 28px; }
+#view-home .tw-page { gap: 18px; }
+
 @media (max-width: 767px) {
     #view-home .tw-scroll,
     #view-board .tw-scroll,
@@ -120,22 +127,22 @@ html.dark #view-teaching.tw-view {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 24px;
+    gap: 20px;
     flex-wrap: wrap;
     background: var(--tw-card-c);
     border: 1px solid var(--tw-rim);
-    border-radius: 20px;
+    border-radius: 18px;
     box-shadow: var(--twb-shadow);
-    padding: 26px 30px;
+    padding: 18px 24px;
 }
 
-.tw-hero-copy { max-width: 760px; }
+.tw-hero-copy { max-width: 780px; }
 
 .tw-eyebrow {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 800;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -143,14 +150,14 @@ html.dark #view-teaching.tw-view {
     background: var(--tw-surface);
     border: 1px solid var(--tw-rim);
     border-radius: 999px;
-    padding: 5px 12px;
+    padding: 4px 10px;
     box-shadow: var(--twb-shadow-sm);
 }
 
 .tw-hero-title {
-    font-size: clamp(30px, 4vw, 44px);
-    line-height: 1.2;
-    margin: 16px 0 10px;
+    font-size: clamp(24px, 2.6vw, 32px);
+    line-height: 1.25;
+    margin: 10px 0 6px;
 }
 
 .tw-hl {
@@ -164,16 +171,16 @@ html.dark #view-teaching.tw-view {
 
 .tw-lede {
     color: var(--tw-ink-2);
-    font-size: 15px;
-    line-height: 1.7;
-    max-width: 640px;
+    font-size: 13.5px;
+    line-height: 1.6;
+    max-width: 660px;
 }
 
 .tw-hero-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
-    margin-top: 20px;
+    gap: 10px;
+    margin-top: 14px;
 }
 
 .tw-hero-date {
@@ -181,12 +188,12 @@ html.dark #view-teaching.tw-view {
     flex-direction: column;
     align-items: flex-end;
     gap: 4px;
-    min-width: 150px;
+    min-width: 140px;
     background: var(--tw-surface);
     border: 1px solid var(--tw-rim);
-    border-radius: 16px;
+    border-radius: 14px;
     box-shadow: var(--twb-shadow-sm);
-    padding: 12px 16px;
+    padding: 10px 14px;
 }
 
 .tw-hero-date-label {
@@ -197,7 +204,7 @@ html.dark #view-teaching.tw-view {
     color: var(--tw-ink-3);
 }
 
-.tw-hero-date b { font-size: 16px; }
+.tw-hero-date b { font-size: 15px; }
 
 /* ---------- primitives ---------- */
 .tw-btn {
@@ -229,9 +236,9 @@ html.dark #view-teaching.tw-view {
 .tw-card {
     background: var(--tw-surface);
     border: 1px solid var(--tw-rim);
-    border-radius: 18px;
+    border-radius: 16px;
     box-shadow: var(--twb-shadow);
-    padding: 20px 22px;
+    padding: 16px 18px;
 }
 
 .tw-card-head {
@@ -239,10 +246,10 @@ html.dark #view-teaching.tw-view {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 14px;
+    margin-bottom: 10px;
 }
 
-.tw-card-head h2 { font-size: 22px; }
+.tw-card-head h2 { font-size: 19px; }
 
 .tw-link {
     display: inline-flex;
@@ -290,35 +297,37 @@ html.dark #view-teaching.tw-view {
 .tw-empty i { font-size: 28px; color: var(--tw-ink-3); }
 
 /* ---------- metrics ---------- */
+/* Three counters, one row, at every width: they are a summary line, not a
+   gallery, and wrapping the third one down leaves a band of empty canvas. */
 .tw-metrics {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-    gap: 18px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
 }
 
 .tw-metric {
     position: relative;
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 18px 20px;
+    gap: 4px;
+    padding: 14px 16px;
     border: 1px solid var(--tw-rim);
-    border-radius: 16px;
+    border-radius: 14px;
     box-shadow: var(--twb-shadow);
     color: #4A4453;
 }
 
 .tw-metric-a { background: #DCF3E6; }
 .tw-metric-b { background: #FFE4D2; }
-.tw-metric-c { background: #EDE6FE; }
+.tw-metric-c { background: #FFF6DA; }
 
 html.dark .tw-metric { color: var(--tw-ink); }
 html.dark .tw-metric-a { background: var(--tw-card-a); }
 html.dark .tw-metric-b { background: var(--tw-card-b); }
-html.dark .tw-metric-c { background: var(--tw-card-d); }
+html.dark .tw-metric-c { background: var(--tw-card-e); }
 
 .tw-metric-label {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 800;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -327,14 +336,20 @@ html.dark .tw-metric-c { background: var(--tw-card-d); }
 
 html.dark .tw-metric-label { color: var(--tw-ink-2); }
 
-.tw-metric b { font-size: 38px; line-height: 1; font-weight: 800; }
+.tw-metric b { font-size: 32px; line-height: 1; font-weight: 800; }
 
 .tw-metric i {
     position: absolute;
-    right: 16px;
-    top: 16px;
-    font-size: 18px;
+    right: 14px;
+    top: 14px;
+    font-size: 16px;
     opacity: 0.45;
+}
+
+@media (max-width: 520px) {
+    .tw-metric { padding: 12px 12px; }
+    .tw-metric b { font-size: 26px; }
+    .tw-metric i { display: none; }
 }
 
 /* ---------- section head + quick actions ---------- */
@@ -343,26 +358,29 @@ html.dark .tw-metric-label { color: var(--tw-ink-2); }
     align-items: flex-end;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 14px;
+    margin-bottom: 10px;
 }
 
-.tw-section-head h2 { font-size: 24px; }
-.tw-section-head p { font-size: 13px; color: var(--tw-ink-2); font-weight: 600; margin-top: 4px; }
+.tw-section-head h2 { font-size: 20px; }
+.tw-section-head p { font-size: 12.5px; color: var(--tw-ink-2); font-weight: 600; margin-top: 2px; }
 
+/* One row of five: the tools are a shortcut strip under the panels, not a
+   second page of cards. Each keeps its icon, name and one line of what it
+   makes, so five fit across the page at 1440. */
 .tw-tools {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 14px;
 }
 
 .tw-tool {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 18px;
-    min-height: 138px;
+    gap: 6px;
+    padding: 12px 14px;
+    min-height: 0;
     border: 1px solid var(--tw-rim);
-    border-radius: 18px;
+    border-radius: 14px;
     box-shadow: var(--twb-shadow);
     color: #4A4453;
     transition: transform 120ms var(--tw-ease), box-shadow 120ms var(--tw-ease);
@@ -370,8 +388,8 @@ html.dark .tw-metric-label { color: var(--tw-ink-2); }
 
 .tw-tool:hover { transform: translate(-2px, -2px); box-shadow: var(--twb-shadow-hover); }
 .tw-tool:focus-visible { outline: 3px solid var(--tw-accent); outline-offset: 3px; }
-.tw-tool b { font-size: 17px; font-weight: 800; }
-.tw-tool > span:last-child { font-size: 12.5px; line-height: 1.55; color: rgba(45, 55, 72, 0.78); }
+.tw-tool b { font-size: 15px; font-weight: 800; }
+.tw-tool > span:last-child { font-size: 11.5px; line-height: 1.45; color: var(--tw-ink-2); }
 
 .tw-tool-a { background: #DFF6E8; }
 .tw-tool-b { background: #FFE3D3; }

@@ -1,19 +1,23 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import {
   CalendarDays,
   Copy,
   FileText,
   Lightbulb,
+  Loader2,
   Presentation,
+  Save,
   Sparkles,
+  Square,
   type LucideIcon,
 } from 'lucide-react'
-import { t } from '../i18n'
-import { startNewChat } from '../lib/newChat'
-import { prefillChatInput } from '../store/draftStore'
-import { guardDocEditors } from '../store/docEditorStore'
-import { useWorkspaceStore } from '../store/workspaceStore'
+import { t, tf } from '../i18n'
+import apiClient from '../api/client'
+import { AgentRunError, runAgentPrompt, toolSessionId } from '../lib/agentRun'
+import { errorText } from '../lib/teaching'
+import Markdown from '../components/Markdown'
+import { copyToClipboard } from './teachingShared'
 
 type ToolId = 'plan' | 'courseware' | 'card' | 'advice' | 'schedule'
 
@@ -40,6 +44,9 @@ interface FieldDef {
 interface ToolDef {
   id: ToolId
   labelKey: string
+  descKey: string
+  /** The Skill the prompt names; the page never lets the Agent pick one. */
+  skill: string
   icon: LucideIcon
   fields: FieldDef[]
 }
@@ -49,12 +56,14 @@ const choices = (...values: string[]): Choice[] => values.map((value) => ({ valu
 /**
  * The five forms, transcribed from the web console
  * (channel/web/static/js/views/teaching.js). Choice values are the Chinese the
- * prompt quotes, so the preview shows exactly what the Agent will read.
+ * prompt quotes, so the prompt carries exactly what the teacher picked.
  */
 const TOOLS: ToolDef[] = [
   {
     id: 'plan',
     labelKey: 'tw_tool_plan',
+    descKey: 'tw_tool_plan_desc',
+    skill: 'lesson-plan',
     icon: FileText,
     fields: [
       {
@@ -96,6 +105,8 @@ const TOOLS: ToolDef[] = [
   {
     id: 'courseware',
     labelKey: 'tw_tool_courseware',
+    descKey: 'tw_tool_courseware_desc',
+    skill: 'courseware-ppt',
     icon: Presentation,
     fields: [
       {
@@ -127,6 +138,8 @@ const TOOLS: ToolDef[] = [
   {
     id: 'card',
     labelKey: 'tw_tool_card',
+    descKey: 'tw_tool_card_desc',
+    skill: 'homework-card',
     icon: Copy,
     fields: [
       {
@@ -151,6 +164,8 @@ const TOOLS: ToolDef[] = [
   {
     id: 'advice',
     labelKey: 'tw_tool_advice',
+    descKey: 'tw_tool_advice_desc',
+    skill: 'teaching-advice',
     icon: Lightbulb,
     fields: [
       {
@@ -180,6 +195,8 @@ const TOOLS: ToolDef[] = [
   {
     id: 'schedule',
     labelKey: 'tw_tool_schedule',
+    descKey: 'tw_tool_schedule_desc',
+    skill: 'teaching-plan',
     icon: CalendarDays,
     fields: [
       {
@@ -204,6 +221,9 @@ const TOOLS: ToolDef[] = [
 ]
 
 const TOOL_IDS: ToolId[] = TOOLS.map((tool) => tool.id)
+
+const asToolId = (value: string): ToolId | null =>
+  TOOL_IDS.includes(value as ToolId) ? (value as ToolId) : null
 
 /** Field rows: a `half` field and its successor share one row. */
 function rowsOf(fields: FieldDef[]): FieldDef[][] {
@@ -234,15 +254,16 @@ function defaultValues(): Record<ToolId, Record<string, string>> {
 }
 
 /**
- * The Chinese request each form turns into. Kept line-for-line with the web
- * console's twTeachBuildPrompt so the same tool produces the same prompt in
- * both clients; an empty field reads 未填写 rather than dropping its line.
+ * The Chinese request each form turns into. Every prompt names its Skill and
+ * spells out the sections the answer must carry, so the same tool produces the
+ * same shape in the web console and here; an empty field reads 未填写 rather
+ * than dropping its line.
  */
-function buildPrompt(tool: ToolId, values: Record<string, string>): string {
+function buildPrompt(tool: ToolId, skill: string, values: Record<string, string>): string {
   const v = (key: string) => (values[key] ? values[key].trim() : '未填写')
   if (tool === 'plan') {
     return [
-      '请生成一份教案（Markdown 输出）。',
+      `请使用 skill「${skill}」生成一份教案，按 Markdown 输出。`,
       `学段：${v('stage')}`,
       `学科：${v('subject')}`,
       `教材版本：${v('book')}`,
@@ -251,62 +272,84 @@ function buildPrompt(tool: ToolId, values: Record<string, string>): string {
       `课时：${v('hours')} 课时`,
       `教学目标：${v('goal')}`,
       '',
-      '要求：',
-      '1. 按「教学目标 / 教学重难点 / 教学准备 / 教学过程（分环节并标注时间）/ 板书设计 / 作业布置 / 课后反思」组织。',
-      '2. 教学过程写出教师活动、学生活动和设计意图。',
-      '3. 语言面向教师，可直接照着上课；引用教材内容请注明出处。',
-      '4. 生成后保存到知识库的「教案」分类。',
+      '输出结构（按此顺序，标题必须保留）：',
+      '1. 教学目标：知识、能力、素养各一条，行为动词可观察。',
+      '2. 教学重难点：分开写重点与难点，并说明依据。',
+      '3. 教学准备：教具、板书、学生前置任务。',
+      '4. 教学过程：分环节，每环节标注时长，并列出教师活动 / 学生活动 / 设计意图。',
+      '5. 板书设计：用代码块画出板面布局。',
+      '6. 作业布置：基础与提升两档，各写明预计用时。',
+      '7. 课后反思：留 3 条可观察的观察点。',
+      '',
+      '语言面向教师，可直接照着上课；引用教材内容请注明出处。',
     ].join('\n')
   }
   if (tool === 'courseware') {
     return [
-      '请生成一套课件（.pptx）。',
+      `请使用 skill「${skill}」生成一套课件（.pptx）。`,
       `单元 / 课题：${v('unit')}`,
       `教案来源：${v('source')}`,
       `母版模板：${v('template')}`,
       `页数：约 ${v('slides')} 页`,
       '',
-      '要求：',
-      '1. 先生成结构化内容：封面、目录、每页标题 + 要点 + 备注稿。',
-      `2. 使用「${v('template')}」母版；只用主题字体，不嵌字体，避免跨机版式错乱。`,
-      '3. 输出真实 .pptx 文件到产出目录，完成后告诉我文件路径。',
+      '输出结构：',
+      '1. 先给出页面清单：页码 / 标题 / 要点 / 备注稿，一页一行。',
+      '2. 第 1 页封面（课题、学段学科、教师），第 2 页目录，最后 1 页小结与作业。',
+      `3. 使用「${v('template')}」母版；只用主题字体，不嵌字体，避免跨机版式错乱。`,
+      '4. 每页要点不超过 5 条，备注稿写成教师口播稿。',
+      '5. 输出真实 .pptx 文件到产出目录，完成后告诉我文件路径。',
     ].join('\n')
   }
   if (tool === 'card') {
     return [
-      '请生成一份作业卡片（单文件 HTML）。',
+      `请使用 skill「${skill}」生成一份作业卡片（单文件 HTML）。`,
       `题目来源：${v('source')}`,
       `版式：${v('layout')}`,
       `题目数量：${v('count')} 道`,
       '',
-      '要求：',
-      '1. 单文件自包含：内联 CSS，无外链、无网络请求，便于在产出视图内嵌预览。',
-      '2. 页面内提供「导出图片」，打印样式隐藏按钮与页边距。',
-      '3. 字体使用系统字体栈（PingFang SC / Microsoft YaHei 回退），不引 webfont。',
-      '4. 生成后保存到产出目录的「作业卡片」分类。',
+      '输出结构：',
+      '1. 卡头：标题、班级 / 姓名 / 日期填写栏。',
+      '2. 题目区：按选定版式排布，每题标注分值与难度。',
+      '3. 答案区：独立区块，打印时可选隐藏。',
+      '4. 页脚：「导出图片」按钮，打印样式隐藏按钮与页边距。',
+      '',
+      '要求：单文件自包含，内联 CSS，无外链、无网络请求；字体用系统字体栈（PingFang SC / Microsoft YaHei 回退），不引 webfont。',
     ].join('\n')
   }
   if (tool === 'advice') {
     return [
-      '请给出教学建议。',
+      `请使用 skill「${skill}」给出教学建议，按 Markdown 输出。`,
       `班级情况：${v('class_name')}`,
       `单元 / 课题：${v('unit')}`,
       `关注点：${v('focus')}`,
       '',
-      '要求：结合学情给出可执行的课堂策略（导入、活动、分层任务、评价与作业），并指出 2–3 个需要提前准备的风险点。',
+      '输出结构（按此顺序）：',
+      '1. 学情判断：结合给出的班级情况，指出 2–3 个可验证的课堂事实。',
+      '2. 课堂策略：导入、主要活动、分层任务各给一条可执行方案，标注时长。',
+      '3. 评价与作业：课堂即时评价方式，配套作业与批改口径。',
+      '4. 风险点：2–3 条，每条附应对办法。',
+      '',
+      '建议要具体到教师能照做；不要泛泛谈教育理念。',
     ].join('\n')
   }
   return [
-    '请生成学期教学计划（Markdown 表格）。',
+    `请使用 skill「${skill}」生成学期教学计划，按 Markdown 表格输出。`,
     `学期：${v('term')}`,
     `单元范围：${v('scope')}`,
     `周数：${v('weeks')} 周`,
     '',
-    '要求：',
-    '1. 表格列：周次 / 单元 / 课题 / 课时 / 教学目标 / 评价方式。',
-    '2. 课时总量与周数匹配，注明期中、期末复习周。',
-    '3. 表格可直接打印。',
+    '输出结构：',
+    '1. 一张表格：周次 / 单元 / 课题 / 课时 / 教学目标 / 评价方式。',
+    '2. 表格下方给出课时合计，与周数匹配，并注明期中、期末复习周。',
+    '3. 表格可直接打印；不要拆成多张表。',
   ].join('\n')
+}
+
+/** `20261111-1425` — local time, so a saved name matches the teacher's clock. */
+function stamp(): string {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
 }
 
 const Field: React.FC<{
@@ -349,37 +392,40 @@ const Field: React.FC<{
 )
 
 const TeachingPage: React.FC = () => {
-  const navigate = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const fromUrl = searchParams.get('tool') || ''
-  const [tool, setTool] = useState<ToolId>(
-    TOOL_IDS.includes(fromUrl as ToolId) ? (fromUrl as ToolId) : 'plan'
-  )
+  const location = useLocation()
+  const [searchParams] = useSearchParams()
+  // Both deep-link shapes reach the same tool: `?tool=card` from the rail and
+  // home cards, `/teaching/card` from a saved link.
+  const fromPath = asToolId(location.pathname.replace(/^\/teaching\/?/, '').split('/')[0] || '')
+  const urlTool = asToolId(searchParams.get('tool') || '') || fromPath
+  const [tool, setTool] = useState<ToolId>(urlTool || TOOL_IDS[0])
   const [values, setValues] = useState<Record<ToolId, Record<string, string>>>(defaultValues)
+  const [result, setResult] = useState('')
   const [status, setStatus] = useState('')
+  const [error, setError] = useState('')
+  const [running, setRunning] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [saved, setSaved] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const abortRef = useRef<AbortController | null>(null)
 
-  // A link from the rail or the home cards carries ?tool=<id>; follow it both
-  // when the page mounts and when the parameter changes underneath it.
-  // Dropping the parameter (the parent 教学工具 entry) returns to the first tool.
-  const urlTool = TOOL_IDS.includes(fromUrl as ToolId) ? (fromUrl as ToolId) : null
+  // A link from the rail carries ?tool=<id>; follow it both when the page
+  // mounts and when the parameter changes underneath it. Dropping the parameter
+  // (the parent 教学工具 entry) returns to the first tool.
   useEffect(() => {
     const next = urlTool || TOOL_IDS[0]
     setTool((current) => (current === next ? current : next))
   }, [urlTool])
 
+  // Closing the page must not leave a request running.
+  useEffect(() => () => abortRef.current?.abort(), [])
+
   const active = TOOLS.find((item) => item.id === tool) || TOOLS[0]
   const activeValues = values[tool]
   const rows = useMemo(() => rowsOf(active.fields), [active])
   // Live, so the teacher reads exactly what will be sent before pressing it.
-  const preview = buildPrompt(tool, activeValues)
-
-  const selectTool = (id: ToolId) => {
-    setTool(id)
-    setStatus('')
-    const next = new URLSearchParams(searchParams)
-    next.set('tool', id)
-    setSearchParams(next, { replace: true })
-  }
+  const preview = buildPrompt(tool, active.skill, activeValues)
 
   const setField = (name: string, value: string) => {
     setValues((prev) => ({ ...prev, [tool]: { ...prev[tool], [name]: value } }))
@@ -387,19 +433,76 @@ const TeachingPage: React.FC = () => {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (running) return
     const prompt = preview.trim()
     if (!prompt) return
-    // Navigating away must not throw away unsaved work in a document or a
-    // workspace editor, the same guard every other "open the chat" entry uses.
-    if (!(await guardDocEditors())) {
-      setStatus(t('tw_teach_leave_blocked'))
-      return
-    }
-    if (!(await useWorkspaceStore.getState().guardUnsavedEdit())) return
+    setRunning(true)
+    setResult('')
+    setError('')
     setStatus('')
-    startNewChat()
-    prefillChatInput(prompt)
-    navigate('/')
+    setCopied(false)
+    setSaved('')
+    setSaveError('')
+    const controller = new AbortController()
+    abortRef.current = controller
+    let acc = ''
+    try {
+      const answer = await runAgentPrompt({
+        prompt,
+        sessionId: toolSessionId(`teaching-${tool}`),
+        signal: controller.signal,
+        onDelta: (chunk) => {
+          acc += chunk
+          setResult(acc)
+        },
+        onStatus: setStatus,
+      })
+      if (!acc && answer) setResult(answer)
+      setStatus('')
+    } catch (err) {
+      if (err instanceof AgentRunError && err.message === '已取消') {
+        setStatus(t('tw_teach_cancelled'))
+      } else {
+        setError(errorText(err))
+        setStatus('')
+      }
+    } finally {
+      setRunning(false)
+      abortRef.current = null
+    }
+  }
+
+  const copy = async () => {
+    if (!result.trim()) return
+    if (await copyToClipboard(result)) {
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1600)
+    }
+  }
+
+  /** The one existing knowledge write API; the Agent already saves its work
+   *  products, this button is for the teacher keeping the answer itself. */
+  const save = async () => {
+    if (!result.trim() || saving) return
+    setSaving(true)
+    setSaveError('')
+    setSaved('')
+    try {
+      const path = `${t('tw_teach_kb_folder')}/${t(active.labelKey)}-${stamp()}.md`
+      const res = await apiClient.knowledgeAction({
+        action: 'create_document',
+        payload: { path, content: result, overwrite: false },
+      })
+      if (res.status !== 'success') {
+        throw new Error(typeof res.message === 'string' ? res.message : t('tw_teach_save_failed_generic'))
+      }
+      const savedPath = (res.payload as { path?: string } | undefined)?.path || path
+      setSaved(savedPath)
+    } catch (err) {
+      setSaveError(errorText(err))
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -408,41 +511,18 @@ const TeachingPage: React.FC = () => {
         <div className="twb-page">
           <header className="twb-page-head">
             <div>
-              <h1>{t('tw_teach_title')}</h1>
-              <p>{t('tw_teach_desc')}</p>
+              <span className="twb-eyebrow">{t('tw_teach_title')}</span>
+              <h1>{t(active.labelKey)}</h1>
+              <p>{t(active.descKey)}</p>
             </div>
           </header>
 
-          <div className="twb-segs" role="tablist" aria-label={t('tw_teach_title')}>
-            {TOOLS.map((item) => {
-              const Icon = item.icon
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  id={`twb-teach-tab-${item.id}`}
-                  role="tab"
-                  className="twb-seg"
-                  aria-selected={item.id === tool}
-                  aria-controls={`twb-teach-panel-${item.id}`}
-                  onClick={() => selectTool(item.id)}
-                >
-                  <Icon size={14} />
-                  <span>{t(item.labelKey)}</span>
-                </button>
-              )
-            })}
-          </div>
-
           <div className="twb-teach-grid">
-            <form
-              className="twb-card twb-form"
-              id={`twb-teach-panel-${active.id}`}
-              role="tabpanel"
-              aria-labelledby={`twb-teach-tab-${active.id}`}
-              onSubmit={submit}
-            >
-              <h2>{t(active.labelKey)}</h2>
+            <form className="twb-card twb-form" onSubmit={submit}>
+              <div className="twb-card-head">
+                <h2>{t('tw_teach_form')}</h2>
+                <span className="twb-count">{active.skill}</span>
+              </div>
               {rows.map((row) =>
                 row.length === 2 ? (
                   <div className="twb-field-row" key={row[0].name}>
@@ -460,24 +540,69 @@ const TeachingPage: React.FC = () => {
                 )
               )}
               <div className="twb-form-actions">
-                <button type="submit" className="twb-btn twb-btn-primary">
-                  <Sparkles size={15} />
-                  <span>{t('tw_teach_generate')}</span>
-                </button>
+                {running ? (
+                  <button type="button" className="twb-btn" onClick={() => abortRef.current?.abort()}>
+                    <Square size={14} />
+                    <span>{t('tw_teach_stop')}</span>
+                  </button>
+                ) : (
+                  <button type="submit" className="twb-btn twb-btn-primary">
+                    <Sparkles size={15} />
+                    <span>{t('tw_teach_generate')}</span>
+                  </button>
+                )}
                 <span className="twb-hint">{t('tw_teach_submit_hint')}</span>
               </div>
             </form>
 
-            <aside className="twb-card twb-teach-aside" aria-labelledby="twb-teach-preview">
+            <section className="twb-card twb-teach-out" aria-labelledby="twb-teach-result">
               <div className="twb-card-head">
-                <h2 id="twb-teach-preview">{t('tw_teach_preview')}</h2>
+                <h2 id="twb-teach-result">{t('tw_teach_result')}</h2>
+                {status && <span className="twb-hint twb-teach-status">{status}</span>}
               </div>
-              <textarea className="twb-textarea twb-preview" readOnly rows={16} value={preview} />
-              <p className="twb-hint">{t('tw_teach_preview_hint')}</p>
-              <p className="twb-status is-error" role="status">
-                {status}
-              </p>
-            </aside>
+              <div className="twb-teach-out-body">
+                {error ? (
+                  <p className="twb-status is-error">{tf('tw_teach_failed', { msg: error })}</p>
+                ) : result ? (
+                  <div className="twb-teach-text">
+                    <Markdown content={result} />
+                    {running && <span className="twb-cursor" aria-hidden />}
+                  </div>
+                ) : running ? (
+                  <div className="twb-teach-skel" aria-hidden>
+                    <i />
+                    <i />
+                    <i />
+                    <i />
+                    <i />
+                  </div>
+                ) : (
+                  <div className="twb-teach-empty">
+                    <Sparkles size={22} />
+                    <p>{t('tw_teach_result_empty')}</p>
+                  </div>
+                )}
+              </div>
+              <div className="twb-teach-out-foot">
+                <button type="button" className="twb-btn" disabled={!result.trim()} onClick={() => void copy()}>
+                  <Copy size={14} />
+                  <span>{copied ? t('tw_teach_copied') : t('tw_teach_copy')}</span>
+                </button>
+                <button
+                  type="button"
+                  className="twb-btn"
+                  disabled={!result.trim() || running || saving}
+                  onClick={() => void save()}
+                >
+                  {saving ? <Loader2 size={14} className="twb-spin" /> : <Save size={14} />}
+                  <span>{t('tw_teach_save_kb')}</span>
+                </button>
+                {saved && <span className="twb-hint">{tf('tw_teach_saved_kb', { path: saved })}</span>}
+                {saveError && (
+                  <span className="twb-hint is-error">{tf('tw_teach_save_failed', { msg: saveError })}</span>
+                )}
+              </div>
+            </section>
           </div>
         </div>
       </div>

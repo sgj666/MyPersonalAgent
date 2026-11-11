@@ -693,3 +693,169 @@
     .art-meta-item + .art-meta-item::before { display: none; }
     .art-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
 }
+
+/* ---------------------------------------------------------------------
+   Clay skin (light theme)
+   The artifacts page wears the same paper as the knowledge page: cream
+   ground, warm 1px rims, 16px plates with a soft diffused shadow and the
+   mint accent. Every colour is a --cl-* token from clay-legacy.css, so
+   this sheet never introduces a palette of its own. Scoped to
+   html:not(.dark): the dark theme keeps the rules above.
+   --------------------------------------------------------------------- */
+html:not(.dark) #view-artifacts {
+    background: var(--cl-bg);
+    color: var(--cl-ink);
+}
+
+/* Day headers sit on the canvas: opaque, since they stick over the grid. */
+html:not(.dark) #view-artifacts .art-day-label {
+    background: var(--cl-bg);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+html:not(.dark) #view-artifacts .art-day-primary { color: var(--cl-ink-2); font-weight: 700; }
+html:not(.dark) #view-artifacts .art-day-secondary { color: var(--cl-ink-3); }
+
+/* Filter capsules: paper pills with a warm hairline; the live one is mint. */
+html:not(.dark) #view-artifacts .art-filters {
+    gap: 8px;
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+}
+html:not(.dark) #view-artifacts .art-chip {
+    height: 30px;
+    padding: 0 14px;
+    border: var(--cl-rim);
+    border-radius: 16px;
+    background: var(--cl-paper);
+    color: var(--cl-ink-2);
+    font-weight: 700;
+    box-shadow: var(--cl-shadow-sm);
+}
+html:not(.dark) #view-artifacts .art-chip:hover {
+    background: var(--cl-head);
+    color: var(--cl-ink);
+}
+html:not(.dark) #view-artifacts .art-chip.active {
+    background: var(--cl-accent-soft);
+    border-color: var(--cl-rim-color);
+    color: var(--cl-accent-hover);
+}
+
+html:not(.dark) #view-artifacts .art-search {
+    height: 34px;
+    border: var(--cl-rim);
+    border-radius: 16px;
+    background: var(--cl-field);
+}
+html:not(.dark) #view-artifacts .art-search:hover { border-color: var(--cl-line-strong); }
+html:not(.dark) #view-artifacts .art-search:focus-within {
+    border-color: var(--cl-accent);
+    box-shadow: 0 0 0 3px var(--cl-accent-soft);
+}
+html:not(.dark) #view-artifacts .art-search i { color: var(--cl-ink-3); }
+html:not(.dark) #view-artifacts .art-search input { color: var(--cl-ink); }
+html:not(.dark) #view-artifacts .art-search input::placeholder { color: var(--cl-ink-3); }
+
+/* Card: the thumbnail is the plate, the caption sits under it. */
+html:not(.dark) #view-artifacts .art-thumb {
+    border: var(--cl-rim);
+    border-radius: 16px;
+    background: var(--cl-paper);
+    box-shadow: var(--cl-shadow-sm);
+}
+html:not(.dark) #view-artifacts .art-card:hover .art-thumb {
+    border-color: var(--cl-line-strong);
+    box-shadow: var(--cl-shadow);
+}
+html:not(.dark) #view-artifacts .art-card:focus-visible .art-thumb,
+html:not(.dark) #view-artifacts .art-card.is-selected .art-thumb,
+html:not(.dark) #view-artifacts .art-card.is-selected:hover .art-thumb {
+    border-color: var(--cl-accent);
+    box-shadow: 0 0 0 1px var(--cl-accent), var(--cl-shadow-sm);
+}
+html:not(.dark) #view-artifacts .art-card-name { color: var(--cl-ink); }
+html:not(.dark) #view-artifacts .art-card-meta { color: var(--cl-ink-3); }
+html:not(.dark) #view-artifacts .art-card.is-selected .art-card-name { color: var(--cl-accent-hover); }
+html:not(.dark) #view-artifacts .art-card.is-missing .art-card-name { color: var(--cl-ink-3); }
+html:not(.dark) #view-artifacts .art-ph { background: var(--art-tint, var(--cl-bg)); }
+html:not(.dark) #view-artifacts .art-ph-ext { color: var(--cl-ink-3); }
+html:not(.dark) #view-artifacts .art-frame,
+html:not(.dark) #view-artifacts .art-paper { background: var(--cl-field); }
+
+html:not(.dark) #view-artifacts .art-tool {
+    background: var(--cl-paper);
+    color: var(--cl-ink-2);
+    box-shadow: var(--cl-shadow-sm);
+}
+html:not(.dark) #view-artifacts .art-tool:hover {
+    background: var(--cl-head);
+    color: var(--cl-ink);
+}
+html:not(.dark) #view-artifacts .art-tool-pin.is-active,
+html:not(.dark) #view-artifacts .art-tool-pin.is-active:hover { color: var(--cl-accent-hover); }
+html:not(.dark) #view-artifacts .art-pinned-glyph { color: var(--cl-accent); }
+
+/* Skeleton: warm paper breath instead of a grey slab. */
+html:not(.dark) #view-artifacts .art-skel-day,
+html:not(.dark) #view-artifacts .art-skel-thumb,
+html:not(.dark) #view-artifacts .art-skel-line {
+    background: linear-gradient(90deg, var(--cl-bg) 0%, var(--cl-head) 40%, var(--cl-bg) 80%);
+    background-size: 220% 100%;
+}
+
+/* Empty and state blocks are paper zones, like the knowledge empty state. */
+html:not(.dark) #view-artifacts .art-empty-tile {
+    background: var(--cl-paper);
+    border: var(--cl-rim);
+    border-radius: 16px;
+    color: var(--cl-ink-3);
+    box-shadow: var(--cl-shadow-sm);
+}
+html:not(.dark) #view-artifacts .art-empty-tile-2 {
+    background: var(--cl-accent-soft);
+    border-color: var(--cl-rim-color);
+    color: var(--cl-accent-hover);
+}
+html:not(.dark) #view-artifacts .art-empty-title { color: var(--cl-ink); }
+html:not(.dark) #view-artifacts .art-empty-desc { color: var(--cl-ink-3); }
+html:not(.dark) #view-artifacts .art-empty-btn {
+    background: var(--cl-accent);
+    border: var(--cl-rim);
+    border-radius: 16px;
+    color: var(--cl-field);
+    font-weight: 700;
+    box-shadow: var(--cl-shadow-sm);
+}
+html:not(.dark) #view-artifacts .art-empty-btn:hover { background: var(--cl-accent-hover); }
+html:not(.dark) #view-artifacts .art-state { color: var(--cl-ink-3); }
+html:not(.dark) #view-artifacts .art-state-title { color: var(--cl-ink-3); }
+html:not(.dark) #view-artifacts .art-link-btn { color: var(--cl-accent-hover); }
+
+/* Preview pane: the same cream as the page under it, one warm hairline to
+   part it from the grid; only the document itself is white paper. */
+html:not(.dark) #view-artifacts .art-preview {
+    background: var(--cl-bg);
+    border-left: var(--cl-rim);
+}
+html:not(.dark) #view-artifacts .art-preview-head { border-bottom: var(--cl-rim); }
+html:not(.dark) #view-artifacts .art-preview-name { color: var(--cl-ink); }
+html:not(.dark) #view-artifacts .art-preview-path { color: var(--cl-ink-3); }
+html:not(.dark) #view-artifacts .art-name-btn:hover { background: var(--cl-head); }
+html:not(.dark) #view-artifacts .art-name-input {
+    border: 1px solid var(--cl-accent);
+    border-radius: 8px;
+    background: var(--cl-field);
+    color: var(--cl-ink);
+}
+html:not(.dark) #view-artifacts .art-preview-sep { background: var(--cl-line); }
+html:not(.dark) #view-artifacts .art-preview-body { background: var(--cl-bg); }
+html:not(.dark) #view-artifacts .art-preview-stage > .ws-pad,
+html:not(.dark) #view-artifacts .art-preview-stage > pre { background: var(--cl-paper); }
+html:not(.dark) #view-artifacts .art-preview-meta {
+    border-top: var(--cl-rim);
+    color: var(--cl-ink-3);
+}
+html:not(.dark) #view-artifacts .art-meta-link { color: var(--cl-ink-2); }
+html:not(.dark) #view-artifacts .art-meta-link:hover { color: var(--cl-accent-hover); }

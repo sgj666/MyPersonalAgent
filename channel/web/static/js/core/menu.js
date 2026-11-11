@@ -32,12 +32,19 @@ const MENU_BUILTINS = {
 
 // The built-in menu, as sidebar.html draws it before any script runs.
 // Groups are drawn in this order and never fold; the order runs from the
-// daily work outwards, which is what docs/plans/teacher-academics.md §1 fixes.
+// daily work outwards, which is what docs/plans/teacher-workbench.md §4 fixes:
+// the teacher's own page first, the chat it feeds second.
+//
+// A page can be registered in MENU_BUILTINS and still be left out of the
+// default: agents and tasks stay reachable from the menu editor's "add a
+// built-in page" list, which reads MENU_BUILTINS, without cluttering a menu
+// most teachers never use those for.
 const MENU_DEFAULT = [
+    { id: 'workbench', views: ['home'] },
     { id: 'chat',    views: ['chat', 'artifacts'] },
-    { id: 'teach',   views: ['home', 'classes', 'timetable', 'progress', 'homework', 'scores',
+    { id: 'teach',   views: ['classes', 'timetable', 'progress', 'homework', 'scores',
                              'teaching', 'board', 'knowledge'] },
-    { id: 'manage',  views: ['agents', 'config', 'skills', 'memory', 'channels', 'tasks'] },
+    { id: 'manage',  views: ['config', 'skills', 'memory', 'channels'] },
     { id: 'monitor', views: ['logs'] },
 ];
 
@@ -58,7 +65,10 @@ const MENU_TAB_META = {
 const MENU_DEFAULT_CHILDREN = {
     teaching: ['plan', 'courseware', 'card', 'advice', 'schedule'],
 };
-const MENU_GROUP_LABELS = { teach: 'nav_teach', chat: 'nav_chat', manage: 'nav_manage', monitor: 'nav_monitor' };
+const MENU_GROUP_LABELS = {
+    workbench: 'nav_workbench', teach: 'nav_teach', chat: 'nav_chat',
+    manage: 'nav_manage', monitor: 'nav_monitor',
+};
 // Pages a menu must always lead to; mirrors REQUIRED_VIEWS in api/menu.py.
 const MENU_REQUIRED = ['chat', 'config'];
 // Artifacts that can be a page of the menu; mirrors MENU_KINDS in api/menu.py.

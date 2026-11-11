@@ -41,6 +41,12 @@ const ROUTE_PATHS = {
     logs:      'logs',
 };
 
+// The view the console opens on. A fresh start arrives at the bare root, which
+// names no view, so it lands here and the address bar is rewritten to /home
+// rather than left claiming the view '/' means (chat). Pages someone asks for
+// by path are deep links and are never redirected.
+const ROUTE_HOME = 'home';
+
 // An artifact or link the user put in the menu is at /m/<item id>, served by
 // its own pattern in web_channel.py. The id travels as the view's "tab".
 const ROUTE_MENU_SEGMENT = 'm';
@@ -97,6 +103,10 @@ let routeTab = '';
 // write the address bar then leave it alone: it already says what is being
 // applied, and writing would stack a duplicate entry onto the history.
 let _routeApplying = false;
+
+// Whether the address bar has been read once already. Only the first read of a
+// page load can be the console starting rather than the user going somewhere.
+let _routeStarted = false;
 
 function _routePath(view, tab) {
     if (view === 'custom') return '/' + ROUTE_MENU_SEGMENT + '/' + encodeURIComponent(tab || '');
@@ -168,8 +178,32 @@ function routeNoteTab(view, tab) {
     _routeWrite(view, tab, true);
 }
 
+// Whether this apply is the console starting: the first read of a fresh page
+// load whose address bar names nothing. A bare root is the address the console
+// is opened at, not a view, so it means home. A reload or a Back/Forward is the
+// user returning to what the bar says -- and a path that names a view is a deep
+// link -- so both are applied as they are.
+function _routeStartIsHome() {
+    if (_routeStarted) return false;
+    _routeStarted = true;
+    if (String(location.pathname || '/').replace(/^\/+|\/+$/g, '') || location.hash) return false;
+    const entry = typeof performance !== 'undefined' && performance.getEntriesByType
+        ? performance.getEntriesByType('navigation')[0] : null;
+    return !entry || entry.type === 'navigate';
+}
+
 // Apply what the address bar says: on Back/Forward, and once at startup.
 function routeApply() {
+    if (_routeStartIsHome()) {
+        _routeApplying = true;
+        try { navigateTo(ROUTE_HOME); }
+        finally { _routeApplying = false; }
+        // replaceState rather than pushState: the empty root was never a place
+        // the user chose, so Back has no reason to return to it.
+        _routeWrite(ROUTE_HOME, '', true);
+        return;
+    }
+
     const parsed = _routeParse(location.pathname);
 
     if (parsed.view === currentView) {

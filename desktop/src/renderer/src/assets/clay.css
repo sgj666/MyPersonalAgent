@@ -1180,3 +1180,44 @@ html:not(.dark) .nav-rail button[class*="bg-accent-soft"] {
 html:not(.dark) .nav-rail button[class*="bg-accent-soft"]:hover {
   background: #d9f2e4 !important;
 }
+
+/* The conversation column, in the same language: a narrower cream panel, rows
+   that hover in pale apricot and sit in mint with deep-green text when they are
+   the open conversation, and quiet grey time headers. */
+html:not(.dark) .session-list {
+  width: 216px;
+  background: #fffdf8;
+  border-right: 1px solid rgba(96, 84, 74, 0.22);
+}
+
+html:not(.dark) .session-list > div.border-b {
+  border-bottom-color: #e7e0d3;
+}
+
+html:not(.dark) .session-list .session-row {
+  border: 1px solid transparent;
+  border-radius: 10px;
+}
+
+html:not(.dark) .session-list .session-row:hover {
+  background: #fdf2ea;
+  border-color: rgba(96, 84, 74, 0.12);
+}
+
+html:not(.dark) .session-list .session-row.is-active {
+  background: #e3f6ec;
+  border-color: rgba(82, 162, 119, 0.45);
+}
+
+html:not(.dark) .session-list .session-row.is-active .session-title {
+  color: #2f6b4c;
+}
+
+html:not(.dark) .session-list .session-group-title {
+  padding: 10px 8px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: none;
+  color: #948c9c;
+}

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import { History, FolderTree, Layers } from 'lucide-react'
 import NavRail from './layout/NavRail'
@@ -50,6 +50,15 @@ const App: React.FC = () => {
   const backend = useBackend()
   const location = useLocation()
   const navigate = useNavigate()
+  // The app opens on 首页. Only a bare launch moves: a deep link keeps its own
+  // path, and afterwards the rail's 对话 entry still lands on "/". The ref is
+  // the launch pathname, reset before navigating, so this runs once per launch.
+  const launchPath = useRef(location.pathname)
+  useEffect(() => {
+    if (launchPath.current !== '/') return
+    launchPath.current = '/home'
+    navigate('/home', { replace: true })
+  }, [navigate])
   const { isWin, isMac } = usePlatform()
   const { sessionsCollapsed, toggleSessions, navCollapsed } = useUIStore()
   const toggleWorkspace = useWorkspaceStore((s) => s.togglePanel)

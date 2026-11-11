@@ -82,7 +82,7 @@
 
 /* Session Panel */
 .session-panel {
-    width: 220px;
+    width: 216px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
@@ -563,7 +563,7 @@
         top: 0;
         left: 0;
         z-index: 45;
-        width: 220px;
+        width: 216px;
         box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
     }
     .dark .session-panel {
@@ -571,3 +571,80 @@
     }
 }
 
+
+/* ---------------------------------------------------------------------
+   Clay skin (light theme) for the console's session column.
+   It wears the same paper as the rest of the console: cream sheet, a 1px
+   warm edge, apricot hover and the mint active row. Rules are scoped to
+   `#sidebar ~ #session-panel` rather than bare `#session-panel`: this
+   sheet loads before clay-legacy.css, and the guest page shares the
+   component without loading that sheet, so the console-only rail is what
+   the extra id selects. All colours are --cl-* tokens.
+   --------------------------------------------------------------------- */
+html:not(.dark) #sidebar ~ #session-panel {
+    background: var(--cl-paper);
+    border-right: var(--cl-rim);
+}
+html:not(.dark) #sidebar ~ #session-panel .session-panel-header {
+    border-bottom: var(--cl-rim);
+}
+html:not(.dark) #sidebar ~ #session-panel .session-panel-title { color: var(--cl-ink); }
+html:not(.dark) #sidebar ~ #session-panel .session-panel-close { color: var(--cl-ink-3); }
+html:not(.dark) #sidebar ~ #session-panel .session-panel-close:hover {
+    background: var(--cl-head);
+    color: var(--cl-ink);
+}
+html:not(.dark) #sidebar ~ #session-panel .session-panel-new {
+    border: var(--cl-rim);
+    border-radius: var(--cl-radius-sm);
+    background: var(--cl-accent-soft);
+    color: var(--cl-ink);
+    font-weight: 700;
+    box-shadow: var(--cl-shadow-sm);
+}
+html:not(.dark) #sidebar ~ #session-panel .session-panel-new:hover {
+    border-color: var(--cl-line-strong);
+    background: var(--cl-accent-soft);
+    color: var(--cl-accent-hover);
+}
+
+html:not(.dark) #sidebar ~ #session-panel .session-item {
+    border: 1px solid transparent;
+    border-radius: 10px;
+    color: var(--cl-ink-2);
+}
+html:not(.dark) #sidebar ~ #session-panel .session-item:hover {
+    background: var(--cl-head);
+    color: var(--cl-ink);
+}
+html:not(.dark) #sidebar ~ #session-panel .session-item.active {
+    border-color: var(--cl-rim-color);
+    background: var(--cl-accent-soft);
+    color: var(--cl-accent-hover);
+}
+html:not(.dark) #sidebar ~ #session-panel .session-icon { color: var(--cl-ink-3); }
+html:not(.dark) #sidebar ~ #session-panel .session-item:hover .session-icon { color: var(--cl-ink-2); }
+html:not(.dark) #sidebar ~ #session-panel .session-item.active .session-icon,
+html:not(.dark) #sidebar ~ #session-panel .session-item.pinned .session-icon {
+    color: var(--cl-accent-hover);
+}
+html:not(.dark) #sidebar ~ #session-panel .session-delete,
+html:not(.dark) #sidebar ~ #session-panel .session-rename,
+html:not(.dark) #sidebar ~ #session-panel .session-pin { color: var(--cl-ink-3); }
+
+/* Group headers: the 11px grey label the rail has always used, on ink-3. */
+html:not(.dark) #sidebar ~ #session-panel .session-group-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--cl-ink-3);
+}
+html:not(.dark) #sidebar ~ #session-panel .session-group-project { color: var(--cl-ink-3); }
+html:not(.dark) #sidebar ~ #session-panel .session-group-project:hover { background: var(--cl-head); }
+html:not(.dark) #sidebar ~ #session-panel .session-group-count { color: var(--cl-ink-3); }
+
+html:not(.dark) #sidebar ~ #session-panel .session-title-input {
+    border: 1px solid var(--cl-accent);
+    border-radius: 6px;
+    background: var(--cl-field);
+    color: var(--cl-ink);
+}

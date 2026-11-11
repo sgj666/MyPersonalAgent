@@ -54,7 +54,7 @@ const StateNote: React.FC<{ icon: React.ReactNode; title: string; action: string
   action,
   onAction,
 }) => (
-  <div className="flex flex-col items-center gap-2.5 py-20 px-6 text-content-tertiary">
+  <div className="clay-empty flex flex-col items-center gap-2.5 py-20 px-6 text-content-tertiary">
     <span className="opacity-60">{icon}</span>
     <div className="text-[13.5px] text-content-secondary">{title}</div>
     <button type="button" className="art-link-btn" onClick={onAction}>
@@ -305,7 +305,7 @@ const ArtifactsPage: React.FC = () => {
       )
     } else {
       body = (
-        <div className="flex flex-col items-center text-center px-6 pt-[72px] pb-12">
+        <div className="clay-empty flex flex-col items-center text-center px-6 pt-[72px] pb-12">
           <div className="art-empty-art" aria-hidden="true">
             <span className="art-empty-tile art-empty-tile-1">
               <FileText size={20} />
@@ -369,21 +369,13 @@ const ArtifactsPage: React.FC = () => {
   }
 
   return (
-    <div ref={shellRef} className={`art-shell${selected ? ' has-preview' : ''}`}>
+    <div ref={shellRef} className={`art-shell clay-legacy${selected ? ' has-preview' : ''}`}>
       <div ref={scrollRef} className="art-scroll">
         <div className="art-inner">
-          <div className="mb-5">
-            <h2 className="text-xl font-bold text-content">{t('artifacts_title')}</h2>
-            <p className="text-xs text-content-tertiary mt-1">{t('artifacts_desc')}</p>
-          </div>
-
-          <div className="art-toolbar">
-            <div className="art-filters">
-              <SegTabs
-                tabs={FILTERS.map((f) => ({ value: f.value, label: t(f.key) }))}
-                value={kind}
-                onChange={setKind}
-              />
+          <div className="clay-head art-page-head flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="clay-head-title text-xl font-bold text-content">{t('artifacts_title')}</h2>
+              <p className="clay-head-desc text-xs text-content-tertiary mt-1">{t('artifacts_desc')}</p>
             </div>
             <div className="art-toolbar-end">
               <AgentScopeSelect value={scope} onChange={setScope} allLabel={t('artifacts_scope_all')} />
@@ -403,6 +395,16 @@ const ArtifactsPage: React.FC = () => {
                   placeholder={t('artifacts_search')}
                 />
               </label>
+            </div>
+          </div>
+
+          <div className="art-toolbar">
+            <div className="art-filters">
+              <SegTabs
+                tabs={FILTERS.map((f) => ({ value: f.value, label: t(f.key) }))}
+                value={kind}
+                onChange={setKind}
+              />
             </div>
           </div>
 

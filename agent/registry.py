@@ -212,8 +212,8 @@ class AgentRegistry:
             builtin_desc = str(builtin_desc).strip() if builtin_desc is not None else ""
             profile = AgentProfile(
                 id=builtin_id,
-                name=builtin_name or "CowAgent",
-                description=builtin_desc,
+                name=builtin_name or "青禾",
+                description=builtin_desc or "教师全能 AI 助手",
                 workspace=instance_root,
             )
             return cls([profile], builtin_id)

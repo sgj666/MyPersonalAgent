@@ -320,12 +320,9 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
             {boardError && <p className="twb-status is-error mt-2">{boardError}</p>}
           </section>
 
-          <section aria-labelledby="twb-home-today">
-            <h2 id="twb-home-today" className="twb-sr-only">
-              {t('tw_today_title')}
-            </h2>
-            <div className="twb-today-grid">
-              <section className="twb-card" aria-labelledby="twb-today-lessons">
+          <section className="twb-home-dash" aria-label={t('tw_home_overview')}>
+            <div className="twb-home-grid">
+              <section className="twb-card twb-home-cell twb-home-lessons" aria-labelledby="twb-today-lessons">
                 <div className="twb-card-head">
                   <h2 id="twb-today-lessons">{t('tw_today_title')}</h2>
                   <button type="button" className="twb-link" onClick={() => navigate('/timetable')}>
@@ -389,7 +386,7 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
                 )}
               </section>
 
-              <section className="twb-card" aria-labelledby="twb-today-digest">
+              <section className="twb-card twb-home-cell twb-home-digest" aria-labelledby="twb-today-digest">
                 <div className="twb-card-head">
                   <h2 id="twb-today-digest">{t('tw_digest_title')}</h2>
                   <button
@@ -419,7 +416,7 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
                 {copyStatus && <p className="twb-status">{copyStatus}</p>}
               </section>
 
-              <section className="twb-card" aria-labelledby="twb-today-reminders">
+              <section className="twb-card twb-home-cell twb-home-rem" aria-labelledby="twb-today-reminders">
                 <div className="twb-card-head">
                   <h2 id="twb-today-reminders">{t('tw_rem_title')}</h2>
                 </div>
@@ -523,6 +520,139 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
                   <p className="twb-loading">{t('tw_loading')}</p>
                 )}
               </section>
+
+              <section className="twb-card twb-home-cell twb-home-board" aria-labelledby="twb-home-board">
+                <div className="twb-card-head">
+                  <h2 id="twb-home-board">{t('tw_home_board')}</h2>
+                  <button type="button" className="twb-link" onClick={() => navigate('/board')}>
+                    <span>{t('tw_home_board_all')}</span>
+                    <ArrowRight size={13} />
+                  </button>
+                </div>
+                {board ? (
+                  board.columns.length ? (
+                    <div className="twb-mini-board">
+                      {board.columns.map((column) => (
+                        <div className="twb-mini-col" key={column.status}>
+                          <h3>
+                            <span>{t(`tw_status_${column.status}`)}</span>
+                            <span>{column.tasks.length}</span>
+                          </h3>
+                          {column.tasks.length ? (
+                            column.tasks.slice(0, 3).map((task) => (
+                              <button
+                                key={task.id}
+                                type="button"
+                                className={`twb-mini-task${
+                                  task.due && task.status !== 'done' && task.due < todayStr ? ' is-overdue' : ''
+                                }`}
+                                title={task.title}
+                                onClick={() => navigate('/board')}
+                              >
+                                {task.title}
+                              </button>
+                            ))
+                          ) : (
+                            <div className="twb-mini-empty">{t('tw_board_empty_col')}</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="twb-empty">
+                      <ClipboardList size={26} />
+                      <p>{t('tw_home_empty_board')}</p>
+                      <button type="button" className="twb-btn twb-btn-primary" onClick={() => navigate('/board')}>
+                        {t('tw_board_new')}
+                      </button>
+                    </div>
+                  )
+                ) : boardError ? (
+                  <PanelError message={boardError} onRetry={() => void load()} />
+                ) : (
+                  <p className="twb-loading">{t('tw_loading')}</p>
+                )}
+              </section>
+
+              <section className="twb-card twb-home-cell twb-home-artifacts" aria-labelledby="twb-home-artifacts">
+                <div className="twb-card-head">
+                  <h2 id="twb-home-artifacts">{t('tw_home_artifacts')}</h2>
+                  <button type="button" className="twb-link" onClick={() => navigate('/artifacts')}>
+                    <span>{t('tw_home_board_all')}</span>
+                    <ArrowRight size={13} />
+                  </button>
+                </div>
+                {artifacts ? (
+                  artifacts.length ? (
+                    <div className="twb-list">
+                      {artifacts.map((item) => {
+                        const Icon = item.icon
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            className="twb-list-item"
+                            onClick={() => navigate('/artifacts')}
+                          >
+                            <Icon size={15} />
+                            <span>{item.title}</span>
+                            {item.when && <small>{item.when}</small>}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div className="twb-empty">
+                      <Box size={26} />
+                      <p>{t('tw_home_empty_artifacts')}</p>
+                    </div>
+                  )
+                ) : artifactsError ? (
+                  <PanelError message={artifactsError} onRetry={() => void load()} />
+                ) : (
+                  <p className="twb-loading">{t('tw_loading')}</p>
+                )}
+              </section>
+
+              <section className="twb-card twb-home-cell twb-home-knowledge" aria-labelledby="twb-home-knowledge">
+                <div className="twb-card-head">
+                  <h2 id="twb-home-knowledge">{t('tw_home_knowledge')}</h2>
+                  <button type="button" className="twb-link" onClick={() => navigate('/knowledge')}>
+                    <span>{t('tw_home_knowledge_all')}</span>
+                    <ArrowRight size={13} />
+                  </button>
+                </div>
+                {knowledge ? (
+                  knowledge.docs.length ? (
+                    <>
+                      <div className="twb-list">
+                        {knowledge.docs.slice(0, 5).map((doc) => (
+                          <button
+                            key={doc.path}
+                            type="button"
+                            className="twb-list-item"
+                            title={doc.path}
+                            onClick={() => navigate('/knowledge')}
+                          >
+                            <FileText size={15} />
+                            <span>{doc.title}</span>
+                          </button>
+                        ))}
+                      </div>
+                      <p className="twb-footnote">{tf('tw_knowledge_pages', { n: knowledge.pages })}</p>
+                    </>
+                  ) : (
+                    <div className="twb-empty">
+                      <BookOpen size={26} />
+                      <p>{t('tw_home_empty_knowledge')}</p>
+                    </div>
+                  )
+                ) : knowledgeError ? (
+                  <PanelError message={knowledgeError} onRetry={() => void load()} />
+                ) : (
+                  <p className="twb-loading">{t('tw_loading')}</p>
+                )}
+              </section>
             </div>
           </section>
 
@@ -554,140 +684,6 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
             </div>
           </section>
 
-          <div className="twb-home-grid">
-            <section className="twb-card twb-home-board" aria-labelledby="twb-home-board">
-              <div className="twb-card-head">
-                <h2 id="twb-home-board">{t('tw_home_board')}</h2>
-                <button type="button" className="twb-link" onClick={() => navigate('/board')}>
-                  <span>{t('tw_home_board_all')}</span>
-                  <ArrowRight size={13} />
-                </button>
-              </div>
-              {board ? (
-                board.columns.length ? (
-                  <div className="twb-mini-board">
-                    {board.columns.map((column) => (
-                      <div className="twb-mini-col" key={column.status}>
-                        <h3>
-                          <span>{t(`tw_status_${column.status}`)}</span>
-                          <span>{column.tasks.length}</span>
-                        </h3>
-                        {column.tasks.length ? (
-                          column.tasks.slice(0, 3).map((task) => (
-                            <button
-                              key={task.id}
-                              type="button"
-                              className={`twb-mini-task${
-                                task.due && task.status !== 'done' && task.due < todayStr ? ' is-overdue' : ''
-                              }`}
-                              title={task.title}
-                              onClick={() => navigate('/board')}
-                            >
-                              {task.title}
-                            </button>
-                          ))
-                        ) : (
-                          <div className="twb-mini-empty">{t('tw_board_empty_col')}</div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="twb-empty">
-                    <ClipboardList size={26} />
-                    <p>{t('tw_home_empty_board')}</p>
-                    <button type="button" className="twb-btn twb-btn-primary" onClick={() => navigate('/board')}>
-                      {t('tw_board_new')}
-                    </button>
-                  </div>
-                )
-              ) : boardError ? (
-                <PanelError message={boardError} onRetry={() => void load()} />
-              ) : (
-                <p className="twb-loading">{t('tw_loading')}</p>
-              )}
-            </section>
-
-            <section className="twb-card" aria-labelledby="twb-home-artifacts">
-              <div className="twb-card-head">
-                <h2 id="twb-home-artifacts">{t('tw_home_artifacts')}</h2>
-                <button type="button" className="twb-link" onClick={() => navigate('/artifacts')}>
-                  <span>{t('tw_home_board_all')}</span>
-                  <ArrowRight size={13} />
-                </button>
-              </div>
-              {artifacts ? (
-                artifacts.length ? (
-                  <div className="twb-list">
-                    {artifacts.map((item) => {
-                      const Icon = item.icon
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          className="twb-list-item"
-                          onClick={() => navigate('/artifacts')}
-                        >
-                          <Icon size={15} />
-                          <span>{item.title}</span>
-                          {item.when && <small>{item.when}</small>}
-                        </button>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <div className="twb-empty">
-                    <Box size={26} />
-                    <p>{t('tw_home_empty_artifacts')}</p>
-                  </div>
-                )
-              ) : artifactsError ? (
-                <PanelError message={artifactsError} onRetry={() => void load()} />
-              ) : (
-                <p className="twb-loading">{t('tw_loading')}</p>
-              )}
-            </section>
-
-            <section className="twb-card" aria-labelledby="twb-home-knowledge">
-              <div className="twb-card-head">
-                <h2 id="twb-home-knowledge">{t('tw_home_knowledge')}</h2>
-                <button type="button" className="twb-link" onClick={() => navigate('/knowledge')}>
-                  <span>{t('tw_home_knowledge_all')}</span>
-                  <ArrowRight size={13} />
-                </button>
-              </div>
-              {knowledge ? (
-                knowledge.docs.length ? (
-                  <>
-                    <div className="twb-list">
-                      {knowledge.docs.slice(0, 5).map((doc) => (
-                        <button
-                          key={doc.path}
-                          type="button"
-                          className="twb-list-item"
-                          title={doc.path}
-                          onClick={() => navigate('/knowledge')}
-                        >
-                          <FileText size={15} />
-                          <span>{doc.title}</span>
-                        </button>
-                      ))}
-                    </div>
-                    <p className="twb-footnote">{tf('tw_knowledge_pages', { n: knowledge.pages })}</p>
-                  </>
-                ) : (
-                  <div className="twb-empty">
-                    <BookOpen size={26} />
-                    <p>{t('tw_home_empty_knowledge')}</p>
-                  </div>
-                )
-              ) : knowledgeError ? (
-                <PanelError message={knowledgeError} onRetry={() => void load()} />
-              ) : (
-                <p className="twb-loading">{t('tw_loading')}</p>
-              )}
-            </section>
-          </div>
         </div>
       </div>
     </div>

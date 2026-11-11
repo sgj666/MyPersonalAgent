@@ -111,15 +111,20 @@ export function defaultTeachingChildren(): MenuChild[] {
 // The document is shared with the web console, so it keeps every page the
 // console has, footer ones included.
 //
-// docs/plans/teacher-academics.md §1: 对话 → 教学 → 管理 → 监控, each group
-// open (no folding); a group lists its pages 日常高频 → 低频.
+// docs/plans/teacher-academics.md §1: 首页 → 对话 → 教学 → 管理 → 监控, each
+// group open (no folding); a group lists its pages 日常高频 → 低频.
+//
+// 首页 opens the first group, ahead of 对话: it is where the app lands at
+// launch, so it is the rail's first entry. 智能体 and 定时 are left out of the
+// default groups — they stay registered in MENU_BUILTINS, so the menu editor
+// can still add them back.
 export const MENU_DEFAULT: { id: string; views: string[] }[] = [
-  { id: 'chat', views: ['chat', 'artifacts'] },
+  { id: 'chat', views: ['home', 'chat', 'artifacts'] },
   {
     id: 'teach',
-    views: ['home', 'classes', 'timetable', 'progress', 'homework', 'scores', 'teaching', 'board', 'knowledge'],
+    views: ['classes', 'timetable', 'progress', 'homework', 'scores', 'teaching', 'board', 'knowledge'],
   },
-  { id: 'manage', views: ['agents', 'config', 'skills', 'memory', 'channels', 'tasks'] },
+  { id: 'manage', views: ['config', 'skills', 'memory', 'channels'] },
   { id: 'monitor', views: ['logs'] },
 ]
 
