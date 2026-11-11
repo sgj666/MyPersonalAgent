@@ -489,7 +489,7 @@ const TeachingPage: React.FC = () => {
                 </button>
               </div>
               <div className="twb-teach-out-body">
-                <EmbeddedChat sessionId={sessionId} />
+                <EmbeddedChat sessionId={sessionId} composer placeholder={t('tw_teach_input_ph')} />
               </div>
             </section>
           </div>

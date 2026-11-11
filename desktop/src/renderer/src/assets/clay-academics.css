@@ -1376,9 +1376,31 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
 /* ---------- teaching tools: form left, result right ----------
    The result column owns the larger half and scrolls inside itself, so the two
    cards stay top-aligned and equal height however long the answer is. */
+/* The tool page owns the viewport: header fixed, the two cards share what is
+   left, and the conversation scrolls inside its card instead of growing the
+   page. */
+#twb-teaching .twb-scroll {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+#twb-teaching .twb-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+#twb-teaching .twb-page-head {
+  flex: 0 0 auto;
+}
+
 #twb-teaching .twb-teach-grid {
   grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
   align-items: stretch;
+  flex: 1;
+  min-height: 0;
 }
 
 #twb-teaching .twb-page-head .twb-eyebrow {
@@ -1388,6 +1410,13 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
 @media (max-width: 1000px) {
   #twb-teaching .twb-teach-grid {
     grid-template-columns: 1fr;
+    flex: 0 0 auto;
+  }
+
+  #twb-teaching .twb-teach-out-body {
+    flex: 0 0 auto;
+    height: 60vh;
+    max-height: 60vh;
   }
 }
 
@@ -1395,6 +1424,7 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
 }
 
 /* A definite height (not max-height) so the embedded conversation scrolls
@@ -1405,15 +1435,13 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  height: min(62vh, 760px);
+  max-height: min(62vh, 760px);
   overflow: hidden;
   padding: 2px 4px 2px 2px;
 }
 
 @media (max-width: 1000px) {
-  .twb-teach-out-body {
-    height: min(62vh, 560px);
-  }
+
 }
 
 /* ---------- embedded conversation (teaching tools, page AI drawer) ----------
@@ -1421,6 +1449,7 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
    palette rather than the app's flat surfaces. */
 .twb-embed {
   flex: 1;
+  height: 100%;
   min-height: 0;
 }
 
