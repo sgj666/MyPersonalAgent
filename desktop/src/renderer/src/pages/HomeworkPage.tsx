@@ -379,9 +379,9 @@ const HomeworkPage: React.FC<HomeworkPageProps> = ({ baseUrl }) => {
                 <span>{t('tw_hw_new')}</span>
               </button>
               <AiAssistButton
+                pageKey="homework"
                 dataTool="homework"
                 scene={t('ai_scene_homework')}
-                examples={[t('ai_ex_homework_1'), t('ai_ex_homework_2'), t('ai_ex_homework_3')]}
               />
             </div>
           </header>

@@ -333,9 +333,9 @@ const ClassesPage: React.FC<ClassesPageProps> = ({ baseUrl }) => {
                 <span>{t('tw_classes_import')}</span>
               </button>
               <AiAssistButton
+                pageKey="classes"
                 dataTool="class_list"
                 scene={t('ai_scene_classes')}
-                examples={[t('ai_ex_classes_1'), t('ai_ex_classes_2'), t('ai_ex_classes_3')]}
               />
             </div>
           </header>

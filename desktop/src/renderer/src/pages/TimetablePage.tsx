@@ -454,9 +454,9 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                 <span>{t('tw_tt_print')}</span>
               </button>
               <AiAssistButton
+                pageKey="timetable"
                 dataTool="timetable"
                 scene={t('ai_scene_timetable')}
-                examples={[t('ai_ex_timetable_1'), t('ai_ex_timetable_2'), t('ai_ex_timetable_3')]}
               />
             </div>
           </header>

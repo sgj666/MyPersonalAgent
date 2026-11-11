@@ -67,6 +67,9 @@ import type {
   TeachingAnalysis,
   TeachingToday,
   TeachingSettings,
+  TeachingGreeting,
+  TeacherProfile,
+  TeacherProfileFields,
   ReminderPreview,
   TimetableKind,
 } from '../types'
@@ -75,6 +78,13 @@ import { getLang, t } from '../i18n'
 export interface ApiResult {
   status: string
   message?: string
+}
+
+/** The AI drawer's starting prompts for one teaching page. */
+export interface TeachingSuggestions {
+  page: string
+  items: string[]
+  cached: boolean
 }
 
 export interface ExternalApiState {
@@ -213,6 +223,25 @@ function normalizeTeachingSettings(raw: Partial<TeachingSettings> | null | undef
           : DEFAULT_TEACHING_SETTINGS.lesson.minutes,
     },
     channel: typeof raw?.channel === 'string' && raw.channel ? raw.channel : DEFAULT_TEACHING_SETTINGS.channel,
+  }
+}
+
+/**
+ * Coerce a profile payload to the store's shape. The dialog and the settings
+ * card bind plain strings and lists, so a malformed file must not put
+ * `undefined` into an input or a list map.
+ */
+function normalizeTeacherProfile(raw: Partial<TeacherProfile> | null | undefined): TeacherProfile {
+  const strings = (value: unknown): string[] =>
+    Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item.trim() !== '') : []
+  const text = (value: unknown): string => (typeof value === 'string' ? value.trim() : '')
+  return {
+    name: text(raw?.name),
+    subjects: strings(raw?.subjects),
+    classes: strings(raw?.classes),
+    textbook: text(raw?.textbook),
+    school: text(raw?.school),
+    onboarded: raw?.onboarded === true,
   }
 }
 
@@ -1822,6 +1851,54 @@ class ApiClient {
 
   async saveTeachingSettings(settings: TeachingSettings): Promise<void> {
     await this.teachingCall('/api/teaching/settings', 'PUT', normalizeTeachingSettings(settings))
+  }
+
+  /** The teacher's own identity; `onboarded` false until the first save. */
+  async getTeachingProfile(): Promise<TeacherProfile> {
+    const data = await this.teachingCall<ApiResult & Partial<TeacherProfile>>('/api/teaching/profile')
+    return normalizeTeacherProfile(data)
+  }
+
+  /**
+   * Save the profile. The backend also mirrors it into the workspace's
+   * USER.md, so the answer says whether that file was written.
+   */
+  async saveTeachingProfile(fields: TeacherProfileFields): Promise<{ synced: boolean; path: string }> {
+    const data = await this.teachingCall<ApiResult & { synced?: boolean; path?: string }>(
+      '/api/teaching/profile',
+      'PUT',
+      fields
+    )
+    return { synced: data.synced === true, path: String(data.path || '') }
+  }
+
+  /** The hero's greeting and daily motto; `refresh` asks for a new motto. */
+  async getTeachingGreeting(refresh = false): Promise<TeachingGreeting> {
+    const path = refresh ? '/api/teaching/greeting?refresh=1' : '/api/teaching/greeting'
+    const data = await this.teachingCall<ApiResult & Partial<TeachingGreeting>>(path)
+    return {
+      greeting: String(data.greeting || ''),
+      motto: String(data.motto || ''),
+      date: String(data.date || ''),
+      cached: data.cached === true,
+    }
+  }
+
+  /**
+   * Three starting questions for the page AI drawer, fitted to that page's
+   * data and cached by the backend for the day. An empty list means the model
+   * and the deterministic fallback both failed to produce a usable set, and
+   * the drawer hides the pill row rather than showing placeholders.
+   */
+  async getTeachingSuggestions(page: string): Promise<string[]> {
+    const data = await this.teachingCall<ApiResult & Partial<TeachingSuggestions>>(
+      `/api/teaching/suggestions?page=${encodeURIComponent(page)}`
+    )
+    return Array.isArray(data.items)
+      ? data.items
+          .filter((item): item is string => typeof item === 'string' && item.trim() !== '')
+          .slice(0, 3)
+      : []
   }
 
   /**

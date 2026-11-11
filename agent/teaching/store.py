@@ -10,6 +10,9 @@ One JSON document per domain under ``<state_root>/teaching/``:
     homework.json  {version, items:[...], records:{hw_id:{student_id:state}}}
     exams.json     {version, exams:[...]}
     scores.json    {version, by_exam:{exam_id:{student_id:{total,items}}}}
+    settings.json  {version, morning, lesson, channel}
+    profile.json   {version, name, subjects, classes, textbook, school, onboarded}
+    daily_motto.json {date, text}    -- the home page's cached line for one day
 
 The same rules as the board and scheduler stores apply: one module-level lock
 per resolved file, atomic replacement, and a file that fails to parse reads as
@@ -51,7 +54,19 @@ FILES = {
     "exams": "exams.json",
     "scores": "scores.json",
     "settings": "settings.json",
+    "profile": "profile.json",
+    "motto": "daily_motto.json",
 }
+
+#: The teacher's own identity. ``onboarded`` is set by the store on the first
+#: successful save, so the console can tell "never asked" from "left blank".
+PROFILE_FIELDS = ("name", "subjects", "classes", "textbook", "school")
+MAX_PROFILE_NAME = 20
+MAX_PROFILE_SUBJECTS = 6
+MAX_PROFILE_CLASSES = 12
+MAX_PROFILE_ITEM = 40
+MAX_PROFILE_TEXT = 40
+PROFILE_TEXT_FIELDS = ("textbook", "school")
 
 #: Reminder settings, written only when a teacher changes them. ``time`` is the
 #: local wall clock of the morning digest; ``minutes`` is how long before a
@@ -555,6 +570,113 @@ def _clean_settings(fields: dict, current: dict) -> dict:
     if "channel" in fields:
         clean["channel"] = _text_field(fields["channel"], "channel", required=True,
                                        limit=MAX_CHANNEL)
+    return clean
+
+
+def default_profile() -> dict:
+    """A fresh profile with the onboarding flag clear and every field empty."""
+    return {
+        "name": "",
+        "subjects": [],
+        "classes": [],
+        "textbook": "",
+        "school": "",
+        "onboarded": False,
+    }
+
+
+def _profile_list(value, field: str, limit: int) -> List[str]:
+    """A list of short labels; a comma-separated string is accepted as a list.
+
+    The dialog lets the teacher type ``七（1）班、七（2）班``, so the same
+    separators the roster paste uses are honoured here. Empty parts are dropped
+    and duplicates collapse, which is what makes the pill display truthful.
+    """
+    if value is None:
+        return []
+    if isinstance(value, str):
+        parts: List = re.split(r"[,，、;；]+", value.strip())
+    elif isinstance(value, list):
+        parts = value
+    else:
+        raise ValueError(f"{field} must be a list of strings")
+    labels: List[str] = []
+    for raw in parts:
+        if not isinstance(raw, str):
+            raise ValueError(f"{field} must be strings")
+        label = raw.strip()
+        if not label:
+            continue
+        if "\n" in label or "\r" in label:
+            raise ValueError(f"{field} must not contain line breaks")
+        if len(label) > MAX_PROFILE_ITEM:
+            raise ValueError(f"{field} items must be at most {MAX_PROFILE_ITEM} characters")
+        if label not in labels:
+            labels.append(label)
+    if len(labels) > limit:
+        raise ValueError(f"{field} must contain at most {limit} items")
+    return labels
+
+
+def _normalize_profile(raw) -> dict:
+    """Read the profile leniently; a damaged file means "not onboarded yet"."""
+    profile = default_profile()
+    if not isinstance(raw, dict):
+        return profile
+    name = " ".join(_text(raw.get("name")).split())[:MAX_PROFILE_NAME]
+    profile["name"] = name
+    for field, limit in (("subjects", MAX_PROFILE_SUBJECTS),
+                         ("classes", MAX_PROFILE_CLASSES)):
+        values = raw.get(field)
+        if isinstance(values, list):
+            labels: List[str] = []
+            for entry in values:
+                if isinstance(entry, str) and entry.strip():
+                    label = " ".join(entry.split())[:MAX_PROFILE_ITEM]
+                    if label not in labels:
+                        labels.append(label)
+            profile[field] = labels[:limit]
+    for field in PROFILE_TEXT_FIELDS:
+        profile[field] = " ".join(_text(raw.get(field)).split())[:MAX_PROFILE_TEXT]
+    profile["onboarded"] = bool(raw.get("onboarded")) and bool(name)
+    return profile
+
+
+def _clean_profile(fields: dict, current: dict) -> dict:
+    """Validate a whole profile update against what is already stored.
+
+    Name is required in the merged result rather than in the call, so a partial
+    save can add a school to an existing profile without restating the name.
+    """
+    unknown = set(fields) - set(PROFILE_FIELDS)
+    if unknown:
+        raise ValueError(f"unknown field(s): {', '.join(sorted(unknown))}")
+    clean = {
+        "name": current["name"],
+        "subjects": list(current["subjects"]),
+        "classes": list(current["classes"]),
+        "textbook": current["textbook"],
+        "school": current["school"],
+    }
+    if "name" in fields:
+        clean["name"] = _text_field(fields["name"], "name", required=True,
+                                    limit=MAX_PROFILE_NAME)
+        if "\n" in clean["name"] or "\r" in clean["name"]:
+            raise ValueError("name must not contain line breaks")
+    if "subjects" in fields:
+        clean["subjects"] = _profile_list(
+            fields["subjects"], "subjects", MAX_PROFILE_SUBJECTS)
+    if "classes" in fields:
+        clean["classes"] = _profile_list(
+            fields["classes"], "classes", MAX_PROFILE_CLASSES)
+    for field in PROFILE_TEXT_FIELDS:
+        if field in fields:
+            text = _text_field(fields[field], field, limit=MAX_PROFILE_TEXT)
+            if "\n" in text or "\r" in text:
+                raise ValueError(f"{field} must not contain line breaks")
+            clean[field] = text
+    if not clean["name"]:
+        raise ValueError("name is required")
     return clean
 
 
@@ -1290,6 +1412,43 @@ class TeachingStore:
             clean = _clean_settings(fields, current)
             self._write_doc("settings", clean)
             return clean
+
+    # --- Teacher profile ---------------------------------------------------
+
+    def get_profile(self) -> dict:
+        """The stored teacher profile; every field empty until the first save."""
+        with self._locked("profile"):
+            return _normalize_profile(self._read_doc("profile"))
+
+    def save_profile(self, **fields) -> dict:
+        """Validate and store the profile, marking onboarding complete.
+
+        ``onboarded`` is not a client field: reaching this method at all means
+        the teacher has answered the dialog or edited the settings card, so the
+        flag is derived from the save rather than trusted from the request.
+        """
+        with self._locked("profile"):
+            current = _normalize_profile(self._read_doc("profile"))
+            clean = _clean_profile(fields, current)
+            profile = {**clean, "onboarded": True}
+            self._write_doc("profile", profile)
+            return {**profile}
+
+    def get_daily_motto(self) -> dict:
+        """Today's cached motto, if one was written: ``{date, text}``."""
+        with self._locked("motto"):
+            doc = self._read_doc("motto")
+        return {
+            "date": _text(doc.get("date")),
+            "text": _text(doc.get("text")),
+        }
+
+    def save_daily_motto(self, day: str, text: str) -> None:
+        """Overwrite the motto cache; one line a day is all it ever holds."""
+        with self._locked("motto"):
+            path = self._path("motto")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            write_json_atomic(path, {"date": _text(day), "text": _text(text)}, indent=2)
 
     # --- Today -------------------------------------------------------------
 

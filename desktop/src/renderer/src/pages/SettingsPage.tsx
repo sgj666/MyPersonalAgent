@@ -1,7 +1,16 @@
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { t } from '../i18n'
+import { Loader2, UserRound } from 'lucide-react'
+import { t, tf } from '../i18n'
 import { product } from '@product'
+import apiClient from '../api/client'
+import {
+  draftFromProfile,
+  draftToFields,
+  ProfileFieldsForm,
+  type ProfileDraft,
+} from '../components/OnboardingDialog'
+import { Card } from './settings/primitives'
 import BasicSettings from './settings/BasicSettings'
 import ModelsTab from './settings/ModelsTab'
 import IntegrationsTab from './settings/IntegrationsTab'
@@ -12,6 +21,91 @@ interface SettingsPageProps {
 }
 
 type Tab = 'basic' | 'models' | 'integrations'
+
+/**
+ * 「我的信息」: the same document the first-run dialog writes, editable later.
+ * Saving also re-writes the Agent's USER.md block, which is why the success
+ * line names that file rather than just saying "saved".
+ */
+const TeacherProfileCard: React.FC<{ baseUrl: string }> = ({ baseUrl }) => {
+  const [draft, setDraft] = useState<ProfileDraft>(() => draftFromProfile(null))
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [status, setStatus] = useState('')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let alive = true
+    apiClient.setBaseUrl(baseUrl)
+    apiClient
+      .getTeachingProfile()
+      .then((profile) => {
+        if (!alive) return
+        setDraft(draftFromProfile(profile))
+        setError('')
+      })
+      .catch((err) => {
+        if (alive) setError(err instanceof Error ? err.message : String(err))
+      })
+      .finally(() => {
+        if (alive) setLoading(false)
+      })
+    return () => {
+      alive = false
+    }
+  }, [baseUrl])
+
+  const save = async () => {
+    if (busy) return
+    if (!draft.name.trim()) {
+      setStatus('')
+      setError(t('tw_profile_name_required'))
+      return
+    }
+    setBusy(true)
+    setStatus('')
+    setError('')
+    try {
+      const result = await apiClient.saveTeachingProfile(draftToFields(draft))
+      setStatus(
+        result.synced
+          ? t('tw_settings_profile_synced')
+          : tf('tw_settings_profile_unsynced', { path: result.path })
+      )
+    } catch (err) {
+      setError(tf('tw_profile_save_failed', { msg: err instanceof Error ? err.message : String(err) }))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card icon={<UserRound size={16} />} title={t('tw_settings_profile_title')} subtitle={t('tw_settings_profile_desc')}>
+      {loading ? (
+        <p className="text-sm text-content-tertiary">{t('tw_loading')}</p>
+      ) : (
+        <>
+          <div className="twb-profile-form">
+            <ProfileFieldsForm value={draft} onChange={setDraft} disabled={busy} idPrefix="twb-settings-profile" />
+          </div>
+          {error && <p className="text-xs text-danger mt-2">{error}</p>}
+          <div className="flex items-center justify-end gap-3 pt-3">
+            <span className="text-xs text-accent">{status}</span>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-btn bg-accent text-accent-contrast hover:bg-accent-hover text-sm font-medium cursor-pointer transition-colors disabled:opacity-60"
+              disabled={busy}
+              onClick={() => void save()}
+            >
+              {busy ? <Loader2 size={14} className="twb-spin" /> : null}
+              <span>{t('tw_settings_profile_save')}</span>
+            </button>
+          </div>
+        </>
+      )}
+    </Card>
+  )
+}
 
 const SettingsPage: React.FC<SettingsPageProps> = ({ baseUrl, onLangChange }) => {
   const location = useLocation()
@@ -71,16 +165,19 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ baseUrl, onLangChange }) =>
               setFocusPassword(true)
             }}
           />
-        ) : tab === 'basic' || modelsTabHidden ? (
-          <BasicSettings
-            baseUrl={baseUrl}
-            onLangChange={onLangChange}
-            onOpenModels={modelsTabHidden ? undefined : () => switchTab('models')}
-            focusPassword={focusPassword}
-            onPasswordFocused={clearFocusPassword}
-          />
-        ) : (
+        ) : tab === 'models' && !modelsTabHidden ? (
           <ModelsTab baseUrl={baseUrl} />
+        ) : (
+          <div className="grid gap-5">
+            <TeacherProfileCard baseUrl={baseUrl} />
+            <BasicSettings
+              baseUrl={baseUrl}
+              onLangChange={onLangChange}
+              onOpenModels={modelsTabHidden ? undefined : () => switchTab('models')}
+              focusPassword={focusPassword}
+              onPasswordFocused={clearFocusPassword}
+            />
+          </div>
         )}
       </div>
     </div>

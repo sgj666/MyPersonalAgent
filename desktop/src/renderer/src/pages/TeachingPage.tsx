@@ -1,23 +1,20 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useSearchParams } from 'react-router-dom'
+import React, { useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   CalendarDays,
   Copy,
+  ExternalLink,
   FileText,
   Lightbulb,
-  Loader2,
   Presentation,
-  Save,
   Sparkles,
   Square,
   type LucideIcon,
 } from 'lucide-react'
-import { t, tf } from '../i18n'
-import apiClient from '../api/client'
-import { AgentRunError, runAgentPrompt, toolSessionId } from '../lib/agentRun'
-import { errorText } from '../lib/teaching'
-import Markdown from '../components/Markdown'
-import { copyToClipboard } from './teachingShared'
+import { t } from '../i18n'
+import EmbeddedChat from '../components/EmbeddedChat'
+import { useChatStore } from '../store/chatStore'
+import { useSessionStore } from '../store/sessionStore'
 
 type ToolId = 'plan' | 'courseware' | 'card' | 'advice' | 'schedule'
 
@@ -345,13 +342,6 @@ function buildPrompt(tool: ToolId, skill: string, values: Record<string, string>
   ].join('\n')
 }
 
-/** `20261111-1425` — local time, so a saved name matches the teacher's clock. */
-function stamp(): string {
-  const d = new Date()
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
-}
-
 const Field: React.FC<{
   field: FieldDef
   value: string
@@ -400,15 +390,11 @@ const TeachingPage: React.FC = () => {
   const urlTool = asToolId(searchParams.get('tool') || '') || fromPath
   const [tool, setTool] = useState<ToolId>(urlTool || TOOL_IDS[0])
   const [values, setValues] = useState<Record<ToolId, Record<string, string>>>(defaultValues)
-  const [result, setResult] = useState('')
-  const [status, setStatus] = useState('')
-  const [error, setError] = useState('')
-  const [running, setRunning] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const [saved, setSaved] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [saveError, setSaveError] = useState('')
-  const abortRef = useRef<AbortController | null>(null)
+  const navigate = useNavigate()
+  const sessionId = `teach-${tool}`
+  const send = useChatStore((s) => s.send)
+  const cancel = useChatStore((s) => s.cancel)
+  const running = useChatStore((s) => s.getSession(sessionId).isStreaming)
 
   // A link from the rail carries ?tool=<id>; follow it both when the page
   // mounts and when the parameter changes underneath it. Dropping the parameter
@@ -417,9 +403,6 @@ const TeachingPage: React.FC = () => {
     const next = urlTool || TOOL_IDS[0]
     setTool((current) => (current === next ? current : next))
   }, [urlTool])
-
-  // Closing the page must not leave a request running.
-  useEffect(() => () => abortRef.current?.abort(), [])
 
   const active = TOOLS.find((item) => item.id === tool) || TOOLS[0]
   const activeValues = values[tool]
@@ -431,78 +414,20 @@ const TeachingPage: React.FC = () => {
     setValues((prev) => ({ ...prev, [tool]: { ...prev[tool], [name]: value } }))
   }
 
-  const submit = async (e: React.FormEvent) => {
+  const submit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (running) return
     const prompt = preview.trim()
-    if (!prompt) return
-    setRunning(true)
-    setResult('')
-    setError('')
-    setStatus('')
-    setCopied(false)
-    setSaved('')
-    setSaveError('')
-    const controller = new AbortController()
-    abortRef.current = controller
-    let acc = ''
-    try {
-      const answer = await runAgentPrompt({
-        prompt,
-        sessionId: toolSessionId(`teaching-${tool}`),
-        signal: controller.signal,
-        onDelta: (chunk) => {
-          acc += chunk
-          setResult(acc)
-        },
-        onStatus: setStatus,
-      })
-      if (!acc && answer) setResult(answer)
-      setStatus('')
-    } catch (err) {
-      if (err instanceof AgentRunError && err.message === '已取消') {
-        setStatus(t('tw_teach_cancelled'))
-      } else {
-        setError(errorText(err))
-        setStatus('')
-      }
-    } finally {
-      setRunning(false)
-      abortRef.current = null
-    }
+    // A double click can land before the stream state rerenders.
+    if (!prompt || useChatStore.getState().sessions[sessionId]?.isStreaming) return
+    void send(sessionId, prompt, [])
   }
 
-  const copy = async () => {
-    if (!result.trim()) return
-    if (await copyToClipboard(result)) {
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 1600)
-    }
-  }
-
-  /** The one existing knowledge write API; the Agent already saves its work
-   *  products, this button is for the teacher keeping the answer itself. */
-  const save = async () => {
-    if (!result.trim() || saving) return
-    setSaving(true)
-    setSaveError('')
-    setSaved('')
-    try {
-      const path = `${t('tw_teach_kb_folder')}/${t(active.labelKey)}-${stamp()}.md`
-      const res = await apiClient.knowledgeAction({
-        action: 'create_document',
-        payload: { path, content: result, overwrite: false },
-      })
-      if (res.status !== 'success') {
-        throw new Error(typeof res.message === 'string' ? res.message : t('tw_teach_save_failed_generic'))
-      }
-      const savedPath = (res.payload as { path?: string } | undefined)?.path || path
-      setSaved(savedPath)
-    } catch (err) {
-      setSaveError(errorText(err))
-    } finally {
-      setSaving(false)
-    }
+  /** The same conversation, opened where it lives in full. */
+  const openFullSession = async () => {
+    await useSessionStore.getState().setActive(sessionId)
+    // An open editor can refuse the switch; stay here rather than landing on
+    // whatever conversation the rail still has selected.
+    if (useSessionStore.getState().activeId === sessionId) navigate('/')
   }
 
   return (
@@ -541,7 +466,7 @@ const TeachingPage: React.FC = () => {
               )}
               <div className="twb-form-actions">
                 {running ? (
-                  <button type="button" className="twb-btn" onClick={() => abortRef.current?.abort()}>
+                  <button type="button" className="twb-btn" onClick={() => void cancel(sessionId)}>
                     <Square size={14} />
                     <span>{t('tw_teach_stop')}</span>
                   </button>
@@ -555,52 +480,16 @@ const TeachingPage: React.FC = () => {
               </div>
             </form>
 
-            <section className="twb-card twb-teach-out" aria-labelledby="twb-teach-result">
+            <section className="twb-card twb-teach-out" aria-labelledby="twb-teach-session">
               <div className="twb-card-head">
-                <h2 id="twb-teach-result">{t('tw_teach_result')}</h2>
-                {status && <span className="twb-hint twb-teach-status">{status}</span>}
+                <h2 id="twb-teach-session">{t('tw_teach_session')}</h2>
+                <button type="button" className="twb-link" onClick={() => void openFullSession()}>
+                  <ExternalLink size={13} />
+                  <span>{t('tw_teach_open_chat')}</span>
+                </button>
               </div>
               <div className="twb-teach-out-body">
-                {error ? (
-                  <p className="twb-status is-error">{tf('tw_teach_failed', { msg: error })}</p>
-                ) : result ? (
-                  <div className="twb-teach-text">
-                    <Markdown content={result} />
-                    {running && <span className="twb-cursor" aria-hidden />}
-                  </div>
-                ) : running ? (
-                  <div className="twb-teach-skel" aria-hidden>
-                    <i />
-                    <i />
-                    <i />
-                    <i />
-                    <i />
-                  </div>
-                ) : (
-                  <div className="twb-teach-empty">
-                    <Sparkles size={22} />
-                    <p>{t('tw_teach_result_empty')}</p>
-                  </div>
-                )}
-              </div>
-              <div className="twb-teach-out-foot">
-                <button type="button" className="twb-btn" disabled={!result.trim()} onClick={() => void copy()}>
-                  <Copy size={14} />
-                  <span>{copied ? t('tw_teach_copied') : t('tw_teach_copy')}</span>
-                </button>
-                <button
-                  type="button"
-                  className="twb-btn"
-                  disabled={!result.trim() || running || saving}
-                  onClick={() => void save()}
-                >
-                  {saving ? <Loader2 size={14} className="twb-spin" /> : <Save size={14} />}
-                  <span>{t('tw_teach_save_kb')}</span>
-                </button>
-                {saved && <span className="twb-hint">{tf('tw_teach_saved_kb', { path: saved })}</span>}
-                {saveError && (
-                  <span className="twb-hint is-error">{tf('tw_teach_save_failed', { msg: saveError })}</span>
-                )}
+                <EmbeddedChat sessionId={sessionId} />
               </div>
             </section>
           </div>

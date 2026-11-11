@@ -235,9 +235,9 @@ const ProgressPage: React.FC<ProgressPageProps> = ({ baseUrl }) => {
                 <span>{t('tw_prog_paste')}</span>
               </button>
               <AiAssistButton
+                pageKey="progress"
                 dataTool="progress"
                 scene={t('ai_scene_progress')}
-                examples={[t('ai_ex_progress_1'), t('ai_ex_progress_2'), t('ai_ex_progress_3')]}
               />
             </div>
           </header>

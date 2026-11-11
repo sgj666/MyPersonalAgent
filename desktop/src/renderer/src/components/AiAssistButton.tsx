@@ -1,25 +1,32 @@
-// The 教学 pages' corner assistant: a right-hand drawer that runs one prompt
-// through the Agent on the page it was opened from.
+// The 教学 pages' corner assistant: a right-hand drawer that continues one
+// conversation with the Agent on the page it was opened from.
 //
 // The drawer owns its prompt policy — read the page's teaching tool first,
 // write only when the request needs it, and close with one line saying what
 // changed — so every page gets the same contract and only supplies its scene,
-// its three starting prompts and the teaching tool to read.
-import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { Copy, Loader2, Sparkles, X } from 'lucide-react'
-import { t, tf } from '../i18n'
-import { AgentRunError, runAgentPrompt, toolSessionId } from '../lib/agentRun'
-import { errorText } from '../lib/teaching'
-import { copyToClipboard } from '../pages/teachingShared'
-import Markdown from './Markdown'
+// its page key and the teaching tool to read. The exchange is a real session
+// (`ai-<page>`), so closing and reopening the drawer shows the same history,
+// and it is listed under 对话.
+//
+// The layout is a chat surface: header, the scrolling timeline, the day's
+// suggested questions as pills above the composer, and the composer itself
+// pinned to the drawer's bottom edge. Suggestions come from the backend's
+// per-page model call and are only shown before the first message; tapping one
+// fills the input rather than sending, so the teacher can edit it first.
+import React, { useEffect, useRef, useState } from 'react'
+import { ArrowUp, Sparkles, Square, X } from 'lucide-react'
+import { t } from '../i18n'
+import apiClient from '../api/client'
+import EmbeddedChat from './EmbeddedChat'
+import { useChatStore } from '../store/chatStore'
 
 export interface AiAssistButtonProps {
+  /** Page identity for the conversation, e.g. `classes`. */
+  pageKey: string
   /** Teaching tool the Agent must read first, e.g. `class_list`. */
   dataTool: string
   /** One line saying what this page's assistant is for. */
   scene: string
-  /** Three prompts the teacher can start from; the first is focused by default. */
-  examples: [string, string, string]
 }
 
 /** The read → maybe write → one-line summary contract every page shares. */
@@ -34,86 +41,79 @@ function buildPrompt(dataTool: string, request: string): string {
   ].join('\n')
 }
 
-const AiAssistButton: React.FC<AiAssistButtonProps> = ({ dataTool, scene, examples }) => {
+const MAX_INPUT_HEIGHT = 100
+
+const AiAssistButton: React.FC<AiAssistButtonProps> = ({ pageKey, dataTool, scene }) => {
   const [open, setOpen] = useState(false)
   const [request, setRequest] = useState('')
-  const [result, setResult] = useState('')
-  const [status, setStatus] = useState('')
-  const [error, setError] = useState('')
-  const [running, setRunning] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const abortRef = useRef<AbortController | null>(null)
-  const bodyRef = useRef<HTMLDivElement>(null)
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const sessionId = `ai-${pageKey}`
+  const send = useChatStore((s) => s.send)
+  const cancel = useChatStore((s) => s.cancel)
+  const running = useChatStore((s) => s.getSession(sessionId).isStreaming)
+  const hasMessages = useChatStore((s) => (s.sessions[sessionId]?.messages.length ?? 0) > 0)
 
-  const stop = useCallback(() => {
-    abortRef.current?.abort()
-  }, [])
+  // A textarea that grows with its draft, capped at four lines.
+  const autoSize = () => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, MAX_INPUT_HEIGHT)}px`
+  }
 
-  const close = useCallback(() => {
-    stop()
-    setOpen(false)
-  }, [stop])
+  useEffect(() => {
+    if (open) autoSize()
+  }, [open, request])
 
   // Escape closes the drawer, the same as the clay dialogs.
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close()
+      if (e.key === 'Escape') setOpen(false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, close])
+  }, [open])
 
-  // While text streams in, keep the newest lines in view.
+  // Each open asks for the page's prompts; the backend answers from the day's
+  // cache, so only the first open of a day waits on the model. A failure hides
+  // the pill row instead of showing permanent placeholders.
   useEffect(() => {
-    if (!running) return
-    const body = bodyRef.current
-    if (body) body.scrollTop = body.scrollHeight
-  }, [result, running])
-
-  const run = async () => {
-    const text = request.trim()
-    if (!text || running) return
-    setRunning(true)
-    setResult('')
-    setError('')
-    setStatus('')
-    setCopied(false)
-    const controller = new AbortController()
-    abortRef.current = controller
-    let acc = ''
-    try {
-      const answer = await runAgentPrompt({
-        prompt: buildPrompt(dataTool, text),
-        sessionId: toolSessionId(`ai-${dataTool}`),
-        signal: controller.signal,
-        onDelta: (chunk) => {
-          acc += chunk
-          setResult(acc)
-        },
-        onStatus: setStatus,
+    if (!open) return
+    let cancelled = false
+    setSuggestionsLoading(true)
+    apiClient
+      .getTeachingSuggestions(pageKey)
+      .then((items) => {
+        if (!cancelled) setSuggestions(items)
       })
-      if (!acc && answer) setResult(answer)
-      setStatus('')
-    } catch (err) {
-      if (err instanceof AgentRunError && err.message === '已取消') {
-        setStatus(t('ai_cancelled'))
-      } else {
-        setError(errorText(err))
-        setStatus('')
-      }
-    } finally {
-      setRunning(false)
-      abortRef.current = null
+      .catch(() => {
+        if (!cancelled) setSuggestions([])
+      })
+      .finally(() => {
+        if (!cancelled) setSuggestionsLoading(false)
+      })
+    return () => {
+      cancelled = true
     }
+  }, [open, pageKey])
+
+  const fill = (text: string) => {
+    setRequest(text)
+    window.requestAnimationFrame(() => {
+      autoSize()
+      inputRef.current?.focus()
+    })
   }
 
-  const copy = async () => {
-    if (!result.trim()) return
-    if (await copyToClipboard(result)) {
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 1600)
-    }
+  const run = () => {
+    const text = request.trim()
+    if (!text || running) return
+    setRequest('')
+    void send(sessionId, buildPrompt(dataTool, text), [])
+    window.requestAnimationFrame(autoSize)
   }
 
   return (
@@ -131,7 +131,7 @@ const AiAssistButton: React.FC<AiAssistButtonProps> = ({ dataTool, scene, exampl
 
       {open && (
         <div className="twb-ai-layer">
-          <div className="twb-ai-scrim" onClick={close} />
+          <div className="twb-ai-scrim" onClick={() => setOpen(false)} />
           <aside
             className="twb-ai-drawer"
             role="dialog"
@@ -148,86 +148,73 @@ const AiAssistButton: React.FC<AiAssistButtonProps> = ({ dataTool, scene, exampl
                 className="twb-icon-btn"
                 title={t('ai_close')}
                 aria-label={t('ai_close')}
-                onClick={close}
+                onClick={() => setOpen(false)}
               >
                 <X size={15} />
               </button>
             </header>
 
-            <div className="twb-ai-body" ref={bodyRef}>
-              <div className="twb-ai-examples">
-                <span className="twb-hint">{t('ai_examples')}</span>
-                {examples.map((example) => (
-                  <button
-                    key={example}
-                    type="button"
-                    className="twb-ai-example"
-                    onClick={() => setRequest(example)}
-                  >
-                    {example}
-                  </button>
-                ))}
-              </div>
-
-              <label className="twb-field">
-                <span>{t('ai_input_label')}</span>
-                <textarea
-                  className="twb-textarea"
-                  rows={5}
-                  value={request}
-                  placeholder={t('ai_input_ph')}
-                  onChange={(e) => setRequest(e.target.value)}
-                />
-              </label>
-
-              {status && <p className="twb-hint twb-ai-status">{status}</p>}
-
-              <section className="twb-ai-result" aria-live="polite">
-                {error ? (
-                  <p className="twb-status is-error">{tf('ai_failed', { msg: error })}</p>
-                ) : result ? (
-                  <div className="twb-ai-text">
-                    <Markdown content={result} />
-                    {running && <span className="twb-cursor" aria-hidden />}
-                  </div>
-                ) : running ? (
-                  <div className="twb-ai-skel" aria-hidden>
-                    <i />
-                    <i />
-                    <i />
-                  </div>
-                ) : (
-                  <p className="twb-hint">{t('ai_empty')}</p>
-                )}
-              </section>
+            <div className="twb-ai-chat">
+              <EmbeddedChat sessionId={sessionId} />
             </div>
 
-            <footer className="twb-ai-foot">
-              {running ? (
-                <button type="button" className="twb-btn" onClick={stop}>
-                  <Loader2 size={15} className="twb-spin" />
-                  <span>{t('ai_stop')}</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="twb-btn twb-btn-primary"
-                  disabled={!request.trim()}
-                  onClick={() => void run()}
-                >
-                  <Sparkles size={15} />
-                  <span>{t('ai_generate')}</span>
-                </button>
-              )}
-              <button type="button" className="twb-btn" disabled={!result.trim()} onClick={() => void copy()}>
-                <Copy size={15} />
-                <span>{copied ? t('ai_copied') : t('ai_copy')}</span>
+            {!hasMessages && (suggestionsLoading || suggestions.length > 0) && (
+              <div
+                className="twb-ai-suggestions"
+                aria-label={t('ai_suggestions')}
+                aria-busy={suggestionsLoading}
+              >
+                {suggestionsLoading
+                  ? [0, 1, 2].map((index) => (
+                      <span
+                        key={index}
+                        className="twb-ai-chip twb-ai-chip-skeleton"
+                        aria-hidden="true"
+                      />
+                    ))
+                  : suggestions.map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        className="twb-ai-chip"
+                        onClick={() => fill(item)}
+                      >
+                        {item}
+                      </button>
+                    ))}
+              </div>
+            )}
+
+            <div className="twb-ai-composer">
+              <textarea
+                ref={inputRef}
+                className="twb-ai-input"
+                rows={1}
+                value={request}
+                placeholder={t('ai_input_ph')}
+                aria-label={t('ai_input_ph')}
+                onChange={(e) => setRequest(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                    e.preventDefault()
+                    run()
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="twb-ai-send"
+                title={running ? t('ai_stop') : t('ai_send')}
+                aria-label={running ? t('ai_stop') : t('ai_send')}
+                disabled={!running && !request.trim()}
+                onClick={() => {
+                  if (running) void cancel(sessionId)
+                  else run()
+                }}
+              >
+                {running ? <Square size={13} /> : <ArrowUp size={16} />}
               </button>
-              <button type="button" className="twb-btn" onClick={close}>
-                <X size={15} />
-                <span>{t('ai_close')}</span>
-              </button>
-            </footer>
+            </div>
           </aside>
         </div>
       )}

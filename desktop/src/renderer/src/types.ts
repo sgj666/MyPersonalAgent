@@ -1563,6 +1563,33 @@ export interface TeachingSettings {
   channel: string
 }
 
+/** GET/PUT /api/teaching/profile: the teacher's own identity. */
+export interface TeacherProfile {
+  /** Required by the store; empty until the first save. */
+  name: string
+  /** 1–6 subjects. */
+  subjects: string[]
+  /** 1–12 class labels, the same wording the timetable uses. */
+  classes: string[]
+  textbook: string
+  school: string
+  /** False until the dialog or the settings card has saved once. */
+  onboarded: boolean
+}
+
+export type TeacherProfileFields = Pick<TeacherProfile, 'name' | 'subjects' | 'classes' | 'textbook' | 'school'>
+
+/** GET /api/teaching/greeting: the home hero's two lines. */
+export interface TeachingGreeting {
+  /** 「晚上好，孙老师。」 */
+  greeting: string
+  /** One gentle line about today, cached per calendar day. */
+  motto: string
+  /** `YYYY-MM-DD`. */
+  date: string
+  cached: boolean
+}
+
 /** GET /api/teaching/reminders/preview: the two bodies as they will read. */
 export interface ReminderPreview {
   digest: string

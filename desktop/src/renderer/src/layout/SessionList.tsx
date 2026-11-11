@@ -9,8 +9,6 @@ import {
   History,
   Pin,
   ChevronDown,
-  Folder,
-  House,
   GripVertical,
 } from 'lucide-react'
 import { t, getLang } from '../i18n'
@@ -62,6 +60,18 @@ function groupByTime(sessions: SessionItem[]): { key: string; label: string; ite
     { key: 'time:yesterday', label: t('session_yesterday'), items: yesterday },
     { key: 'time:earlier', label: t('session_earlier'), items: earlier },
   ].filter((g) => g.items.length > 0)
+}
+
+// A row's right-aligned stamp: the clock for today's chats, the date for
+// anything older. Cheap and locale-independent, so the column stays uniform.
+function formatRowTime(ts: number): string {
+  if (!ts) return ''
+  const d = new Date(ts * 1000)
+  const now = new Date()
+  if (d.toDateString() === now.toDateString()) {
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  }
+  return `${d.getMonth() + 1}/${d.getDate()}`
 }
 
 type SpaceGroup = {
@@ -179,7 +189,9 @@ const SessionList: React.FC = () => {
   const [deleteTarget, setDeleteTarget] = useState<{ path: string; name: string } | null>(null)
   const [deleteSessionTarget, setDeleteSessionTarget] = useState<SessionItem | null>(null)
   const [busy, setBusy] = useState(false)
+  const [fadeBottom, setFadeBottom] = useState(false)
   const activeRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     loadSessions(1)
@@ -194,7 +206,7 @@ const SessionList: React.FC = () => {
   )
 
   // When several project groups are shown, indent their sessions so they read
-  // as children of the project header (aligned with the folder icon above).
+  // as children of the project label above.
   const indentSessions = groupMode === 'project' && groups.length > 1
 
   const startEdit = (s: SessionItem) => {
@@ -279,6 +291,17 @@ const SessionList: React.FC = () => {
     return () => cancelAnimationFrame(id)
   }, [activeId, collapsed, sessions])
 
+  // Bottom fade: only while there is more list below the fold. Recomputed after
+  // layout (new sessions, groups collapsing) and on every scroll, so it never
+  // covers the end of the list.
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      const el = listRef.current
+      if (el) setFadeBottom(el.scrollHeight - el.scrollTop - el.clientHeight > 4)
+    })
+    return () => cancelAnimationFrame(id)
+  }, [sessions, loading, collapsed, groupMode])
+
   const commitRename = async () => {
     if (!renameTarget) return
     const name = renameValue.trim()
@@ -312,8 +335,8 @@ const SessionList: React.FC = () => {
   }
 
   return (
-    <div className="session-list w-[216px] flex-shrink-0 flex flex-col h-full bg-surface border-r border-default">
-      <div className="flex items-center justify-between px-2 h-[44px] flex-shrink-0 titlebar-drag border-b border-default">
+    <div className="session-list w-[172px] flex-shrink-0 flex flex-col h-full bg-surface border-r border-default">
+      <div className="flex items-center justify-between px-1.5 h-[44px] flex-shrink-0 titlebar-drag border-b border-default">
         <Tooltip label={t('session_history')}>
           <button
             onClick={toggleSessions}
@@ -332,11 +355,11 @@ const SessionList: React.FC = () => {
           {({ onClick, open }) => (
             <button
               onClick={onClick}
-              className={`titlebar-no-drag inline-flex items-center gap-1 px-2 h-6 rounded-btn text-[11.5px] font-medium text-accent cursor-pointer transition-colors ${
+              className={`titlebar-no-drag session-new-chat inline-flex items-center gap-0.5 h-6 px-1 rounded text-[12px] font-medium text-accent cursor-pointer transition-colors ${
                 open ? 'bg-accent-soft' : 'hover:bg-accent-soft'
               } ${trafficDrop}`}
             >
-              <Plus size={14} />
+              <Plus size={13} />
               {t('session_new')}
             </button>
           )}
@@ -344,9 +367,11 @@ const SessionList: React.FC = () => {
       </div>
 
       <div
-        className="flex-1 overflow-y-auto px-2 pb-2 pt-1.5"
+        ref={listRef}
+        className={`session-scroll flex-1 overflow-y-auto px-1.5 pb-2 pt-1${fadeBottom ? ' has-fade' : ''}`}
         onScroll={(e) => {
           const el = e.currentTarget
+          setFadeBottom(el.scrollHeight - el.scrollTop - el.clientHeight > 4)
           if (el.scrollHeight - el.scrollTop - el.clientHeight < 80 && hasMore && !loading) loadMore()
         }}
       >
@@ -390,7 +415,7 @@ const SessionList: React.FC = () => {
                   }}
                   onClick={() => toggleCollapse(group.key)}
                   title={group.hint}
-                  className={`group/header relative flex items-center gap-1 px-1.5 h-7 rounded-btn cursor-grab active:cursor-grabbing select-none transition-colors ${
+                  className={`group/header session-group-header relative flex items-center gap-1 pl-1 pr-1.5 h-6 rounded cursor-grab active:cursor-grabbing select-none transition-colors ${
                     dragKey === group.key ? 'opacity-40' : ''
                   } ${
                     dropKey === group.key
@@ -412,15 +437,10 @@ const SessionList: React.FC = () => {
                       className="absolute inset-0 text-content-tertiary opacity-0 group-hover/header:opacity-100"
                     />
                   </span>
-                  {group.isDefault ? (
-                    <House size={12} className="shrink-0 text-content-tertiary" />
-                  ) : (
-                    <Folder size={12} className="shrink-0 text-content-tertiary" />
-                  )}
-                  <span className="flex-1 min-w-0 truncate text-[12px] font-medium text-content-secondary">
+                  <span className="session-group-label flex-1 min-w-0 truncate text-[12px] font-medium text-content-secondary">
                     {group.label}
                   </span>
-                  <span className="ml-auto text-[11px] text-content-disabled tabular-nums group-hover/header:invisible">
+                  <span className="session-group-count ml-auto text-[11px] text-content-disabled tabular-nums group-hover/header:invisible">
                     {group.items.length}
                   </span>
                   <span className="absolute right-1 top-1/2 -translate-y-1/2 hidden group-hover/header:flex items-center gap-0.5">
@@ -474,8 +494,8 @@ const SessionList: React.FC = () => {
                       key={s.session_id}
                       ref={isActive ? activeRef : undefined}
                       onClick={() => !isEditing && setActive(s.session_id)}
-                      className={`session-row group relative flex items-center gap-1.5 pr-2 h-9 rounded-btn cursor-pointer transition-colors ${
-                        indentSessions ? 'pl-[22px]' : 'pl-2'
+                      className={`session-row group relative flex items-center gap-1.5 pr-1.5 h-[34px] rounded-btn cursor-pointer transition-colors ${
+                        indentSessions ? 'pl-[18px]' : 'pl-2.5'
                       } ${isActive ? 'is-active bg-accent-soft' : 'hover:bg-surface-2'}`}
                     >
                       {isEditing ? (
@@ -499,21 +519,26 @@ const SessionList: React.FC = () => {
                             <span className="flex items-center -space-x-1.5 shrink-0 mr-0.5">
                               {s.participants.slice(0, 3).map((p) => (
                                 <span key={p.id} className="ring-2 ring-surface rounded-full">
-                                  <AgentAvatar agent={p} size={16} />
+                                  <AgentAvatar agent={p} size={14} />
                                 </span>
                               ))}
                               {s.participants.length > 3 && (
-                                <span className="text-[10px] text-content-tertiary pl-2">+{s.participants.length - 3}</span>
+                                <span className="text-[10px] text-content-tertiary pl-1.5">+{s.participants.length - 3}</span>
                               )}
                             </span>
                           )}
                           <span
-                            className={`session-title flex-1 min-w-0 truncate text-[13px] pr-5 group-hover:pr-0 ${
+                            className={`session-title flex-1 min-w-0 truncate text-[13px] pr-1 ${
                               isActive ? 'text-accent font-medium' : 'text-content-secondary'
                             }`}
                           >
                             {s.title || s.session_id}
                           </span>
+                          {!s.pinned && (
+                            <span className="session-time shrink-0 text-[11px] tabular-nums text-content-disabled group-hover:hidden">
+                              {formatRowTime(s.last_active || s.created_at)}
+                            </span>
+                          )}
                         </>
                       )}
 
@@ -537,7 +562,7 @@ const SessionList: React.FC = () => {
                           </IconBtn>
                         </div>
                       ) : (
-                        <div className="hidden group-hover:flex items-center gap-0.5 shrink-0">
+                        <div className="session-actions absolute right-1 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center gap-0.5 rounded">
                           <IconBtn
                             onClick={(e) => {
                               e.stopPropagation()
@@ -585,9 +610,9 @@ const SessionList: React.FC = () => {
         })}
 
         {loading && (
-          <div className="px-2 py-2 space-y-2">
+          <div className="px-1 py-2 space-y-2">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="skeleton h-7 w-full" />
+              <div key={i} className="skeleton h-[34px] w-full" />
             ))}
           </div>
         )}
@@ -674,7 +699,7 @@ const IconBtn: React.FC<{
   const btn = (
     <button
       onClick={onClick}
-      className={`inline-flex items-center justify-center w-6 h-6 rounded cursor-pointer transition-colors text-content-tertiary ${
+      className={`inline-flex items-center justify-center w-5 h-5 rounded cursor-pointer transition-colors text-content-tertiary ${
         danger ? 'hover:text-danger hover:bg-danger-soft' : 'hover:text-content hover:bg-surface'
       }`}
     >

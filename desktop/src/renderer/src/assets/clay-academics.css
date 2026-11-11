@@ -1250,26 +1250,28 @@ html:not(.dark) #twb-home {
 
 #twb-home .twb-home-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(288px, 336px);
-  grid-template-rows: auto auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: 256px 224px;
   gap: 14px;
-  align-items: start;
+  align-items: stretch;
 }
 
+/* Every card fills the row it was given and scrolls inside, so two cards in
+   one row always end on the same line whatever their content. */
 #twb-home .twb-home-cell {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  min-height: 196px;
+  height: 100%;
+  overflow: hidden;
   padding: 16px 18px;
 }
 
 #twb-home .twb-home-cell .twb-card-head {
   margin-bottom: 12px;
+  flex-shrink: 0;
 }
 
-/* The scrollable body of a card (a list, the board columns, the brief) takes
-   whatever height the row leaves; it is a floor, never a fixed height. */
 #twb-home .twb-home-cell .twb-lessons,
 #twb-home .twb-home-cell .twb-list,
 #twb-home .twb-home-cell .twb-mini-board,
@@ -1277,36 +1279,12 @@ html:not(.dark) #twb-home {
 #twb-home .twb-home-cell .twb-empty,
 #twb-home .twb-home-cell .twb-rem-preview {
   flex: 1 1 auto;
-  min-height: 120px;
+  min-height: 0;
+  overflow: auto;
 }
 
 #twb-home .twb-home-cell .twb-rem-preview .twb-digest {
   min-height: 0;
-}
-
-#twb-home .twb-home-lessons {
-  grid-area: 1 / 1 / 2 / 2;
-}
-
-#twb-home .twb-home-digest {
-  grid-area: 1 / 2 / 2 / 4;
-}
-
-#twb-home .twb-home-rem {
-  grid-area: 1 / 4 / 3 / 5;
-  overflow: auto;
-}
-
-#twb-home .twb-home-board {
-  grid-area: 2 / 1 / 3 / 2;
-}
-
-#twb-home .twb-home-artifacts {
-  grid-area: 2 / 2 / 3 / 3;
-}
-
-#twb-home .twb-home-knowledge {
-  grid-area: 2 / 3 / 3 / 4;
 }
 
 /* Three metrics on one line, whatever the window width. */
@@ -1373,14 +1351,11 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
   text-overflow: ellipsis;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1239px) {
   #twb-home .twb-home-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: auto;
-  }
-
-  #twb-home .twb-home-cell {
-    grid-area: auto;
+    grid-template-rows: none;
+    grid-auto-rows: 240px;
   }
 
   #twb-home .twb-home-rem {
@@ -1393,11 +1368,7 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  #twb-home .twb-home-rem {
-    grid-column: auto;
-  }
-
-  #twb-home .twb-tools {
+    #twb-home .twb-tools {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -1426,51 +1397,45 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
   min-height: 0;
 }
 
+/* A definite height (not max-height) so the embedded conversation scrolls
+   inside the card instead of stretching the page; the form card next to it
+   stretches to the same row height. */
 .twb-teach-out-body {
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
-  max-height: min(62vh, 760px);
-  overflow-y: auto;
+  height: min(62vh, 760px);
+  overflow: hidden;
   padding: 2px 4px 2px 2px;
 }
 
-.twb-teach-text {
-  font-size: 14px;
-  line-height: 1.75;
-  color: var(--twb-ink);
+@media (max-width: 1000px) {
+  .twb-teach-out-body {
+    height: min(62vh, 560px);
+  }
 }
 
-.twb-teach-text .msg-content {
-  color: inherit;
+/* ---------- embedded conversation (teaching tools, page AI drawer) ----------
+   The chat page's own bubbles, tool steps and file cards, in the clay paper
+   palette rather than the app's flat surfaces. */
+.twb-embed {
+  flex: 1;
+  min-height: 0;
 }
 
-.twb-teach-out-foot {
+.twb-embed-scroll {
+  overscroll-behavior: contain;
+  padding: 2px 0;
+}
+
+.twb-embed-empty {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--twb-line);
-}
-
-.twb-teach-status {
-  margin-left: auto;
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 60%;
-}
-
-.twb-teach-empty {
-  display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  min-height: 220px;
-  padding: 24px;
+  height: 100%;
+  min-height: 140px;
+  padding: 20px;
   border: 2px dashed var(--twb-rim);
   border-radius: 16px;
   background: var(--twb-surface-2);
@@ -1478,86 +1443,84 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
   text-align: center;
 }
 
-.twb-teach-empty p {
+.twb-embed-empty p {
   max-width: 360px;
   font-size: 13px;
   font-weight: 600;
+  line-height: 1.6;
 }
 
-/* A failed run prints the backend's own words, so give them a block that reads
-   as a message rather than as a caption. */
-.twb-teach-out-body .twb-status.is-error,
-.twb-ai-result .twb-status.is-error {
-  margin: 0;
-  padding: 10px 12px;
+.twb-embed .chat-column {
+  width: calc(100% - 12px);
+  max-width: none;
+}
+
+.twb-embed .chat-column .bg-bubble-user {
+  background: var(--twb-accent-soft);
+  border: 1px solid var(--twb-rim);
+  border-radius: 16px;
+  box-shadow: none;
+  color: var(--twb-ink);
+}
+
+.twb-embed .chat-column .rounded-2xl.border {
+  background: var(--twb-surface);
+  border: 1px solid var(--twb-rim);
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+.twb-embed .chat-column > div {
+  padding-left: 4px;
+  padding-right: 10px;
+}
+
+.twb-embed-composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--twb-line);
+}
+
+.twb-embed-input {
+  flex: 1;
+  min-height: 38px;
+  max-height: 120px;
+  padding: 8px 10px;
   border: 1px solid var(--twb-rim);
   border-radius: 12px;
-  background: var(--twb-urgent-soft);
-  font-weight: 700;
-  line-height: 1.6;
-  white-space: pre-wrap;
+  background: var(--twb-surface-2);
+  color: var(--twb-ink);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
 }
 
-/* Skeleton while the Agent thinks: the same bar the drawer shows. */
-.twb-teach-skel,
-.twb-ai-skel {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 6px 2px;
+.twb-embed-input:focus {
+  outline: 2px solid var(--twb-accent);
+  outline-offset: 1px;
 }
 
-.twb-teach-skel i,
-.twb-ai-skel i {
-  height: 14px;
-  border-radius: 8px;
-  background: linear-gradient(90deg, var(--twb-surface-2), var(--twb-surface-3), var(--twb-surface-2));
-  background-size: 200% 100%;
-  animation: twb-skel 1.4s ease-in-out infinite;
-}
-
-.twb-teach-skel i:nth-child(2),
-.twb-ai-skel i:nth-child(2) {
-  width: 86%;
-}
-
-.twb-teach-skel i:nth-child(3),
-.twb-ai-skel i:nth-child(3) {
-  width: 70%;
-}
-
-.twb-teach-skel i:nth-child(4) {
-  width: 92%;
-}
-
-.twb-teach-skel i:nth-child(5) {
-  width: 54%;
-}
-
-@keyframes twb-skel {
-  0% {
-    background-position: 160% 0;
-  }
-  100% {
-    background-position: -60% 0;
-  }
-}
-
-.twb-cursor {
-  display: inline-block;
-  width: 8px;
-  height: 16px;
-  margin-left: 2px;
-  vertical-align: text-bottom;
+.twb-embed-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border: 1px solid var(--twb-rim);
+  border-radius: 12px;
   background: var(--twb-accent);
-  border-radius: 2px;
-  animation: twb-cursor 1s steps(1) infinite;
+  color: #fff;
+  cursor: pointer;
 }
 
-@keyframes twb-cursor {
-  50% {
-    opacity: 0;
-  }
+.twb-embed-send:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 /* ---------- page AI assistant drawer ---------- */
@@ -1611,74 +1574,126 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
   color: var(--twb-ink-2);
 }
 
-.twb-ai-body {
+.twb-ai-chat {
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-top: 16px;
-  padding-right: 4px;
+  margin-top: 14px;
+  border: 1px solid var(--twb-line);
+  border-radius: 14px;
+  background: var(--twb-surface-2);
+  overflow: hidden;
 }
 
-.twb-ai-examples {
+.twb-ai-suggestions {
   display: flex;
-  flex-direction: column;
+  flex: none;
+  flex-wrap: wrap;
   gap: 8px;
+  margin-top: 12px;
 }
 
-.twb-ai-example {
-  padding: 10px 12px;
+.twb-ai-chip {
+  max-width: 100%;
+  padding: 6px 12px;
   border: 1px solid var(--twb-rim);
-  border-radius: 12px;
+  border-radius: 999px;
   background: var(--twb-surface-2);
   color: var(--twb-ink-2);
+  font: inherit;
   font-size: 12px;
   font-weight: 600;
-  line-height: 1.55;
-  text-align: left;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   cursor: pointer;
 }
 
-.twb-ai-example:hover {
+.twb-ai-chip:hover {
   background: var(--twb-accent-soft);
   border-color: rgba(82, 162, 119, 0.4);
   color: var(--twb-ink);
 }
 
-.twb-ai-example:focus-visible {
+.twb-ai-chip:focus-visible {
   outline: 3px solid var(--twb-accent);
   outline-offset: 2px;
 }
 
-.twb-ai-status {
-  margin: 0;
+.twb-ai-chip-skeleton {
+  width: 104px;
+  height: 30px;
+  cursor: default;
+  pointer-events: none;
+  animation: twb-ai-pulse 1.2s ease-in-out infinite;
 }
 
-.twb-ai-result {
+@keyframes twb-ai-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* The composer is the drawer's last child: the timeline takes the leftover
+   height, so this row always sits against the bottom padding. */
+.twb-ai-composer {
+  display: flex;
+  flex: none;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--twb-line);
+}
+
+.twb-ai-input {
   flex: 1;
-  min-height: 140px;
-  padding: 12px;
-  border: 1px dashed var(--twb-rim);
+  min-height: 40px;
+  max-height: 100px;
+  padding: 9px 12px;
+  border: 1px solid var(--twb-rim);
   border-radius: 14px;
   background: var(--twb-surface-2);
-}
-
-.twb-ai-text {
-  font-size: 13px;
-  line-height: 1.7;
   color: var(--twb-ink);
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  resize: none;
+  overflow-y: auto;
 }
 
-.twb-ai-foot {
-  display: flex;
+.twb-ai-input:focus {
+  outline: 2px solid var(--twb-accent);
+  outline-offset: 1px;
+}
+
+.twb-ai-send {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--twb-line);
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border: 1px solid var(--twb-rim);
+  border-radius: 50%;
+  background: var(--twb-accent);
+  color: #fff;
+  cursor: pointer;
+}
+
+.twb-ai-send:hover {
+  background: var(--twb-accent-hover);
+}
+
+.twb-ai-send:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 @media (max-width: 520px) {
@@ -1686,4 +1701,115 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
     width: 100%;
     border-left: 0;
   }
+}
+
+/* ---------- teacher profile: hero motto, pills, onboarding ---------- */
+/* The settings card shares the profile form but sits outside #twb-home, so
+   alias the clay tokens onto the app's own theme variables. */
+.twb-profile-form {
+  --twb-surface: var(--bg-surface);
+  --twb-rim: var(--border-strong);
+  --twb-ink: var(--text-primary);
+  --twb-ink-2: var(--text-secondary);
+  --twb-ink-3: var(--text-tertiary);
+  --twb-accent: var(--accent);
+  --twb-accent-hover: var(--accent-hover);
+  --twb-accent-soft: var(--accent-soft);
+  --twb-urgent: var(--danger);
+}
+
+.twb-hero-motto {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px dashed var(--twb-rim);
+  border-radius: 14px;
+  color: var(--twb-ink-2);
+}
+
+.dark .twb-hero-motto {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.twb-hero-motto p {
+  flex: 1 1 240px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.6;
+  color: var(--twb-ink-2);
+}
+
+.twb-hero-motto .twb-link {
+  margin-left: auto;
+}
+
+.twb-required {
+  margin-left: 2px;
+  color: var(--twb-urgent);
+  font-weight: 800;
+}
+
+.twb-profile-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: -2px;
+}
+
+.twb-profile-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--twb-accent-hover);
+  background: var(--twb-accent-soft);
+  border: 1px solid var(--twb-rim);
+  border-radius: 999px;
+}
+
+/* The first-run dialog has no close control; the extra width keeps the
+   two-column last row readable. */
+.twb-onboarding-card {
+  max-width: 600px;
+}
+
+.twb-onboarding-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.twb-onboarding-head h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--twb-ink);
+}
+
+.twb-onboarding-head p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--twb-ink-2);
+  font-weight: 600;
+}
+
+.twb-onboarding-badge {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  color: var(--twb-accent-hover);
+  background: var(--twb-accent-soft);
+  border: 1px solid var(--twb-rim);
+  border-radius: 14px;
 }

@@ -82,10 +82,12 @@ from channel.web.api.skills import (  # noqa: F401
 from channel.web.api.teaching import (  # noqa: F401
     TEACHING_URLS,
     TeachingAnalysisHandler, TeachingClassesHandler, TeachingExamsHandler,
-    TeachingHomeworkHandler, TeachingHomeworkRecordsHandler,
-    TeachingProgressHandler, TeachingRemindersPreviewHandler,
+    TeachingGreetingHandler, TeachingHomeworkHandler, TeachingHomeworkRecordsHandler,
+    TeachingProfileHandler, TeachingProgressHandler,
+    TeachingRemindersPreviewHandler,
     TeachingRemindersSyncHandler, TeachingScoresHandler, TeachingSettingsHandler,
-    TeachingStudentsHandler, TeachingStudentHandler, TeachingTimetableHandler,
+    TeachingStudentsHandler, TeachingStudentHandler, TeachingSuggestionsHandler,
+    TeachingTimetableHandler,
     TeachingTodayHandler,
 )
 from channel.web.api.tasks import (  # noqa: F401

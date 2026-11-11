@@ -12,11 +12,13 @@ import {
   Loader2,
   PenLine,
   Presentation,
+  RefreshCw,
   TriangleAlert,
   type LucideIcon,
 } from 'lucide-react'
 import { t, tf, getLang } from '../i18n'
 import apiClient from '../api/client'
+import OnboardingDialog from '../components/OnboardingDialog'
 import { iconFor } from '../lib/fileKind'
 import { todayISO } from '../lib/teaching'
 import { dateTime } from './artifacts/format'
@@ -25,8 +27,11 @@ import type {
   KnowledgeDir,
   KnowledgeList,
   ReminderPreview,
+  TeachingGreeting,
   TeachingSettings,
   TeachingToday,
+  TeacherProfile,
+  TeacherProfileFields,
 } from '../types'
 
 interface HomePageProps {
@@ -110,6 +115,14 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
   const [settingsBusy, setSettingsBusy] = useState(false)
   const [preview, setPreview] = useState<ReminderPreview | null>(null)
   const [previewBusy, setPreviewBusy] = useState(false)
+  // First-run profile and the hero's greeting/motto. The profile is `null`
+  // until the fetch answers, so the dialog never flashes for an onboarded
+  // teacher.
+  const [profile, setProfile] = useState<TeacherProfile | null>(null)
+  const [profileBusy, setProfileBusy] = useState(false)
+  const [profileError, setProfileError] = useState('')
+  const [greeting, setGreeting] = useState<TeachingGreeting | null>(null)
+  const [mottoBusy, setMottoBusy] = useState(false)
   const [copyStatus, setCopyStatus] = useState('')
   const copyTimer = useRef<number | null>(null)
   // A token per panel would be noise: one load bumps the token, and a reply
@@ -124,6 +137,7 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
     setKnowledgeError('')
     setTodayError('')
     setSettingsError('')
+    setProfileError('')
 
     // Each panel fails on its own: a missing artifact index must not blank the
     // board metrics.
@@ -184,6 +198,26 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
       })
       .catch((err) => {
         if (token === loadToken.current) setSettingsError(errorText(err))
+      })
+
+    // The profile decides whether the first-run dialog opens; the greeting is
+    // the hero's own copy and falls back to the time-of-day line on failure.
+    apiClient
+      .getTeachingProfile()
+      .then((data) => {
+        if (token === loadToken.current) setProfile(data)
+      })
+      .catch((err) => {
+        if (token === loadToken.current) setProfileError(errorText(err))
+      })
+
+    apiClient
+      .getTeachingGreeting()
+      .then((data) => {
+        if (token === loadToken.current) setGreeting(data)
+      })
+      .catch(() => {
+        // The static time-of-day greeting is the fallback; no error banner.
       })
   }, [baseUrl])
 
@@ -255,6 +289,44 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
   }
 
   const openTool = (id: string) => navigate(`/teaching?tool=${encodeURIComponent(id)}`)
+
+  // The dialog and the settings card write the same document. A save that
+  // fails leaves the dialog open with the backend's reason, so the button is
+  // also the retry.
+  const saveProfile = async (fields: TeacherProfileFields) => {
+    if (profileBusy) return
+    setProfileBusy(true)
+    setProfileError('')
+    try {
+      await apiClient.saveTeachingProfile(fields)
+      // Close the dialog from the fields just saved even if the refresh fails:
+      // the write already succeeded, and a confirmation must not claim it did not.
+      const base: TeacherProfile =
+        profile ?? { name: '', subjects: [], classes: [], textbook: '', school: '', onboarded: false }
+      setProfile({ ...base, ...fields, onboarded: true })
+      const fresh = await apiClient.getTeachingProfile().catch(() => null)
+      if (fresh) setProfile(fresh)
+      const freshGreeting = await apiClient.getTeachingGreeting().catch(() => null)
+      if (freshGreeting) setGreeting(freshGreeting)
+      void load()
+    } catch (err) {
+      setProfileError(tf('tw_profile_save_failed', { msg: errorText(err) }))
+    } finally {
+      setProfileBusy(false)
+    }
+  }
+
+  const changeMotto = async () => {
+    if (mottoBusy) return
+    setMottoBusy(true)
+    try {
+      setGreeting(await apiClient.getTeachingGreeting(true))
+    } catch {
+      // Keep the line already on screen; the next load asks again.
+    } finally {
+      setMottoBusy(false)
+    }
+  }
   const counts = board?.counts
   // Local calendar date, not ISO: a task is late by the teacher's day, and
   // toISOString() would call 00:30 in UTC+8 yesterday.
@@ -265,6 +337,13 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
 
   return (
     <div id="twb-home" className="flex-1 flex flex-col min-h-0">
+      <OnboardingDialog
+        open={Boolean(profile && !profile.onboarded)}
+        initial={profile}
+        busy={profileBusy}
+        error={profileError}
+        onSave={(fields) => void saveProfile(fields)}
+      />
       <div className="twb-scroll">
         <div className="twb-page">
           <header className="twb-hero">
@@ -274,10 +353,22 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
                 <span>{t('tw_home_eyebrow')}</span>
               </span>
               <h1 className="twb-hero-title">
-                <span>{t(hour < 12 ? 'tw_home_hi_morning' : hour < 18 ? 'tw_home_hi_afternoon' : 'tw_home_hi_evening')}</span>
-                <br />
-                <span className="twb-hl">{t('tw_home_question')}</span>
+                {greeting?.greeting ||
+                  t(hour < 12 ? 'tw_home_hi_morning' : hour < 18 ? 'tw_home_hi_afternoon' : 'tw_home_hi_evening')}
               </h1>
+              <div className="twb-hero-motto">
+                <Lightbulb size={15} />
+                <p>{greeting?.motto || t('tw_greeting_pending')}</p>
+                <button
+                  type="button"
+                  className="twb-link"
+                  disabled={mottoBusy}
+                  onClick={() => void changeMotto()}
+                >
+                  {mottoBusy ? <Loader2 size={13} className="twb-spin" /> : <RefreshCw size={13} />}
+                  <span>{t('tw_greeting_change')}</span>
+                </button>
+              </div>
               <p className="twb-lede">{t('tw_home_lede')}</p>
               <div className="twb-hero-actions">
                 <button type="button" className="twb-btn twb-btn-primary" onClick={() => navigate('/teaching')}>

@@ -19,6 +19,9 @@ import os
 import web
 
 from agent.teaching import TeachingStore
+from agent.teaching.profile import greeting as teaching_greeting
+from agent.teaching.profile import sync_user_md
+from agent.teaching.store import PROFILE_FIELDS
 from channel.web.core._common import (
     _get_workspace_root,
     _request_agent_id,
@@ -462,6 +465,69 @@ class TeachingRemindersPreviewHandler:
         return _ok(**preview(store, agent_id=agent_id))
 
 
+class TeachingProfileHandler:
+    """GET / PUT ``/api/teaching/profile`` -- the teacher's own identity.
+
+    A save also mirrors the profile into the workspace's ``USER.md``, so the
+    model sees the name, subjects and classes without an extra turn. The mirror
+    is reported beside the profile: the profile itself is stored even when the
+    file cannot be written.
+    """
+
+    @_endpoint
+    def GET(self):
+        params = web.input(agent_id='')
+        store = _store(_request_agent_id(params))
+        return _ok(**store.get_profile())
+
+    @_endpoint
+    def PUT(self):
+        body = _body()
+        store = _store(_request_agent_id(body))
+        fields = _payload(body, PROFILE_FIELDS)
+        saved = store.save_profile(**fields)
+        mirror = sync_user_md(store, saved)
+        return _ok(**saved, synced=mirror["synced"], path=mirror["path"])
+
+
+class TeachingSuggestionsHandler:
+    """GET ``/api/teaching/suggestions?page=...`` -- the AI drawer's prompts.
+
+    Three short starting questions for one page, fitted to that page's data and
+    cached for the day. An unknown or missing page is a client mistake and
+    answers with the console's ``bad_request`` shape.
+    """
+
+    @_endpoint
+    def GET(self):
+        params = web.input(page='', agent_id='')
+        agent_id = _request_agent_id(params)
+        page = (params.page or '').strip()
+        if not page:
+            raise ValueError("page is required")
+        store = _store(agent_id)
+        from agent.teaching.suggestions import suggest
+
+        return _ok(**suggest(store, page, agent_id=agent_id))
+
+
+class TeachingGreetingHandler:
+    """GET ``/api/teaching/greeting[?refresh=1]`` -- the home hero's lines.
+
+    The motto is cached per day; ``refresh`` asks for a new one and replaces the
+    cache. A model failure still answers 200 with the deterministic sentence
+    for the date, because a blank hero is worse than a plain one.
+    """
+
+    @_endpoint
+    def GET(self):
+        params = web.input(agent_id='', refresh='')
+        agent_id = _request_agent_id(params)
+        store = _store(agent_id)
+        refresh = (getattr(params, "refresh", "") or '').strip().lower() in ("1", "true", "yes", "on")
+        return _ok(**teaching_greeting(store, refresh=refresh))
+
+
 #: Splice into ``URLS``; the coordinator owns that wiring.
 TEACHING_URLS = (
     ('/api/teaching/classes', 'TeachingClassesHandler'),
@@ -476,6 +542,9 @@ TEACHING_URLS = (
     ('/api/teaching/analysis', 'TeachingAnalysisHandler'),
     ('/api/teaching/today', 'TeachingTodayHandler'),
     ('/api/teaching/settings', 'TeachingSettingsHandler'),
+    ('/api/teaching/profile', 'TeachingProfileHandler'),
+    ('/api/teaching/suggestions', 'TeachingSuggestionsHandler'),
+    ('/api/teaching/greeting', 'TeachingGreetingHandler'),
     ('/api/teaching/reminders/sync', 'TeachingRemindersSyncHandler'),
     ('/api/teaching/reminders/preview', 'TeachingRemindersPreviewHandler'),
 )
@@ -484,8 +553,10 @@ __all__ = [
     "TeachingAnalysisHandler",
     "TeachingClassesHandler",
     "TeachingExamsHandler",
+    "TeachingGreetingHandler",
     "TeachingHomeworkHandler",
     "TeachingHomeworkRecordsHandler",
+    "TeachingProfileHandler",
     "TeachingProgressHandler",
     "TeachingRemindersPreviewHandler",
     "TeachingRemindersSyncHandler",
@@ -493,6 +564,7 @@ __all__ = [
     "TeachingSettingsHandler",
     "TeachingStudentHandler",
     "TeachingStudentsHandler",
+    "TeachingSuggestionsHandler",
     "TeachingTimetableHandler",
     "TeachingTodayHandler",
     "TEACHING_URLS",

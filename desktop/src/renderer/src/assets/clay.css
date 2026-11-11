@@ -562,16 +562,6 @@
   gap: 18px;
 }
 
-.twb-home-board {
-  grid-column: span 1;
-}
-
-@media (min-width: 1100px) {
-  .twb-home-board {
-    grid-column: span 2;
-  }
-}
-
 .twb-mini-board {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1180,43 +1170,105 @@ html:not(.dark) .nav-rail button[class*="bg-accent-soft"]:hover {
   background: #d9f2e4 !important;
 }
 
-/* The conversation column, in the same language: a narrower cream panel, rows
-   that hover in pale apricot and sit in mint with deep-green text when they are
-   the open conversation, and quiet grey time headers. */
+/* The conversation column is a list under the rail, not a second menu: a
+   narrower cream panel a shade lighter than the rail, a hairline edge instead
+   of a rule, quiet 11px group labels, and rows that mark the open conversation
+   with a green bar rather than a pill. */
 html:not(.dark) .session-list {
-  width: 216px;
-  background: #fffdf8;
-  border-right: 1px solid rgba(96, 84, 74, 0.22);
+  width: 172px;
+  background: #fffcf7;
+  border-right: 1px solid rgba(96, 84, 74, 0.1);
 }
 
 html:not(.dark) .session-list > div.border-b {
-  border-bottom-color: #e7e0d3;
+  border-bottom-color: rgba(96, 84, 74, 0.08);
 }
 
+/* "+ New chat" is a line of text, not a filled button. */
+html:not(.dark) .session-list .session-new-chat {
+  border-radius: 4px;
+  color: #458c66;
+}
+html:not(.dark) .session-list .session-new-chat:hover {
+  background: transparent;
+  color: #2f6b4c;
+}
+
+/* Group labels (time buckets and project spaces) shrink to quiet caps. */
+html:not(.dark) .session-list .session-group-title,
+html:not(.dark) .session-list .session-group-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: #9a8f84;
+}
+html:not(.dark) .session-list .session-group-title {
+  padding: 10px 6px 4px;
+}
+html:not(.dark) .session-list .session-group-count {
+  color: #b7ac9f;
+  font-size: 10.5px;
+}
+html:not(.dark) .session-list .session-group-header:hover {
+  background: #fdf2ea;
+}
+
+/* Rows are a plain list: no pill, no fill. Hover warms the line; the open
+   conversation is marked only by a 2px deep-green bar and darker text. */
 html:not(.dark) .session-list .session-row {
-  border: 1px solid transparent;
-  border-radius: 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 html:not(.dark) .session-list .session-row:hover {
   background: #fdf2ea;
-  border-color: rgba(96, 84, 74, 0.12);
 }
 
-html:not(.dark) .session-list .session-row.is-active {
-  background: #e3f6ec;
-  border-color: rgba(82, 162, 119, 0.45);
+html:not(.dark) .session-list .session-row.is-active,
+html:not(.dark) .session-list .session-row.is-active:hover {
+  background: transparent;
+}
+
+html:not(.dark) .session-list .session-row.is-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 7px;
+  bottom: 7px;
+  width: 2px;
+  border-radius: 1px;
+  background: #2f6b4c;
+}
+
+html:not(.dark) .session-list .session-row .session-title {
+  color: #4a4453;
 }
 
 html:not(.dark) .session-list .session-row.is-active .session-title {
-  color: #2f6b4c;
+  color: #241f1b;
+  font-weight: 500;
 }
 
-html:not(.dark) .session-list .session-group-title {
-  padding: 10px 8px 4px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  text-transform: none;
-  color: #948c9c;
+html:not(.dark) .session-list .session-row .session-time {
+  font-size: 10.5px;
+  color: #a79c90;
+}
+
+/* Hover actions float over the row: at 172px they cannot squeeze the title. */
+html:not(.dark) .session-list .session-row .session-actions {
+  background: #fdf2ea;
+  padding-left: 2px;
+}
+
+html:not(.dark) .session-list .session-row.is-active .session-actions {
+  background: #fffcf7;
+}
+
+/* Fade the tail while more conversations sit below the fold; scrolling itself
+   stays native and untouched. */
+html:not(.dark) .session-list .session-scroll.has-fade {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
 }
