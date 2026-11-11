@@ -114,8 +114,26 @@ def digest_for_today(agent_id: Optional[str] = None) -> str:
     return store.today(agent_id=agent_id)["digest_text"]
 
 
+def _store_for(agent_id: Optional[str] = None):
+    from agent.teaching.store import TeachingStore
+    from common.runtime_identity import RuntimeIdentity
+    from common.state_dir import state_root
+
+    return TeachingStore(str(state_root(RuntimeIdentity(agent_id=agent_id)) / "teaching"))
+
+
 def teacher_name(agent_id: Optional[str] = None) -> str:
-    """The greeting name: the Agent's configured display name, else 老师."""
+    """How the teacher is addressed: their own profile name first.
+
+    The Agent's display name is a product-level default; once the teacher has
+    filled the profile, the digest must use their name, not the assistant's.
+    """
+    try:
+        name = str(_store_for(agent_id).get_profile().get("name") or "").strip()
+        if name:
+            return name if "老师" in name else f"{name}老师"
+    except Exception as e:
+        logger.debug(f"[Teaching] teacher profile name unavailable: {e}")
     try:
         from agent.registry import get_agent_registry
 

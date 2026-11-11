@@ -43,7 +43,11 @@ function twHomeRenderDate() {
         if (data.status !== 'success') return;
         if (hello && data.greeting) hello.textContent = data.greeting;
         const motto = document.getElementById('home-motto');
-        if (motto) motto.textContent = data.motto || '';
+        if (motto) {
+            motto.textContent = data.motto || '';
+            // Two lines at most; the rest is in the tooltip.
+            motto.setAttribute('title', data.motto || '');
+        }
     }).catch(() => {});
 }
 

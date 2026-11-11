@@ -1859,36 +1859,18 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
   --twb-urgent: var(--danger);
 }
 
-.twb-motto-viewport {
-  flex: 1;
+.twb-motto-line {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  max-height: 3.1em;
+  line-height: 1.55;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--twb-ink-2);
+  flex: 1 1 320px;
   min-width: 0;
-  height: 22px;
-  overflow: hidden;
-}
-
-.twb-motto-track {
-  display: flex;
-  flex-direction: column;
-}
-
-.twb-motto-track p {
-  height: 22px;
-  line-height: 22px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.twb-motto-viewport.is-rolling .twb-motto-track {
-  animation-name: twb-motto-roll;
-  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
-  animation-iteration-count: infinite;
-}
-
-@keyframes twb-motto-roll {
-  0%, 28% { transform: translateY(0); }
-  33%, 61% { transform: translateY(-22px); }
-  66%, 100% { transform: translateY(-44px); }
 }
 
 .twb-hero-motto {

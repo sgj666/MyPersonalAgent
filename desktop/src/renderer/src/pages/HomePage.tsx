@@ -368,16 +368,11 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
               </h1>
               <div className="twb-hero-motto">
                 <Sparkles size={15} />
-                <div className={`twb-motto-viewport${mottoLines.length > 1 ? ' is-rolling' : ''}`}>
-                  <div
-                    className="twb-motto-track"
-                    style={mottoLines.length > 1 ? { animationDuration: `${mottoLines.length * 8}s` } : undefined}
-                  >
-                    {(mottoLines.length ? mottoLines : [t('tw_greeting_pending')]).map((line, i) => (
-                      <p key={`${i}-${line}`}>{line}</p>
-                    ))}
-                  </div>
-                </div>
+                {/* One line at a time: two lines of text, then an ellipsis; the
+                    full sentence is in the tooltip. */}
+                <p className="twb-motto-line" title={mottoLines[0] || ''}>
+                  {mottoLines[0] || t('tw_greeting_pending')}
+                </p>
                 <button
                   type="button"
                   className="twb-link"
