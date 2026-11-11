@@ -1,0 +1,59 @@
+# 教学工作台（第二期）：班级 / 课表 / 进度 / 作业 / 成绩
+
+> 目标：把任课老师每天真实的五件事做成结构化数据与页面，而不是通用看板。
+> 不复制参考项目（workstation-subject-teacher，非商业许可）的代码与文案；只借鉴其「按真实流程组织」的思路。
+
+## 1 菜单（与原有 CowAgent 结构对齐）
+
+原有三组保持顺序：对话 → 管理 → 监控。新增加一组「教学」，插在对话之后，不折叠（组头无 chevron，常开）：
+
+```
+对话     对话 · 产出文件
+教学     工作台 · 班级与学生 · 课表 · 教学进度 · 作业 · 成绩 · 任务看板 · 教学工具 · 知识
+管理     智能体 · 配置 · 能力 · 记忆 · 通道 · 定时
+监控     日志
+```
+
+- 菜单组不可折叠；侧栏本身仍可收起（工具条保留）
+- 图标统一 lucide 线性 18px；组内按「日常高频 → 低频」排序
+- 桌面端与 Web 端同一份 IA、同一套命名
+
+## 2 数据模型（每租户 workspace 下 `teaching/`，原子写 + 文件锁）
+
+| 文件 | 结构 |
+|---|---|
+| `classes.json` | `{version, classes:[{id,name,grade,subject,room,created_at}]}` |
+| `students.json` | `{students:[{id,class_id,no,name,gender,tags[],note}]}`（同学号唯一，重名靠学号区分） |
+| `timetable.json` | `{periods:[{index,start,end}], slots:[{id,class_id,weekday,period,subject,kind}], overrides:[{date,period,class_id,subject,kind,state:changed\|cancelled}]}` |
+| `progress.json` | `{items:[{id,class_id,topic,planned_periods,taught_periods,order,updated_at}]}` |
+| `homework.json` | `{items:[{id,class_ids[],title,kind,due,created_at}], records:{hw_id:{student_id: state}}}`，state=`submitted\|excellent\|fix\|missing` |
+| `exams.json` | `{exams:[{id,name,date,class_ids[],subject,full_score,items:[{key,label,full}]}]}` |
+| `scores.json` | `{by_exam:{exam_id:{student_id:{total,items:{key:value\|null}}}}}`，缺考=null |
+
+## 3 API（新前缀 `/api/teaching/*`，全部 `_require_auth` + 会话 agent 作用域）
+
+- `GET/POST/PATCH/DELETE /api/teaching/classes`
+- `GET/POST /api/teaching/students`（GET 带 `class_id`；POST 支持批量 `students[]` 粘贴导入，按学号 upsert）
+- `PATCH/DELETE /api/teaching/students/<id>`
+- `GET/PUT /api/teaching/timetable`（整表读写，含 periods/slots/overrides）
+- `GET/POST/PATCH/DELETE /api/teaching/progress`
+- `GET/POST/PATCH/DELETE /api/teaching/homework`；`PUT /api/teaching/homework/<id>/records`（整块状态）
+- `GET/POST/PATCH/DELETE /api/teaching/exams`
+- `PUT /api/teaching/scores/<exam_id>`（整班整块提交，服务端校验满分与缺考）
+- `GET /api/teaching/analysis?exam_id=&class_id=` → `{summary, by_class[], items[], critical[], students[]}`
+
+错误统一 `{"status":"error","code":"bad_request|not_found","message":...}`。
+
+## 4 页面
+
+1. **班级与学生**：左侧班级列表（新建/重命名/删除），右侧花名册；表头排序、搜索；「粘贴导入」解析 Excel 复制的多行（识别 姓名/学号/性别/标签/备注 表头，无表头按 学号,姓名 兜底），预览后再落库。
+2. **课表**：周一至周五 × 节次的网格，点格选择班级与类型（正课/早读/辅导/晚自习/课后服务/教研/值班）；一次调课或停课不改固定表；右侧课时统计；打印样式。
+3. **教学进度**：按班级展示课题清单（课题、计划课时、已讲课时），「讲完了」推进一节；自动算快/慢；可从教学计划整段粘贴。
+4. **作业**：一次布置给多个班，截止日默认该班下一次上课；逐人状态；「其余都已交」；一键复制未交名单；上交率。
+5. **成绩**：新建考试（班级、满分、可选分项）；表格录入（回车下移、方向键、整块粘贴）；缺考；分析页：平均分/及格率/优秀率/标准差、平行班对比、分项得分率、临界生、学生历次趋势。
+
+## 5 验收
+
+- 后端：`tests/test_teaching_*` 覆盖存储、校验、跨租户、统计口径（缺考不计入、分项满分校验、平行班对比）。
+- 前端：`npm run build`（桌面）/ 控制台资产测试（Web）；真实服务冒烟：建班 → 导入 10 名学生 → 排一节课 → 记一次作业 → 建一次考试录分 → 分析返回合理数字。
+- 菜单：两组客户端均按 §1 渲染，组不可折叠。
