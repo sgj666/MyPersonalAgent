@@ -27,6 +27,11 @@ interface TimetablePageProps {
   baseUrl: string
 }
 
+function todayIso(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
 
 const kindLabel = (kind: TimetableKind) => t(`tw_kind_${kind}`)
@@ -299,7 +304,10 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [status, setStatus] = useState('')
-  const [date, setDate] = useState('')
+  const [date, setDate] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })
   const [cell, setCell] = useState<{ weekday: number; period: TimetablePeriod } | null>(null)
   const [periodsOpen, setPeriodsOpen] = useState(false)
   // Toolbar filter (§7.4): show only the teacher's own lessons.
@@ -422,7 +430,7 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
               <p>{t('tw_tt_desc')}</p>
             </div>
             <div className="twb-head-controls">
-              <label className="twb-field twb-field-inline">
+              <label className="twb-field twb-field-inline twb-tt-date">
                 <span>{t('tw_tt_date')}</span>
                 <input
                   className="twb-input"
@@ -431,10 +439,10 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                   onChange={(e) => setDate(e.target.value)}
                 />
               </label>
-              {date && (
-                <button type="button" className="twb-btn" onClick={() => setDate('')}>
+              {date !== todayIso() && (
+                <button type="button" className="twb-btn" onClick={() => setDate(todayIso())}>
                   <X size={14} />
-                  <span>{t('tw_tt_back_fixed')}</span>
+                  <span>{t('tw_tt_back_today')}</span>
                 </button>
               )}
               <label className="twb-check">
@@ -487,6 +495,27 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                     <span className="twb-count">{stats.total}</span>
                   </div>
                   <div className="twb-table-wrap">
+                  <div className="twb-tt-summary" aria-label={t('tw_tt_stats')}>
+                    <span className="twb-tt-summary-label">{t('tw_tt_stats')}</span>
+                    {classes.map((item) => {
+                      const row = stats.byClass.get(item.id) || ({} as Record<TimetableKind, number>)
+                      const total = TIMETABLE_KINDS.reduce((sum, kind) => sum + (row[kind] || 0), 0)
+                      return (
+                        <span key={item.id} className="twb-tt-chip">
+                          <b>{item.name}</b>
+                          <em>{tf('tw_tt_weekly', { n: total })}</em>
+                          {TIMETABLE_KINDS.filter((kind) => row[kind]).map((kind) => (
+                            <span key={kind} className={`twb-kind twb-kind-${kind}`}>
+                              {kindLabel(kind)} {row[kind]}
+                            </span>
+                          ))}
+                        </span>
+                      )
+                    })}
+                    <span className="twb-tt-summary-hint">
+                      {mineOnly ? t('tw_tt_stats_hint_mine') : t('tw_tt_stats_hint')}
+                    </span>
+                  </div>
                     <table className="twb-tt">
                       <thead>
                         <tr>
@@ -586,39 +615,6 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                   </p>
                 </section>
 
-                <aside className="twb-card twb-tt-stats" aria-labelledby="twb-tt-stats-title">
-                  <div className="twb-card-head">
-                    <h2 id="twb-tt-stats-title">{t('tw_tt_stats')}</h2>
-                  </div>
-                  {classes.length ? (
-                    <ul className="twb-stat-list">
-                      {classes.map((item) => {
-                        const row = stats.byClass.get(item.id) || ({} as Record<TimetableKind, number>)
-                        const total = TIMETABLE_KINDS.reduce((sum, kind) => sum + (row[kind] || 0), 0)
-                        return (
-                          <li key={item.id}>
-                            <div className="twb-stat-row">
-                              <b>{item.name}</b>
-                              <span>{tf('tw_tt_weekly', { n: total })}</span>
-                            </div>
-                            <div className="twb-kind-bars">
-                              {TIMETABLE_KINDS.filter((kind) => row[kind]).map((kind) => (
-                                <span key={kind} className={`twb-kind twb-kind-${kind}`}>
-                                  {kindLabel(kind)} {row[kind]}
-                                </span>
-                              ))}
-                            </div>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  ) : (
-                    <Empty icon={CalendarDays} text={t('tw_tt_need_classes')} />
-                  )}
-                  <p className="twb-footnote">
-                    {mineOnly ? t('tw_tt_stats_hint_mine') : t('tw_tt_stats_hint')}
-                  </p>
-                </aside>
               </div>
             </>
           )}

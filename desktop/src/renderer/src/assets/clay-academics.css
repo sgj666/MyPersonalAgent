@@ -421,11 +421,76 @@
 }
 
 /* ---------- timetable ---------- */
+/* The grid owns the width; the per-class counts sit under it as chips. */
 .twb-tt-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
-  gap: 18px;
-  align-items: start;
+  display: block;
+}
+
+.twb-tt-head {
+  align-items: flex-start;
+}
+
+.twb-tt-head .twb-head-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.twb-tt-date .twb-input {
+  width: 150px;
+  height: 34px;
+}
+
+.twb-tt-head .twb-btn,
+.twb-tt-head .twb-check {
+  min-height: 34px;
+}
+
+.twb-tt-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--twb-line);
+}
+
+.twb-tt-summary-label {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--twb-ink-3);
+}
+
+.twb-tt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--twb-rim);
+  border-radius: 999px;
+  background: var(--twb-surface-2);
+  font-size: 12.5px;
+}
+
+.twb-tt-chip b {
+  font-weight: 800;
+}
+
+.twb-tt-chip em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--twb-ink-3);
+}
+
+.twb-tt-summary-hint {
+  width: 100%;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--twb-ink-3);
 }
 
 @media (max-width: 1000px) {
@@ -1403,9 +1468,56 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
   min-height: 0;
 }
 
-#twb-teaching .twb-page-head .twb-eyebrow {
-  margin-bottom: 8px;
+/* A compact banner: the tool's emblem carries the colour, so the head does
+   not need the height of a section title. */
+#twb-teaching .twb-page-head {
+  padding: 12px 18px;
 }
+
+#twb-teaching .twb-tool-head h1 {
+  font-size: 24px;
+}
+
+#twb-teaching .twb-tool-head {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16px;
+  text-align: left;
+}
+
+#twb-teaching .twb-tool-head h1 {
+  margin: 2px 0 4px;
+  font-size: 26px;
+}
+
+#twb-teaching .twb-tool-head p {
+  font-size: 12.5px;
+}
+
+#twb-teaching .twb-page-head .twb-eyebrow {
+  margin-bottom: 2px;
+}
+
+.twb-tool-emblem {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border: 1px solid var(--twb-rim);
+  border-radius: 16px;
+  background: var(--twb-surface-2);
+  color: var(--twb-ink);
+  box-shadow: 0 3px 10px rgba(120, 100, 80, 0.08);
+}
+
+.twb-tool-emblem.is-plan { background: #dff6e8; }
+.twb-tool-emblem.is-courseware { background: #ffe4d2; }
+.twb-tool-emblem.is-card { background: #e3effb; }
+.twb-tool-emblem.is-advice { background: #fff2cc; }
+.twb-tool-emblem.is-schedule { background: #ece6fb; }
 
 @media (max-width: 1000px) {
   #twb-teaching .twb-teach-grid {
@@ -1745,6 +1857,38 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
   --twb-accent-hover: var(--accent-hover);
   --twb-accent-soft: var(--accent-soft);
   --twb-urgent: var(--danger);
+}
+
+.twb-motto-viewport {
+  flex: 1;
+  min-width: 0;
+  height: 22px;
+  overflow: hidden;
+}
+
+.twb-motto-track {
+  display: flex;
+  flex-direction: column;
+}
+
+.twb-motto-track p {
+  height: 22px;
+  line-height: 22px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.twb-motto-viewport.is-rolling .twb-motto-track {
+  animation-name: twb-motto-roll;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation-iteration-count: infinite;
+}
+
+@keyframes twb-motto-roll {
+  0%, 28% { transform: translateY(0); }
+  33%, 61% { transform: translateY(-22px); }
+  66%, 100% { transform: translateY(-44px); }
 }
 
 .twb-hero-motto {

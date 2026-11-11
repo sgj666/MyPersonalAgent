@@ -1879,6 +1879,9 @@ class ApiClient {
     return {
       greeting: String(data.greeting || ''),
       motto: String(data.motto || ''),
+      motives: Array.isArray(data.motives)
+        ? data.motives.map((item) => String(item || '')).filter(Boolean)
+        : undefined,
       date: String(data.date || ''),
       cached: data.cached === true,
     }

@@ -1438,17 +1438,24 @@ class TeachingStore:
         """Today's cached motto, if one was written: ``{date, text}``."""
         with self._locked("motto"):
             doc = self._read_doc("motto")
+        raw = doc.get("motives")
+        motives = [str(item) for item in raw if isinstance(item, str)] if isinstance(raw, list) else []
         return {
             "date": _text(doc.get("date")),
             "text": _text(doc.get("text")),
+            "motives": motives,
         }
 
-    def save_daily_motto(self, day: str, text: str) -> None:
-        """Overwrite the motto cache; one line a day is all it ever holds."""
+    def save_daily_motto(self, day: str, text: str,
+                         motives: Optional[List[str]] = None) -> None:
+        """Overwrite the motto cache; the first line plus its rotation."""
+        payload = {"date": _text(day), "text": _text(text)}
+        if motives:
+            payload["motives"] = [_text(item) for item in motives][:3]
         with self._locked("motto"):
             path = self._path("motto")
             path.parent.mkdir(parents=True, exist_ok=True)
-            write_json_atomic(path, {"date": _text(day), "text": _text(text)}, indent=2)
+            write_json_atomic(path, payload, indent=2)
 
     # --- Today -------------------------------------------------------------
 

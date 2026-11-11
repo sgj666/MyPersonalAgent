@@ -1583,8 +1583,10 @@ export type TeacherProfileFields = Pick<TeacherProfile, 'name' | 'subjects' | 'c
 export interface TeachingGreeting {
   /** 「晚上好，孙老师。」 */
   greeting: string
-  /** One gentle line about today, cached per calendar day. */
+  /** The first line, cached per calendar day. */
   motto: string
+  /** Three rotating lines for the hero; may be absent on older backends. */
+  motives?: string[]
   /** `YYYY-MM-DD`. */
   date: string
   cached: boolean

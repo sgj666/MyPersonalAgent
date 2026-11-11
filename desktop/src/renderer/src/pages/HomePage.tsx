@@ -13,6 +13,7 @@ import {
   PenLine,
   Presentation,
   RefreshCw,
+  Sparkles,
   TriangleAlert,
   type LucideIcon,
 } from 'lucide-react'
@@ -316,6 +317,11 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
     }
   }
 
+  // The three lines roll on their own, so the hero reads like a small sign
+  // rather than a task list. CSS runs the ticker: a background window throttles
+  // JS timers, and a marquee should not depend on that.
+  const mottoLines = greeting?.motives?.length ? greeting.motives : greeting ? [greeting.motto] : []
+
   const changeMotto = async () => {
     if (mottoBusy) return
     setMottoBusy(true)
@@ -357,8 +363,17 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
                   t(hour < 12 ? 'tw_home_hi_morning' : hour < 18 ? 'tw_home_hi_afternoon' : 'tw_home_hi_evening')}
               </h1>
               <div className="twb-hero-motto">
-                <Lightbulb size={15} />
-                <p>{greeting?.motto || t('tw_greeting_pending')}</p>
+                <Sparkles size={15} />
+                <div className={`twb-motto-viewport${mottoLines.length > 1 ? ' is-rolling' : ''}`}>
+                  <div
+                    className="twb-motto-track"
+                    style={mottoLines.length > 1 ? { animationDuration: `${mottoLines.length * 8}s` } : undefined}
+                  >
+                    {(mottoLines.length ? mottoLines : [t('tw_greeting_pending')]).map((line, i) => (
+                      <p key={`${i}-${line}`}>{line}</p>
+                    ))}
+                  </div>
+                </div>
                 <button
                   type="button"
                   className="twb-link"

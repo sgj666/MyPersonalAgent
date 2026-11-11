@@ -434,9 +434,12 @@ const TeachingPage: React.FC = () => {
     <div id="twb-teaching" className="flex-1 flex flex-col min-h-0">
       <div className="twb-scroll">
         <div className="twb-page">
-          <header className="twb-page-head">
+          <header className="twb-page-head twb-tool-head">
+            <span className={`twb-tool-emblem is-${active.id}`} aria-hidden="true">
+              <active.icon size={26} strokeWidth={1.9} />
+            </span>
             <div>
-              <span className="twb-eyebrow">{t('tw_teach_title')}</span>
+              <span className="twb-eyebrow">{active.skill}</span>
               <h1>{t(active.labelKey)}</h1>
               <p>{t(active.descKey)}</p>
             </div>

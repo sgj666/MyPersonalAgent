@@ -20,6 +20,7 @@ not hold the page.
 
 from __future__ import annotations
 
+import re
 import threading
 from datetime import date, datetime
 from pathlib import Path
@@ -37,16 +38,16 @@ MODEL_TIMEOUT = 6.0
 #: Sentences used when no model is configured, when it fails, or when its
 #: answer is unusable. Each one is 18-30 characters, like the generated ones.
 _FALLBACK_MOTTOS = (
-    "把今天的一节课上好，剩下的交给时间。",
-    "慢一点也没关系，课讲到学生眼里就值了。",
-    "先备好第一节课，今天的节奏自然就顺了。",
-    "留一点空档喝口水，讲台也需要喘口气。",
-    "今天讲清楚一个知识点，就已经是好课了。",
-    "学生的一个点头，够撑起一整天的疲惫。",
-    "课间别急着改作业，先站起来走两步再回来。",
-    "把难题拆小一点，学生跟得上的地方才开始。",
-    "今天不追求完美，只把该讲的讲明白就好。",
-    "下课前留两分钟，收个尾，也收个心情。",
+    "你今天多讲的耐心，会在某个学生身上悄悄发芽。",
+    "散步十分钟，大脑整理记忆的效率比再刷一遍题更高。",
+    "睡前复习一次，第二天的留存率大约能翻一倍。",
+    "英语里 nice 原本是“无知”的意思，几百年才变成“好”。",
+    "把目标写下来，完成率通常会明显提高。",
+    "课间看向远处二十秒，眼睛的调节肌肉会松一口气。",
+    "章鱼有三颗心脏，其中两颗专门给鳃供血。",
+    "先做最难的那件事，一天的阻力会小很多。",
+    "雨的气味大多来自土壤里的放线菌，不是雨本身。",
+    "学生记住的常是你的一个眼神，而不是那句板书。",
 )
 
 
@@ -149,37 +150,34 @@ def _address(name: str) -> str:
     return f"{name}老师"
 
 
-def _fallback_motto(day: date) -> str:
-    return _FALLBACK_MOTTOS[day.toordinal() % len(_FALLBACK_MOTTOS)]
+def _fallback_motives(day: date) -> List[str]:
+    start = day.toordinal() % len(_FALLBACK_MOTTOS)
+    return [_FALLBACK_MOTTOS[(start + i) % len(_FALLBACK_MOTTOS)] for i in range(3)]
+
+
+def _split_motives(raw: str) -> List[str]:
+    """Up to three lines, with list numbering and stray quotes removed."""
+    lines = []
+    for line in (raw or "").splitlines():
+        text = re.sub(r"^\s*(?:\d+[.、)]|[-*•])\s*", "", line).strip().strip('"“”')
+        if len(text) >= 8:
+            lines.append(text)
+    return lines[:3]
 
 
 def _motto_prompt(profile: dict, day: date, lessons: List[dict]) -> str:
-    who = []
-    if profile.get("name"):
-        who.append(f"姓名：{profile['name']}")
-    if profile.get("subjects"):
-        who.append(f"学科：{'、'.join(profile['subjects'])}")
-    if profile.get("classes"):
-        who.append(f"班级：{'、'.join(profile['classes'])}")
-    if profile.get("textbook"):
-        who.append(f"教材：{profile['textbook']}")
-    if profile.get("school"):
-        who.append(f"学校：{profile['school']}")
+    """Three short lines for the hero: a lift, a fact, a small wonder.
 
-    if lessons:
-        first = lessons[0]
-        today = (f"今天有 {len(lessons)} 节课；第一节课是 "
-                 f"{first.get('start') or '待定时间'} {first.get('class_name') or ''}"
-                 f" {first.get('subject') or ''}".strip())
-    else:
-        today = "今天没有课。"
-
+    The hero is not a task panel — the digest already reports the day. These
+    lines are meant to be read while the kettle boils, so they carry no work
+    items at all.
+    """
     return (
-        "你是贴在教师办公桌上的一张便签。给这位老师写一句今天的教学工作寄语。\n"
-        + "\n".join(who)
-        + f"\n{today}\n"
-        + "要求：18-30 个汉字；语气温和轻松，具体一点，不说教、不喊口号、"
-        "不写鸡汤；最多一个 emoji；只输出这一句话，不要引号、不要解释。"
+        "给一位老师写今天首页上的三条短句，放进轮播里。\n"
+        "三条各写一种：一条温和的鼓励；一条教育/脑科学/学习方法的小知识；"
+        "一条自然、历史或语言的小趣闻。\n"
+        "每条 18-32 个汉字，具体、有信息量，不喊口号、不写鸡汤、不提今天的工作和课程；"
+        "每条最多一个 emoji；用 1. 2. 3. 编号，每行一条，不要引号，不要解释。"
     )
 
 
@@ -261,12 +259,26 @@ def greeting(store, *, day: Optional[str] = None, now: Optional[datetime] = None
         from_cache = True
     else:
         lessons = store.today(day_iso).get("slots", [])
-        text = motto_from_model(profile, target, lessons) or _fallback_motto(target)
-        store.save_daily_motto(day_iso, text)
+        lines = _split_motives(motto_from_model(profile, target, lessons))
+        # The model sometimes answers one line despite the list; top up from
+        # the local pool so the hero always has three to rotate.
+        for candidate in _fallback_motives(target):
+            if len(lines) >= 3:
+                break
+            if candidate not in lines:
+                lines.append(candidate)
+        if not lines:
+            lines = _fallback_motives(target)
+        store.save_daily_motto(day_iso, lines[0], motives=lines)
+        text = lines[0]
 
+    motives = cached.get("motives") or []
+    if not motives:
+        motives = [text]
     return {
         "greeting": f"{_period_greeting(when.hour)}，{_address(profile['name'])}。",
         "motto": text,
+        "motives": motives,
         "date": day_iso,
         "cached": from_cache,
     }
