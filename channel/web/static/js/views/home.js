@@ -48,8 +48,14 @@ function twHomeOpenTool(tool) {
     return false;
 }
 
-async function _twHomeJSON(url) {
-    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+async function _twHomeJSON(url, method, body) {
+    const init = { headers: { Accept: 'application/json' } };
+    if (method && method !== 'GET') init.method = method;
+    if (body !== undefined) {
+        init.headers['Content-Type'] = 'application/json';
+        init.body = JSON.stringify(body);
+    }
+    const res = await fetch(url, init);
     const data = await res.json().catch(() => null);
     if (!res.ok || !data || data.status !== 'success') {
         throw new Error((data && data.message) || ('HTTP ' + res.status));
@@ -79,6 +85,229 @@ function loadHomeView() {
     _twHomeJSON('/api/knowledge/list')
         .then(data => { if (token === twHomeLoadToken) twHomeRenderKnowledge(data); })
         .catch(err => { if (token === twHomeLoadToken) twHomePanelError('home-knowledge', err); });
+
+    twHomeLoadDay(token);
+    twHomeLoadSettings(token);
+}
+
+// ---------- today's lessons, digest and reminders ----------
+
+let twHomeClassNames = {};
+let twHomeClassNamesPending = null;
+let twHomeDigestText = '';
+let twHomeSettings = null;
+
+/** class_id -> name, so a lesson the API returns with only an id still reads.
+    One request per page load; a failure only costs the fallback label. */
+function twHomeEnsureClassNames() {
+    if (!twHomeClassNamesPending) {
+        twHomeClassNamesPending = _twHomeJSON('/api/teaching/classes')
+            .then(data => {
+                (Array.isArray(data.classes) ? data.classes : []).forEach(cls => {
+                    if (cls && cls.id) twHomeClassNames[cls.id] = cls.name || '';
+                });
+                return true;
+            })
+            .catch(() => false);
+    }
+    return twHomeClassNamesPending;
+}
+
+function twHomeDayLessons(payload) {
+    const src = payload || {};
+    const list = src.slots || src.lessons || src.items || src.courses || [];
+    return Array.isArray(list) ? list : [];
+}
+
+function twHomeLessonClass(lesson) {
+    if (lesson.class_name) return lesson.class_name;
+    if (typeof lesson.class === 'string') return lesson.class;
+    if (lesson.class && typeof lesson.class.name === 'string') return lesson.class.name;
+    return twHomeClassNames[lesson.class_id] || '';
+}
+
+function twHomeLessonTime(lesson) {
+    if (lesson.time) return String(lesson.time);
+    const start = lesson.start || lesson.start_time || '';
+    const end = lesson.end || lesson.end_time || '';
+    return start && end ? start + '–' + end : start;
+}
+
+function twHomeRenderDigest(text) {
+    twHomeDigestText = typeof text === 'string' ? text.trim() : '';
+    const el = document.getElementById('home-digest');
+    if (el) {
+        el.textContent = twHomeDigestText || t('tw_digest_empty');
+        el.classList.toggle('is-empty', !twHomeDigestText);
+    }
+    const copy = document.getElementById('home-digest-copy');
+    if (copy) copy.disabled = !twHomeDigestText;
+}
+
+function twHomeRenderToday(payload) {
+    twHomeRenderDigest(payload && (typeof payload.digest_text === 'string'
+        ? payload.digest_text : payload.digest));
+
+    const el = document.getElementById('home-today');
+    if (!el) return;
+    const lessons = twHomeDayLessons(payload).slice()
+        .sort((a, b) => (Number(a.period) || 0) - (Number(b.period) || 0));
+    if (!lessons.length) {
+        el.innerHTML = `<div class="tw-empty"><i class="fas fa-mug-hot" aria-hidden="true"></i>`
+            + `<p>${escapeHtml(t('tw_today_empty'))}</p></div>`;
+        return;
+    }
+    el.innerHTML = lessons.map(lesson => {
+        const mine = lesson.mine !== false;
+        const period = lesson.period == null ? ''
+            : t('tw_tt_period_n').replace('{n}', String(lesson.period));
+        const time = twHomeLessonTime(lesson);
+        const cls = twHomeLessonClass(lesson);
+        const subject = lesson.subject || '';
+        const topic = lesson.topic || lesson.content || '';
+        const detail = [subject, topic].filter(Boolean).join(' · ');
+        const label = [period, time, cls, detail].filter(Boolean).join(' ');
+        return `<button type="button" class="tw-today-item${mine ? ' is-mine' : ''}"
+                onclick="navigateTo('timetable')" title="${twHomeAttr(label)}">
+            <span class="tw-today-dot" aria-hidden="true"></span>
+            <span class="tw-today-period">${escapeHtml(period)}</span>
+            <span class="tw-today-time">${escapeHtml(time)}</span>
+            <span class="tw-today-body">
+                <b>${escapeHtml(cls || '—')}</b>
+                <small>${escapeHtml(detail || '')}</small>
+            </span>
+        </button>`;
+    }).join('');
+}
+
+function twHomeCopyDigest() {
+    if (!twHomeDigestText) return;
+    const report = ok => twAcadStatus('home-digest-status',
+        ok ? t('tw_digest_copied') : t('tw_c_copy_failed'), !ok);
+    if (typeof twAcadCopy === 'function') {
+        twAcadCopy(twHomeDigestText).then(report);
+        return;
+    }
+    navigator.clipboard.writeText(twHomeDigestText)
+        .then(() => report(true), () => report(false));
+}
+
+function twHomeLoadDay(token) {
+    return Promise.all([
+        _twHomeJSON('/api/teaching/today'),
+        twHomeEnsureClassNames(),
+    ]).then(([data]) => {
+        if (token === twHomeLoadToken) twHomeRenderToday(data);
+    }).catch(err => {
+        if (token !== twHomeLoadToken) return;
+        twHomePanelError('home-today', err);
+        twHomeRenderDigest('');
+    });
+}
+
+/** Settings arrive either flat or under `settings`; defaults are §7.1's. */
+function twHomeSettingsOf(payload) {
+    const root = payload || {};
+    const src = root.settings && typeof root.settings === 'object' ? root.settings : root;
+    const morning = src.morning && typeof src.morning === 'object' ? src.morning : {};
+    const lesson = src.lesson && typeof src.lesson === 'object' ? src.lesson : {};
+    const minutes = Number(lesson.minutes);
+    return {
+        channel: src.channel || 'web',
+        morning: {
+            enabled: morning.enabled !== false,
+            time: /^\d{2}:\d{2}$/.test(String(morning.time || '')) ? String(morning.time) : '07:30',
+        },
+        lesson: {
+            enabled: lesson.enabled !== false,
+            // The store accepts 1–60 minutes; anything else is repaired here
+            // rather than bounced back as a validation error on save.
+            minutes: Number.isFinite(minutes) && minutes >= 1 && minutes <= 60 ? minutes : 10,
+        },
+    };
+}
+
+function twHomeToggleRemind() {
+    const morning = document.getElementById('home-morning-enabled');
+    const time = document.getElementById('home-morning-time');
+    if (morning && time) time.disabled = !morning.checked;
+    const lesson = document.getElementById('home-lesson-enabled');
+    const minutes = document.getElementById('home-lesson-minutes');
+    if (lesson && minutes) minutes.disabled = !lesson.checked;
+}
+
+function twHomeRenderSettings(payload) {
+    twHomeSettings = twHomeSettingsOf(payload);
+    const morning = document.getElementById('home-morning-enabled');
+    const time = document.getElementById('home-morning-time');
+    const lesson = document.getElementById('home-lesson-enabled');
+    const minutes = document.getElementById('home-lesson-minutes');
+    if (morning) morning.checked = twHomeSettings.morning.enabled;
+    if (time) time.value = twHomeSettings.morning.time;
+    if (lesson) lesson.checked = twHomeSettings.lesson.enabled;
+    if (minutes) minutes.value = String(twHomeSettings.lesson.minutes);
+    twHomeToggleRemind();
+}
+
+function twHomeRenderPreview(payload) {
+    const root = payload || {};
+    const src = root.preview && typeof root.preview === 'object' ? root.preview : root;
+    const text = [src.digest, src.next_lesson || src.lesson]
+        .filter(part => typeof part === 'string' && part.trim())
+        .join('\n\n');
+    const el = document.getElementById('home-remind-preview');
+    if (!el) return;
+    el.textContent = text || t('tw_remind_preview_empty');
+    el.classList.toggle('is-empty', !text);
+}
+
+function twHomeLoadSettings(token) {
+    return Promise.all([
+        _twHomeJSON('/api/teaching/settings'),
+        _twHomeJSON('/api/teaching/reminders/preview').catch(() => null),
+    ]).then(([data, preview]) => {
+        if (token !== twHomeLoadToken) return;
+        twHomeRenderSettings(data);
+        twHomeRenderPreview(preview);
+    }).catch(err => {
+        if (token !== twHomeLoadToken) return;
+        twAcadStatus('home-remind-status', (err && err.message) || t('tw_load_failed'), true);
+        twHomeRenderPreview(null);
+    });
+}
+
+async function twHomeSaveSettings(event) {
+    if (event) event.preventDefault();
+    const morningEl = document.getElementById('home-morning-enabled');
+    const timeEl = document.getElementById('home-morning-time');
+    const lessonEl = document.getElementById('home-lesson-enabled');
+    const minutesEl = document.getElementById('home-lesson-minutes');
+    const time = (timeEl && timeEl.value) || '07:30';
+    const minutes = Number(minutesEl && minutesEl.value);
+    const payload = {
+        morning: {
+            enabled: !!(morningEl && morningEl.checked),
+            time: /^\d{2}:\d{2}$/.test(time) ? time : '07:30',
+        },
+        lesson: {
+            enabled: !!(lessonEl && lessonEl.checked),
+            minutes: Number.isFinite(minutes) && minutes >= 1 && minutes <= 60 ? minutes : 10,
+        },
+        channel: (twHomeSettings && twHomeSettings.channel) || 'web',
+    };
+    twAcadStatus('home-remind-status', t('tw_remind_saving'));
+    try {
+        await _twHomeJSON('/api/teaching/settings', 'PUT', payload);
+        await _twHomeJSON('/api/teaching/reminders/sync', 'POST', {});
+        twHomeSettings = payload;
+        twHomeToggleRemind();
+        twAcadStatus('home-remind-status', t('tw_remind_saved'));
+        _twHomeJSON('/api/teaching/reminders/preview')
+            .then(twHomeRenderPreview)
+            .catch(() => { /* the saved state is what matters; preview is advisory */ });
+    } catch (err) {
+        twAcadStatus('home-remind-status', (err && err.message) || t('tw_load_failed'), true);
+    }
 }
 
 function twHomePanelError(id, err) {

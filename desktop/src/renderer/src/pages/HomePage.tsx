@@ -18,8 +18,16 @@ import {
 import { t, tf, getLang } from '../i18n'
 import apiClient from '../api/client'
 import { iconFor } from '../lib/fileKind'
+import { todayISO } from '../lib/teaching'
 import { dateTime } from './artifacts/format'
-import type { BoardSnapshot, KnowledgeDir, KnowledgeList } from '../types'
+import type {
+  BoardSnapshot,
+  KnowledgeDir,
+  KnowledgeList,
+  ReminderPreview,
+  TeachingSettings,
+  TeachingToday,
+} from '../types'
 
 interface HomePageProps {
   baseUrl: string
@@ -93,6 +101,17 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
   const [artifactsError, setArtifactsError] = useState('')
   const [knowledge, setKnowledge] = useState<{ docs: KnowledgeDoc[]; pages: number } | null>(null)
   const [knowledgeError, setKnowledgeError] = useState('')
+  // §7.4: today's lessons, the morning brief and the reminder settings.
+  const [today, setToday] = useState<TeachingToday | null>(null)
+  const [todayError, setTodayError] = useState('')
+  const [settings, setSettings] = useState<TeachingSettings | null>(null)
+  const [settingsError, setSettingsError] = useState('')
+  const [settingsStatus, setSettingsStatus] = useState('')
+  const [settingsBusy, setSettingsBusy] = useState(false)
+  const [preview, setPreview] = useState<ReminderPreview | null>(null)
+  const [previewBusy, setPreviewBusy] = useState(false)
+  const [copyStatus, setCopyStatus] = useState('')
+  const copyTimer = useRef<number | null>(null)
   // A token per panel would be noise: one load bumps the token, and a reply
   // from a superseded load is dropped as a whole.
   const loadToken = useRef(0)
@@ -103,6 +122,8 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
     setBoardError('')
     setArtifactsError('')
     setKnowledgeError('')
+    setTodayError('')
+    setSettingsError('')
 
     // Each panel fails on its own: a missing artifact index must not blank the
     // board metrics.
@@ -144,11 +165,94 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
       .catch((err) => {
         if (token === loadToken.current) setKnowledgeError(errorText(err))
       })
+
+    // The date is the client's own: the backend's today can differ from the
+    // teacher's around midnight, and the brief is about the teacher's day.
+    apiClient
+      .getTeachingToday(todayISO())
+      .then((data) => {
+        if (token === loadToken.current) setToday(data)
+      })
+      .catch((err) => {
+        if (token === loadToken.current) setTodayError(errorText(err))
+      })
+
+    apiClient
+      .getTeachingSettings()
+      .then((data) => {
+        if (token === loadToken.current) setSettings(data)
+      })
+      .catch((err) => {
+        if (token === loadToken.current) setSettingsError(errorText(err))
+      })
   }, [baseUrl])
 
   useEffect(() => {
     void load()
   }, [load])
+
+  // A copy confirmation should not outlive the page or pile up timers.
+  useEffect(
+    () => () => {
+      if (copyTimer.current) window.clearTimeout(copyTimer.current)
+    },
+    []
+  )
+
+  const copyDigest = async () => {
+    const text = today?.digest_text || ''
+    if (!text) return
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopyStatus(t('tw_digest_copied'))
+    } catch (err) {
+      setCopyStatus(tf('tw_digest_copy_failed', { msg: errorText(err) }))
+    }
+    if (copyTimer.current) window.clearTimeout(copyTimer.current)
+    copyTimer.current = window.setTimeout(() => setCopyStatus(''), 4000)
+  }
+
+  const patchSettings = (patch: Partial<TeachingSettings>) =>
+    setSettings((prev) => (prev ? { ...prev, ...patch } : prev))
+
+  // §7.4: the settings only take effect once the scheduler has been re-laid,
+  // so the save is PUT + sync, and only then is it reported as done.
+  const saveSettings = async () => {
+    if (!settings || settingsBusy) return
+    setSettingsBusy(true)
+    setSettingsError('')
+    setSettingsStatus('')
+    try {
+      await apiClient.saveTeachingSettings(settings)
+      await apiClient.syncTeachingReminders()
+      setSettingsStatus(t('tw_rem_saved'))
+      // The brief's wording depends on these settings, so fetch it again.
+      const fresh = await apiClient.getTeachingToday(todayISO()).catch(() => null)
+      if (fresh) {
+        setToday(fresh)
+        setTodayError('')
+      }
+      setPreview(null)
+    } catch (err) {
+      setSettingsStatus('')
+      setSettingsError(tf('tw_rem_save_failed', { msg: errorText(err) }))
+    } finally {
+      setSettingsBusy(false)
+    }
+  }
+
+  const loadPreview = async () => {
+    if (previewBusy) return
+    setPreviewBusy(true)
+    setSettingsError('')
+    try {
+      setPreview(await apiClient.getTeachingRemindersPreview())
+    } catch (err) {
+      setSettingsError(tf('tw_rem_preview_failed', { msg: errorText(err) }))
+    } finally {
+      setPreviewBusy(false)
+    }
+  }
 
   const openTool = (id: string) => navigate(`/teaching?tool=${encodeURIComponent(id)}`)
   const counts = board?.counts
@@ -214,6 +318,212 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
               </div>
             </div>
             {boardError && <p className="twb-status is-error mt-2">{boardError}</p>}
+          </section>
+
+          <section aria-labelledby="twb-home-today">
+            <h2 id="twb-home-today" className="twb-sr-only">
+              {t('tw_today_title')}
+            </h2>
+            <div className="twb-today-grid">
+              <section className="twb-card" aria-labelledby="twb-today-lessons">
+                <div className="twb-card-head">
+                  <h2 id="twb-today-lessons">{t('tw_today_title')}</h2>
+                  <button type="button" className="twb-link" onClick={() => navigate('/timetable')}>
+                    <span>{t('tw_today_open_tt')}</span>
+                    <ArrowRight size={13} />
+                  </button>
+                </div>
+                {today ? (
+                  today.lessons.length ? (
+                    <>
+                      <div className="twb-lessons">
+                        {today.lessons.map((lesson) => (
+                          <button
+                            key={`${lesson.period}-${lesson.class_id}`}
+                            type="button"
+                            className="twb-lesson"
+                            title={lesson.topic || undefined}
+                            onClick={() => navigate('/timetable')}
+                          >
+                            <span className="twb-lesson-time">
+                              <b>{lesson.start || tf('tw_tt_period_n', { n: lesson.period })}</b>
+                              {lesson.end && <small>{lesson.end}</small>}
+                            </span>
+                            <i
+                              className={`twb-dot${lesson.mine ? ' is-mine' : ''}`}
+                              title={lesson.mine ? t('tw_today_mine') : t('tw_tt_other')}
+                              aria-hidden="true"
+                            />
+                            <span className="twb-lesson-what">
+                              <b>{lesson.class_name || t('tw_tt_unknown_class')}</b>
+                              <small>
+                                {[
+                                  lesson.subject,
+                                  t(`tw_kind_${lesson.kind}`),
+                                ]
+                                  .filter(Boolean)
+                                  .join(' · ')}
+                              </small>
+                            </span>
+                            {lesson.topic && <em className="twb-lesson-topic">{lesson.topic}</em>}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="twb-footnote">
+                        {tf('tw_today_lessons_n', { n: today.lessons.length })}
+                      </p>
+                    </>
+                  ) : (
+                    <div className="twb-empty">
+                      <CalendarDays size={26} />
+                      <p>{t('tw_today_empty')}</p>
+                      <button type="button" className="twb-btn" onClick={() => navigate('/timetable')}>
+                        {t('tw_today_open_tt')}
+                      </button>
+                    </div>
+                  )
+                ) : todayError ? (
+                  <PanelError message={todayError} onRetry={() => void load()} />
+                ) : (
+                  <p className="twb-loading">{t('tw_loading')}</p>
+                )}
+              </section>
+
+              <section className="twb-card" aria-labelledby="twb-today-digest">
+                <div className="twb-card-head">
+                  <h2 id="twb-today-digest">{t('tw_digest_title')}</h2>
+                  <button
+                    type="button"
+                    className="twb-link"
+                    disabled={!today?.digest_text}
+                    onClick={() => void copyDigest()}
+                  >
+                    <Copy size={13} />
+                    <span>{t('tw_digest_copy')}</span>
+                  </button>
+                </div>
+                {today ? (
+                  today.digest_text ? (
+                    <pre className="twb-digest">{today.digest_text}</pre>
+                  ) : (
+                    <div className="twb-empty">
+                      <FileText size={26} />
+                      <p>{t('tw_digest_empty')}</p>
+                    </div>
+                  )
+                ) : todayError ? (
+                  <PanelError message={todayError} onRetry={() => void load()} />
+                ) : (
+                  <p className="twb-loading">{t('tw_loading')}</p>
+                )}
+                {copyStatus && <p className="twb-status">{copyStatus}</p>}
+              </section>
+
+              <section className="twb-card" aria-labelledby="twb-today-reminders">
+                <div className="twb-card-head">
+                  <h2 id="twb-today-reminders">{t('tw_rem_title')}</h2>
+                </div>
+                {settings ? (
+                  <>
+                    <div className="twb-rem">
+                      <label className="twb-check">
+                        <input
+                          type="checkbox"
+                          checked={settings.morning.enabled}
+                          onChange={(e) =>
+                            patchSettings({
+                              morning: { ...settings.morning, enabled: e.target.checked },
+                            })
+                          }
+                        />
+                        <span>{t('tw_rem_morning')}</span>
+                      </label>
+                      <label className="twb-field twb-field-inline">
+                        <span>{t('tw_rem_morning_time')}</span>
+                        <input
+                          className="twb-input twb-rem-time"
+                          type="time"
+                          value={settings.morning.time}
+                          disabled={!settings.morning.enabled}
+                          onChange={(e) =>
+                            patchSettings({
+                              morning: { ...settings.morning, time: e.target.value },
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                    <div className="twb-rem">
+                      <label className="twb-check">
+                        <input
+                          type="checkbox"
+                          checked={settings.lesson.enabled}
+                          onChange={(e) =>
+                            patchSettings({
+                              lesson: { ...settings.lesson, enabled: e.target.checked },
+                            })
+                          }
+                        />
+                        <span>{t('tw_rem_lesson')}</span>
+                      </label>
+                      <label className="twb-field twb-field-inline">
+                        <span>{t('tw_rem_lesson_minutes')}</span>
+                        <input
+                          className="twb-input twb-rem-min"
+                          type="number"
+                          min={1}
+                          max={60}
+                          step={5}
+                          value={settings.lesson.minutes}
+                          disabled={!settings.lesson.enabled}
+                          onChange={(e) =>
+                            patchSettings({
+                              lesson: { ...settings.lesson, minutes: Number(e.target.value) },
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                    <p className="twb-hint">{t('tw_rem_hint')}</p>
+                    <div className="twb-rem-actions">
+                      <button
+                        type="button"
+                        className="twb-btn twb-btn-primary"
+                        disabled={settingsBusy}
+                        onClick={() => void saveSettings()}
+                      >
+                        {settingsBusy ? <Loader2 size={14} className="twb-spin" /> : null}
+                        <span>{t('tw_rem_save')}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="twb-btn"
+                        disabled={previewBusy}
+                        onClick={() => void loadPreview()}
+                      >
+                        {t('tw_rem_preview')}
+                      </button>
+                    </div>
+                    {settingsStatus && <p className="twb-status">{settingsStatus}</p>}
+                    {settingsError && <p className="twb-status is-error">{settingsError}</p>}
+                    {preview && (
+                      <div className="twb-rem-preview">
+                        <h3>{t('tw_rem_preview_title')}</h3>
+                        <pre className="twb-digest">{preview.digest || t('tw_digest_empty')}</pre>
+                        <h3>{t('tw_rem_preview_lesson')}</h3>
+                        <pre className="twb-digest">
+                          {preview.lesson || t('tw_rem_preview_none')}
+                        </pre>
+                      </div>
+                    )}
+                  </>
+                ) : settingsError ? (
+                  <PanelError message={settingsError} onRetry={() => void load()} />
+                ) : (
+                  <p className="twb-loading">{t('tw_loading')}</p>
+                )}
+              </section>
+            </div>
           </section>
 
           <section aria-labelledby="twb-home-quick">

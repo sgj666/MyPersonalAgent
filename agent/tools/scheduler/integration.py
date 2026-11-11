@@ -607,6 +607,8 @@ def _remember_delivered_output(
         - send_message: additionally gated by ``scheduler_inject_send_message``
           (default False) on push-capable IM channels. Fixed reminder text rarely
           benefits follow-up Q&A there and would just consume context tokens.
+        - teaching_digest: today's teaching summary built at fire time, then
+          delivered exactly like send_message (never calls a model).
 
     The web channel is the exception: it cannot push to an idle client, so the
     conversation history is the *only* place a delivered message shows up when
@@ -783,6 +785,8 @@ def _run_scheduled_task(
     try:
         if action_type == "agent_task":
             ok = _execute_agent_task(task, agent_bridge, agent_id, output_sink=sink)
+        elif action_type == "teaching_digest":
+            ok = _execute_teaching_digest(task, agent_bridge, agent_id, output_sink=sink)
         elif action_type == "send_message":
             ok = _execute_send_message(task, agent_bridge, agent_id, output_sink=sink)
         elif action_type == "tool_call":
@@ -951,6 +955,28 @@ def _execute_agent_task(
         import traceback
         logger.error(f"[Scheduler] Traceback: {traceback.format_exc()}")
         return False
+
+
+def _execute_teaching_digest(
+    task: dict, agent_bridge, agent_id: str = None, output_sink: dict = None
+) -> bool:
+    """Deliver today's teaching digest, computed at fire time.
+
+    The task carries no text: the cron is fixed, but "today's lessons" are not,
+    and asking a model to write it would fail on an install with no model key.
+    """
+    try:
+        from agent.teaching.reminders import digest_for_today
+
+        text = digest_for_today(agent_id)
+    except Exception as e:
+        logger.error(f"[Scheduler] Task {task.get('id')}: teaching digest failed: {e}")
+        return False
+    resolved = dict(task)
+    resolved["action"] = {
+        **task.get("action", {}), "type": "send_message", "content": text,
+    }
+    return _execute_send_message(resolved, agent_bridge, agent_id, output_sink=output_sink)
 
 
 def _execute_send_message(

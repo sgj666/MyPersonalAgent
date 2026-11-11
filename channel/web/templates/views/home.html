@@ -45,6 +45,74 @@
                                 </div>
                             </section>
 
+                            <section class="tw-today-grid" aria-labelledby="home-today-h">
+                                <section class="tw-card" aria-labelledby="home-today-h">
+                                    <div class="tw-card-head">
+                                        <h2 id="home-today-h" data-i18n="tw_today_title">今日课程</h2>
+                                        <a class="tw-link" href="/timetable" onclick="navigateTo('timetable');return false">
+                                            <span data-i18n="tw_today_open">打开课表</span><i class="fas fa-arrow-right" aria-hidden="true"></i>
+                                        </a>
+                                    </div>
+                                    <div id="home-today" class="tw-today-list">
+                                        <div class="tw-loading" data-i18n="tw_loading">加载中…</div>
+                                    </div>
+                                </section>
+
+                                <section class="tw-card" aria-labelledby="home-digest-h">
+                                    <div class="tw-card-head">
+                                        <h2 id="home-digest-h" data-i18n="tw_digest_title">今日简报</h2>
+                                        <div class="tw-card-actions">
+                                            <span id="home-digest-status" class="tw-status" role="status"></span>
+                                            <button type="button" id="home-digest-copy" class="tw-btn tw-btn-sm" onclick="twHomeCopyDigest()">
+                                                <i class="fas fa-copy" aria-hidden="true"></i><span data-i18n="tw_digest_copy">复制</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <pre id="home-digest" class="tw-digest"></pre>
+                                </section>
+
+                                <section class="tw-card tw-remind-card" aria-labelledby="home-remind-h">
+                                    <div class="tw-card-head">
+                                        <h2 id="home-remind-h" data-i18n="tw_remind_title">提醒设置</h2>
+                                        <span id="home-remind-status" class="tw-status" role="status"></span>
+                                    </div>
+                                    <form id="home-remind-form" class="tw-remind-form" onsubmit="twHomeSaveSettings(event)">
+                                        <label class="tw-switch-row" for="home-morning-enabled">
+                                            <span class="tw-switch-copy">
+                                                <b data-i18n="tw_remind_morning">早晨简报</b>
+                                                <small data-i18n="tw_remind_morning_hint">每天固定时间汇总今日课程与待办</small>
+                                            </span>
+                                            <input type="checkbox" id="home-morning-enabled" class="tw-switch-input" onchange="twHomeToggleRemind()" checked>
+                                            <span class="tw-switch-track" aria-hidden="true"></span>
+                                        </label>
+                                        <label class="tw-field tw-remind-inline" for="home-morning-time">
+                                            <span data-i18n="tw_remind_morning_time">发送时间</span>
+                                            <input id="home-morning-time" class="tw-input tw-input-sm" type="time" value="07:30">
+                                        </label>
+                                        <label class="tw-switch-row" for="home-lesson-enabled">
+                                            <span class="tw-switch-copy">
+                                                <b data-i18n="tw_remind_lesson">课前提醒</b>
+                                                <small data-i18n="tw_remind_lesson_hint">每节我的课开始前提醒一次</small>
+                                            </span>
+                                            <input type="checkbox" id="home-lesson-enabled" class="tw-switch-input" onchange="twHomeToggleRemind()" checked>
+                                            <span class="tw-switch-track" aria-hidden="true"></span>
+                                        </label>
+                                        <label class="tw-field tw-remind-inline" for="home-lesson-minutes">
+                                            <span data-i18n="tw_remind_lesson_minutes">提前分钟</span>
+                                            <input id="home-lesson-minutes" class="tw-input tw-input-sm" type="number" min="1" max="60" step="1" value="10">
+                                        </label>
+                                        <div class="tw-remind-preview">
+                                            <span class="tw-remind-preview-label" data-i18n="tw_remind_preview">预览</span>
+                                            <pre id="home-remind-preview" class="tw-digest is-preview"></pre>
+                                        </div>
+                                        <div class="tw-remind-actions">
+                                            <button type="submit" class="tw-btn tw-btn-primary" data-i18n="tw_remind_save">保存设置</button>
+                                            <span class="tw-hint" data-i18n="tw_remind_hint">改课表或改设置后，提醒会自动重排。</span>
+                                        </div>
+                                    </form>
+                                </section>
+                            </section>
+
                             <section aria-labelledby="home-quick-h">
                                 <div class="tw-section-head">
                                     <div>

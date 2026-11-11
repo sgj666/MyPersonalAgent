@@ -33,7 +33,7 @@ import os
 import re
 import threading
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
@@ -50,7 +50,19 @@ FILES = {
     "homework": "homework.json",
     "exams": "exams.json",
     "scores": "scores.json",
+    "settings": "settings.json",
 }
+
+#: Reminder settings, written only when a teacher changes them. ``time`` is the
+#: local wall clock of the morning digest; ``minutes`` is how long before a
+#: lesson starts its reminder fires.
+DEFAULT_SETTINGS = {
+    "morning": {"enabled": True, "time": "07:30"},
+    "lesson": {"enabled": True, "minutes": 10},
+    "channel": "web",
+}
+SETTINGS_KEYS = ("morning", "lesson", "channel")
+MAX_CHANNEL = 20
 
 #: Slot types the timetable grid offers (正课/早读/辅导/晚自习/课后服务/教研/值班).
 TIMETABLE_KINDS = (
@@ -86,6 +98,7 @@ MAX_EXAM_NAME = 120
 MAX_ITEM_KEY = 20
 MAX_ITEM_LABEL = 40
 MAX_ITEMS = 30
+MAX_TEACHER = 40
 
 _CLASS_FIELDS = ("name", "grade", "subject", "room")
 _STUDENT_FIELDS = ("class_id", "no", "name", "gender", "tags", "note")
@@ -93,7 +106,15 @@ _PROGRESS_FIELDS = ("class_id", "topic", "planned_periods", "taught_periods", "o
 _HOMEWORK_FIELDS = ("class_ids", "title", "kind", "due")
 _EXAM_FIELDS = ("class_ids", "name", "subject", "full_score", "date", "items")
 
+#: What ``/api/teaching/today`` exposes for one lesson. ``teacher`` and
+#: ``homework`` are internal (the reminder needs them) and stay out of the shape.
+_LESSON_PUBLIC_FIELDS = (
+    "period", "start", "end", "class_id", "class_name", "subject", "kind",
+    "mine", "topic",
+)
+
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_CLOCK_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 _locks_guard = threading.Lock()
 _locks: Dict[str, threading.RLock] = {}
@@ -196,6 +217,19 @@ def _date_field(value, field: str, *, required: bool = True) -> str:
     except ValueError:
         raise ValueError(f"{field} is not a valid date: {text}") from None
     return text
+
+
+def _clock_field(value, field: str) -> str:
+    text = _text_field(value, field, required=True)
+    if not _CLOCK_RE.match(text):
+        raise ValueError(f"{field} must be HH:MM")
+    return text
+
+
+def _bool_field(value, field: str) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError(f"{field} must be a boolean")
+    return value
 
 
 def _id_list(value, field: str = "class_ids") -> List[str]:
@@ -399,6 +433,9 @@ def _clean_slots(value, class_ids: set, taken_ids: set) -> List[dict]:
         if not slot_id or slot_id in taken:
             slot_id = _new_id(taken)
         taken.add(slot_id)
+        mine = raw.get("mine", True)
+        if not isinstance(mine, bool):
+            raise ValueError(f"slots[{index}].mine must be a boolean")
         slots.append({
             "id": slot_id,
             "class_id": class_id,
@@ -410,6 +447,9 @@ def _clean_slots(value, class_ids: set, taken_ids: set) -> List[dict]:
                                    limit=MAX_SUBJECT),
             "kind": _enum(raw.get("kind") or "regular", f"slots[{index}].kind",
                           TIMETABLE_KINDS),
+            "mine": mine,
+            "teacher": _text_field(raw.get("teacher"),
+                                   f"slots[{index}].teacher", limit=MAX_TEACHER),
         })
         if slots[-1]["weekday"] > 7:
             raise ValueError(f"slots[{index}].weekday must be between 1 and 7")
@@ -441,6 +481,81 @@ def _clean_overrides(value, class_ids: set) -> List[dict]:
                            f"overrides[{index}].state", OVERRIDE_STATES),
         })
     return overrides
+
+
+def default_settings() -> dict:
+    """A fresh copy of the reminder defaults, safe for a caller to mutate."""
+    return {
+        "morning": dict(DEFAULT_SETTINGS["morning"]),
+        "lesson": dict(DEFAULT_SETTINGS["lesson"]),
+        "channel": DEFAULT_SETTINGS["channel"],
+    }
+
+
+def _normalize_settings(raw) -> dict:
+    """Read the settings file leniently: process defaults beat hand damage."""
+    settings = default_settings()
+    if not isinstance(raw, dict):
+        return settings
+    morning = raw.get("morning")
+    if isinstance(morning, dict):
+        if isinstance(morning.get("enabled"), bool):
+            settings["morning"]["enabled"] = morning["enabled"]
+        time_text = _text(morning.get("time"))
+        if _CLOCK_RE.match(time_text):
+            settings["morning"]["time"] = time_text
+    lesson = raw.get("lesson")
+    if isinstance(lesson, dict):
+        if isinstance(lesson.get("enabled"), bool):
+            settings["lesson"]["enabled"] = lesson["enabled"]
+        minutes = lesson.get("minutes")
+        if isinstance(minutes, int) and not isinstance(minutes, bool) and 1 <= minutes <= 60:
+            settings["lesson"]["minutes"] = minutes
+    channel = _text(raw.get("channel"))
+    if channel and len(channel) <= MAX_CHANNEL:
+        settings["channel"] = channel
+    return settings
+
+
+def _clean_settings(fields: dict, current: dict) -> dict:
+    """Validate a partial settings update against the values already stored."""
+    unknown = set(fields) - set(SETTINGS_KEYS)
+    if unknown:
+        raise ValueError(f"unknown field(s): {', '.join(sorted(unknown))}")
+    clean = {
+        "morning": dict(current["morning"]),
+        "lesson": dict(current["lesson"]),
+        "channel": current["channel"],
+    }
+    if "morning" in fields:
+        raw = fields["morning"]
+        if not isinstance(raw, dict):
+            raise ValueError("morning must be an object")
+        extra = set(raw) - {"enabled", "time"}
+        if extra:
+            raise ValueError(f"unknown morning field(s): {', '.join(sorted(extra))}")
+        if "enabled" in raw:
+            clean["morning"]["enabled"] = _bool_field(raw["enabled"], "morning.enabled")
+        if "time" in raw:
+            clean["morning"]["time"] = _clock_field(raw["time"], "morning.time")
+    if "lesson" in fields:
+        raw = fields["lesson"]
+        if not isinstance(raw, dict):
+            raise ValueError("lesson must be an object")
+        extra = set(raw) - {"enabled", "minutes"}
+        if extra:
+            raise ValueError(f"unknown lesson field(s): {', '.join(sorted(extra))}")
+        if "enabled" in raw:
+            clean["lesson"]["enabled"] = _bool_field(raw["enabled"], "lesson.enabled")
+        if "minutes" in raw:
+            minutes = _int_field(raw["minutes"], "lesson.minutes", minimum=1)
+            if minutes > 60:
+                raise ValueError("lesson.minutes must be at most 60")
+            clean["lesson"]["minutes"] = minutes
+    if "channel" in fields:
+        clean["channel"] = _text_field(fields["channel"], "channel", required=True,
+                                       limit=MAX_CHANNEL)
+    return clean
 
 
 # --- Lenient readers: hand edits and older files get repaired, not raised ---
@@ -517,6 +632,10 @@ def _normalize_slot(raw) -> Optional[dict]:
     if not slot_id or not class_id or weekday > 7:
         return None
     kind = raw.get("kind") if raw.get("kind") in TIMETABLE_KINDS else "regular"
+    mine = raw.get("mine")
+    if not isinstance(mine, bool):
+        # Rows written before ownership existed are the teacher's own lessons.
+        mine = True
     return {
         "id": slot_id,
         "class_id": class_id,
@@ -524,6 +643,8 @@ def _normalize_slot(raw) -> Optional[dict]:
         "period": period,
         "subject": _text(raw.get("subject"))[:MAX_SUBJECT],
         "kind": kind,
+        "mine": mine,
+        "teacher": _text(raw.get("teacher"))[:MAX_TEACHER],
     }
 
 
@@ -1154,6 +1275,291 @@ class TeachingStore:
                 doc["overrides"] = _clean_overrides(overrides, class_ids)
             self._write_doc("timetable", doc)
             return doc
+
+    # --- Reminder settings -------------------------------------------------
+
+    def get_settings(self) -> dict:
+        """The stored reminder settings, repaired against the process defaults."""
+        with self._locked("settings"):
+            return _normalize_settings(self._read_doc("settings"))
+
+    def save_settings(self, **fields) -> dict:
+        """Apply a partial settings update; unrelated groups keep their values."""
+        with self._locked("settings"):
+            current = _normalize_settings(self._read_doc("settings"))
+            clean = _clean_settings(fields, current)
+            self._write_doc("settings", clean)
+            return clean
+
+    # --- Today -------------------------------------------------------------
+
+    @staticmethod
+    def _minutes_of_day(value) -> Optional[int]:
+        """``"08:05"`` as minutes since midnight, or None for an unusable time."""
+        match = re.match(r"^(\d{1,2}):(\d{2})$", _text(value))
+        if not match:
+            return None
+        hours, minutes = int(match.group(1)), int(match.group(2))
+        if hours > 23 or minutes > 59:
+            return None
+        return hours * 60 + minutes
+
+    def _day_data(self) -> dict:
+        """Every document today's answer needs, read under one lock."""
+        items, records = self._homework_doc()
+        return {
+            "classes": self._classes(),
+            "students": self._students(),
+            "progress": self._progress(),
+            "homework": items,
+            "records": records,
+            "timetable": self._timetable_doc(),
+        }
+
+    @staticmethod
+    def _topics_by_class(progress: List[dict]) -> Dict[str, str]:
+        """The topic each class is on: its first untaught progress item.
+
+        A plan with ``planned_periods == 0`` counts as still current rather than
+        finished, so a freshly pasted syllabus item shows up in the digest
+        before anyone fills in the planned hours.
+        """
+        grouped: Dict[str, List[dict]] = {}
+        for item in progress:
+            grouped.setdefault(item["class_id"], []).append(item)
+        topics: Dict[str, str] = {}
+        for class_id, items in grouped.items():
+            items.sort(key=lambda item: (item["order"], item["updated_at"]))
+            current = next(
+                (item for item in items
+                 if item["taught_periods"] < max(item["planned_periods"], 1)),
+                None,
+            )
+            topics[class_id] = current["topic"] if current else ""
+        return topics
+
+    @staticmethod
+    def _students_in_order(classes: List[dict], students: List[dict]) -> List[dict]:
+        order = {entry["id"]: index for index, entry in enumerate(classes)}
+        return sorted(
+            students,
+            key=lambda s: (order.get(s["class_id"], len(order)), s["no"], s["name"]),
+        )
+
+    @staticmethod
+    def _homework_for_class(items: List[dict], class_id: str, day_iso: str) -> str:
+        """The homework a reminder should name: today's, else the latest set."""
+        candidates = [item for item in items if class_id in item["class_ids"]]
+        if not candidates:
+            return ""
+        due_today = [item for item in candidates if item["due"] == day_iso]
+        pool = sorted(
+            due_today or candidates,
+            key=lambda item: (item["due"] or "9999-12-31", item["created_at"]),
+        )
+        return pool[-1]["title"]
+
+    def _render_lesson(self, *, period: int, class_id: str, subject: str, kind: str,
+                       mine: bool, teacher: str, data: dict, periods: Dict[int, dict],
+                       topics: Dict[str, str], day_iso: str) -> dict:
+        klass = next((entry for entry in data["classes"]
+                      if entry["id"] == class_id), {})
+        hours = periods.get(period, {})
+        return {
+            "period": period,
+            "start": hours.get("start", ""),
+            "end": hours.get("end", ""),
+            "class_id": class_id,
+            "class_name": klass.get("name", ""),
+            "subject": subject,
+            "kind": kind,
+            "mine": mine,
+            "teacher": teacher,
+            "topic": topics.get(class_id, "") if kind == "regular" else "",
+            "homework": self._homework_for_class(data["homework"], class_id, day_iso),
+        }
+
+    def _lessons_for_day(self, data: dict, target: date) -> List[dict]:
+        """That date's lessons with overrides applied, before the ``mine`` filter.
+
+        An override addresses one date and one period, like the grid cell it was
+        drawn in: ``cancelled`` removes whatever sat there, ``changed`` replaces
+        it with the override's class/subject. Ownership comes from the replaced
+        slot when the class matches; a lesson moved into another teacher's cell
+        is the caller's own and therefore reminded.
+        """
+        timetable = data["timetable"]
+        classes = {entry["id"]: entry for entry in data["classes"]}
+        periods = {entry["index"]: entry for entry in timetable["periods"]}
+        topics = self._topics_by_class(data["progress"])
+        day_iso = target.isoformat()
+        overrides: Dict[int, dict] = {}
+        for override in timetable["overrides"]:
+            if override["date"] == day_iso:
+                overrides[override["period"]] = override
+        by_period: Dict[int, List[dict]] = {}
+        for slot in timetable["slots"]:
+            if slot["weekday"] == target.isoweekday():
+                by_period.setdefault(slot["period"], []).append(slot)
+
+        lessons: List[dict] = []
+        for period in sorted(set(by_period) | set(overrides)):
+            base = by_period.get(period, [])
+            override = overrides.get(period)
+            if override is not None:
+                if override["state"] == "cancelled":
+                    continue
+                match = next((slot for slot in base
+                              if slot["class_id"] == override["class_id"]), None)
+                class_id = override["class_id"]
+                lessons.append(self._render_lesson(
+                    period=period,
+                    class_id=class_id,
+                    subject=override["subject"] or classes.get(class_id, {}).get("subject", ""),
+                    kind=override["kind"],
+                    mine=match["mine"] if match else True,
+                    teacher=match["teacher"] if match else "",
+                    data=data, periods=periods, topics=topics, day_iso=day_iso,
+                ))
+                continue
+            for slot in base:
+                lessons.append(self._render_lesson(
+                    period=slot["period"],
+                    class_id=slot["class_id"],
+                    subject=slot["subject"] or classes.get(slot["class_id"], {}).get("subject", ""),
+                    kind=slot["kind"],
+                    mine=slot["mine"],
+                    teacher=slot["teacher"],
+                    data=data, periods=periods, topics=topics, day_iso=day_iso,
+                ))
+        lessons.sort(key=lambda lesson: (lesson["period"], lesson["class_name"]))
+        return lessons
+
+    def _tasks_due(self, day_iso: str) -> List[dict]:
+        """Open board tasks due that day, in the board's own display order."""
+        try:
+            from agent.board import BoardStore
+
+            tasks = BoardStore(str(self.base.parent / "board.json")).load_tasks()
+        except Exception as e:
+            logger.warning(f"[Teaching] cannot read the task board: {e}")
+            return []
+        return [
+            {"title": task["title"], "due": task["due"], "status": task["status"]}
+            for task in tasks
+            if task.get("due") == day_iso and task.get("status") != "done"
+        ]
+
+    def _homework_due(self, data: dict, day_iso: str) -> List[dict]:
+        """Homework due that day with the names still marked missing."""
+        students = self._students_in_order(data["classes"], data["students"])
+        result = []
+        items = sorted(
+            data["homework"],
+            key=lambda item: (item["due"] or "9999-12-31", item["created_at"]),
+        )
+        for item in items:
+            if item["due"] != day_iso:
+                continue
+            row = data["records"].get(item["id"], {})
+            missing: List[str] = []
+            for student in students:
+                if student["class_id"] not in item["class_ids"]:
+                    continue
+                if row.get(student["id"]) == "missing" and student["name"] not in missing:
+                    missing.append(student["name"])
+            result.append({"title": item["title"], "due": item["due"], "missing": missing})
+        return result
+
+    def today(self, day=None, name=None, agent_id=None) -> dict:
+        """My lessons, due work and the digest text for one calendar date."""
+        day_iso = _date_field(day, "date", required=False) if day else ""
+        target = date.fromisoformat(day_iso) if day_iso else date.today()
+        with self._locked("timetable", "classes", "students", "progress", "homework"):
+            data = self._day_data()
+            lessons = [lesson for lesson in self._lessons_for_day(data, target)
+                       if lesson["mine"]]
+            tasks_due = self._tasks_due(target.isoformat())
+            homework_due = self._homework_due(data, target.isoformat())
+        slots = [
+            {field: lesson[field] for field in _LESSON_PUBLIC_FIELDS}
+            for lesson in lessons
+        ]
+        missing: List[str] = []
+        for entry in homework_due:
+            for student in entry["missing"]:
+                if student not in missing:
+                    missing.append(student)
+        if name is None:
+            from agent.teaching.reminders import teacher_name
+
+            name = teacher_name(agent_id)
+        from agent.teaching.reminders import build_digest
+
+        return {
+            "date": target.isoformat(),
+            "weekday": target.isoweekday(),
+            "slots": slots,
+            "tasks_due": tasks_due,
+            "homework_due": homework_due,
+            "digest_text": build_digest(
+                name, target.isoweekday(), slots, tasks_due, missing,
+            ),
+        }
+
+    def lesson_info(self, slot: dict, day=None) -> dict:
+        """One timetable slot with the class name, current topic and homework."""
+        day_iso = _date_field(day, "date", required=False) if day else ""
+        target = date.fromisoformat(day_iso) if day_iso else date.today()
+        with self._locked("timetable", "classes", "students", "progress", "homework"):
+            data = self._day_data()
+            periods = {entry["index"]: entry for entry in data["timetable"]["periods"]}
+            topics = self._topics_by_class(data["progress"])
+            class_id = slot["class_id"]
+            klass = next((entry for entry in data["classes"]
+                          if entry["id"] == class_id), {})
+            return self._render_lesson(
+                period=slot["period"],
+                class_id=class_id,
+                subject=slot.get("subject") or klass.get("subject", ""),
+                kind=slot.get("kind", "regular"),
+                mine=slot.get("mine", True),
+                teacher=slot.get("teacher", ""),
+                data=data, periods=periods, topics=topics,
+                day_iso=target.isoformat(),
+            )
+
+    def upcoming_lesson(self, now=None) -> Optional[dict]:
+        """The next ``mine`` lesson from now, looking up to a week ahead."""
+        now = now or datetime.now()
+        current_minute = now.hour * 60 + now.minute
+        with self._locked("timetable", "classes", "students", "progress", "homework"):
+            data = self._day_data()
+            # 8 days: when today's remaining lessons are over, the next one may
+            # be the same weekday next week.
+            for offset in range(8):
+                target = now.date() + timedelta(days=offset)
+                lessons = [lesson for lesson in self._lessons_for_day(data, target)
+                           if lesson["mine"]]
+                if offset == 0:
+                    # A lesson with no usable start time cannot be timed; keep
+                    # it rather than silently hiding a likely-upcoming lesson.
+                    lessons = [
+                        lesson for lesson in lessons
+                        if self._minutes_of_day(lesson["start"]) is None
+                        or self._minutes_of_day(lesson["start"]) > current_minute
+                    ]
+                if lessons:
+                    return min(
+                        lessons,
+                        key=lambda lesson: (
+                            self._minutes_of_day(lesson["start"])
+                            if self._minutes_of_day(lesson["start"]) is not None
+                            else 24 * 60,
+                            lesson["period"],
+                        ),
+                    )
+        return None
 
     # --- Progress ----------------------------------------------------------
 

@@ -1485,6 +1485,14 @@ export interface TimetableSlot {
   period: number
   subject: string
   kind: TimetableKind
+  /**
+   * 我的课 (§7.1). One table can hold a class's whole week; only `mine` slots
+   * are the teacher's own and only they generate a lesson reminder. The store
+   * defaults a slot to true when the field is absent.
+   */
+  mine: boolean
+  /** 值班/教研 rows may name another teacher; display only. */
+  teacher?: string
 }
 
 /** A one-off change or cancellation; the fixed table keeps its own slots. */
@@ -1504,6 +1512,61 @@ export interface TeachingTimetable {
   periods: TimetablePeriod[]
   slots: TimetableSlot[]
   overrides: TimetableOverride[]
+}
+
+/**
+ * One of today's lessons, as GET /api/teaching/today reports it (§7.2): the
+ * fixed slot plus any one-off change for the date, and the topic the class is
+ * on so the reminder and the digest can name it.
+ */
+export interface TodayLesson {
+  period: number
+  /** `HH:MM` from the period row; empty when the teacher has not set it. */
+  start: string
+  end: string
+  class_id: string
+  class_name: string
+  subject: string
+  kind: TimetableKind
+  /** 讲课课题 — from the class's progress, empty when nothing is planned. */
+  topic: string
+  mine: boolean
+}
+
+/** GET /api/teaching/today?date=YYYY-MM-DD */
+export interface TeachingToday {
+  /** The day the backend answered for; `YYYY-MM-DD`. */
+  date: string
+  lessons: TodayLesson[]
+  /** The morning brief as one message (§7.3), empty when none could be built. */
+  digest_text: string
+}
+
+/** 早晨简报: one message a day, carrying today's lessons and to-dos. */
+export interface ReminderMorning {
+  enabled: boolean
+  /** `HH:MM`. */
+  time: string
+}
+
+/** 课前提醒: one reminder per `mine` slot, `minutes` before it starts. */
+export interface ReminderLesson {
+  enabled: boolean
+  minutes: number
+}
+
+/** GET/PUT /api/teaching/settings (§7.1). */
+export interface TeachingSettings {
+  morning: ReminderMorning
+  lesson: ReminderLesson
+  /** Where reminders are delivered: `web`, or a bound channel's key. */
+  channel: string
+}
+
+/** GET /api/teaching/reminders/preview: the two bodies as they will read. */
+export interface ReminderPreview {
+  digest: string
+  lesson: string
 }
 
 export interface ProgressItem {

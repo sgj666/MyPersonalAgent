@@ -26,7 +26,7 @@ from channel.web.core._common import (
 )
 from common.log import logger
 
-_ADDRESSING = {"id", "agent_id", "agent"}
+_ADDRESSING = {"id", "agent_id", "agent", "session_id"}
 
 
 def _store(agent_id=None) -> TeachingStore:
@@ -86,6 +86,16 @@ def _require(fields: dict, *keys) -> None:
 def _require_classes(fields: dict) -> None:
     if "class_ids" not in fields and "class_id" not in fields:
         raise ValueError("class_ids is required")
+
+
+def _auto_sync(store, agent_id=None, session_id=None) -> None:
+    """Re-align the scheduler's teaching tasks after a change; never fail the save."""
+    try:
+        from agent.teaching.reminders import auto_sync
+
+        auto_sync(store, agent_id=agent_id, receiver=session_id or None)
+    except Exception as e:
+        logger.warning(f"[WebChannel] Teaching reminder sync skipped: {e}")
 
 
 def _endpoint(method):
@@ -207,9 +217,12 @@ class TeachingTimetableHandler:
     @_endpoint
     def PUT(self):
         body = _body()
-        store = _store(_request_agent_id(body))
+        agent_id = _request_agent_id(body)
+        store = _store(agent_id)
         fields = _payload(body, ("periods", "slots", "overrides"))
-        return _ok(**store.save_timetable(**fields))
+        saved = store.save_timetable(**fields)
+        _auto_sync(store, agent_id, body.get("session_id"))
+        return _ok(**saved)
 
 
 class TeachingProgressHandler:
@@ -378,6 +391,77 @@ class TeachingAnalysisHandler:
         return _ok(**store.analysis(exam_id, class_id=class_id))
 
 
+class TeachingTodayHandler:
+    """GET ``/api/teaching/today?date=YYYY-MM-DD``."""
+
+    @_endpoint
+    def GET(self):
+        params = web.input(date='', agent_id='')
+        agent_id = _request_agent_id(params)
+        store = _store(agent_id)
+        day = (params.date or '').strip() or None
+        return _ok(**store.today(day, agent_id=agent_id))
+
+
+class TeachingSettingsHandler:
+    """GET / PUT ``/api/teaching/settings``.
+
+    PUT accepts the settings object either flattened (the file's own shape) or
+    under a ``settings`` key; a group that is omitted keeps its stored value.
+    """
+
+    @_endpoint
+    def GET(self):
+        params = web.input(agent_id='')
+        store = _store(_request_agent_id(params))
+        return _ok(**store.get_settings())
+
+    @_endpoint
+    def PUT(self):
+        body = _body()
+        agent_id = _request_agent_id(body)
+        store = _store(agent_id)
+        raw = body.get("settings")
+        if raw is None:
+            raw = {key: value for key, value in body.items()
+                   if key not in _ADDRESSING}
+        if not isinstance(raw, dict):
+            raise ValueError("settings must be an object")
+        saved = store.save_settings(**raw)
+        _auto_sync(store, agent_id, body.get("session_id"))
+        return _ok(**saved)
+
+
+class TeachingRemindersSyncHandler:
+    """POST ``/api/teaching/reminders/sync`` -- rebuild the ``[teaching]`` tasks."""
+
+    @_endpoint
+    def POST(self):
+        body = _body()
+        extra = set(body) - _ADDRESSING - {"receiver"}
+        if extra:
+            raise ValueError(f"unknown field(s): {', '.join(sorted(extra))}")
+        agent_id = _request_agent_id(body)
+        store = _store(agent_id)
+        receiver = body.get("session_id") or body.get("receiver") or None
+        from agent.teaching.reminders import sync
+
+        return _ok(**sync(store, agent_id=agent_id, receiver=receiver))
+
+
+class TeachingRemindersPreviewHandler:
+    """GET ``/api/teaching/reminders/preview`` -- digest and next lesson text."""
+
+    @_endpoint
+    def GET(self):
+        params = web.input(agent_id='')
+        agent_id = _request_agent_id(params)
+        store = _store(agent_id)
+        from agent.teaching.reminders import preview
+
+        return _ok(**preview(store, agent_id=agent_id))
+
+
 #: Splice into ``URLS``; the coordinator owns that wiring.
 TEACHING_URLS = (
     ('/api/teaching/classes', 'TeachingClassesHandler'),
@@ -390,6 +474,10 @@ TEACHING_URLS = (
     ('/api/teaching/exams', 'TeachingExamsHandler'),
     ('/api/teaching/scores/([^/]+)', 'TeachingScoresHandler'),
     ('/api/teaching/analysis', 'TeachingAnalysisHandler'),
+    ('/api/teaching/today', 'TeachingTodayHandler'),
+    ('/api/teaching/settings', 'TeachingSettingsHandler'),
+    ('/api/teaching/reminders/sync', 'TeachingRemindersSyncHandler'),
+    ('/api/teaching/reminders/preview', 'TeachingRemindersPreviewHandler'),
 )
 
 __all__ = [
@@ -399,9 +487,13 @@ __all__ = [
     "TeachingHomeworkHandler",
     "TeachingHomeworkRecordsHandler",
     "TeachingProgressHandler",
+    "TeachingRemindersPreviewHandler",
+    "TeachingRemindersSyncHandler",
     "TeachingScoresHandler",
+    "TeachingSettingsHandler",
     "TeachingStudentHandler",
     "TeachingStudentsHandler",
     "TeachingTimetableHandler",
+    "TeachingTodayHandler",
     "TEACHING_URLS",
 ]

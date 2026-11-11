@@ -65,6 +65,10 @@ import type {
   ExamFields,
   ScoreEntry,
   TeachingAnalysis,
+  TeachingToday,
+  TeachingSettings,
+  ReminderPreview,
+  TimetableKind,
 } from '../types'
 import { getLang, t } from '../i18n'
 
@@ -178,6 +182,39 @@ export interface UploadResult {
 }
 
 const AUTH_TOKEN_KEY = 'cow_auth_token'
+
+/** §7.1's defaults, used until the store answers and for any field it omits. */
+export const DEFAULT_TEACHING_SETTINGS: TeachingSettings = {
+  morning: { enabled: true, time: '07:30' },
+  lesson: { enabled: true, minutes: 10 },
+  channel: 'web',
+}
+
+/**
+ * Coerce a settings payload to the §7.1 shape: the panel binds a checkbox, a
+ * `<input type="time">` and a number, so a missing or malformed field would
+ * otherwise reach the DOM as `undefined`/NaN. Unknown keys are dropped.
+ */
+function normalizeTeachingSettings(raw: Partial<TeachingSettings> | null | undefined): TeachingSettings {
+  const morning = raw?.morning
+  const lesson = raw?.lesson
+  const time = typeof morning?.time === 'string' ? morning.time.trim() : ''
+  const minutes = Number(lesson?.minutes)
+  return {
+    morning: {
+      enabled: typeof morning?.enabled === 'boolean' ? morning.enabled : DEFAULT_TEACHING_SETTINGS.morning.enabled,
+      time: /^\d{1,2}:\d{2}$/.test(time) ? time : DEFAULT_TEACHING_SETTINGS.morning.time,
+    },
+    lesson: {
+      enabled: typeof lesson?.enabled === 'boolean' ? lesson.enabled : DEFAULT_TEACHING_SETTINGS.lesson.enabled,
+      minutes:
+        Number.isFinite(minutes) && minutes >= 1 && minutes <= 60
+          ? Math.round(minutes)
+          : DEFAULT_TEACHING_SETTINGS.lesson.minutes,
+    },
+    channel: typeof raw?.channel === 'string' && raw.channel ? raw.channel : DEFAULT_TEACHING_SETTINGS.channel,
+  }
+}
 
 class ApiClient {
   private baseUrl = 'http://127.0.0.1:9876'
@@ -1739,6 +1776,69 @@ class ApiClient {
       critical: Array.isArray(data.critical) ? data.critical : [],
       students: Array.isArray(data.students) ? data.students : [],
     }
+  }
+
+  // ----- today, settings and reminders (§7.2) -----
+
+  /**
+   * Today's own lessons and the morning brief. `date` is `YYYY-MM-DD` on the
+   * teacher's calendar; omitted, the backend answers for its own today, which
+   * is the server's clock and may differ from the client's around midnight, so
+   * the home page always sends its own date.
+   */
+  async getTeachingToday(date?: string): Promise<TeachingToday> {
+    const path = date ? `/api/teaching/today?date=${encodeURIComponent(date)}` : '/api/teaching/today'
+    const data = await this.teachingCall<
+      ApiResult & {
+        date?: string
+        digest_text?: string
+        slots?: unknown[]
+      }
+    >(path)
+    const rows = Array.isArray(data.slots) ? data.slots : []
+    return {
+      date: String(data.date || date || ''),
+      digest_text: String(data.digest_text || ''),
+      lessons: rows
+        .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === 'object')
+        .map((row) => ({
+          period: Number(row.period) || 0,
+          start: String(row.start || ''),
+          end: String(row.end || ''),
+          class_id: String(row.class_id || ''),
+          class_name: String(row.class_name || ''),
+          subject: String(row.subject || ''),
+          kind: (row.kind as TimetableKind) || 'regular',
+          topic: String(row.topic || ''),
+          mine: row.mine !== false,
+        })),
+    }
+  }
+
+  async getTeachingSettings(): Promise<TeachingSettings> {
+    const data = await this.teachingCall<ApiResult & Partial<TeachingSettings>>('/api/teaching/settings')
+    return normalizeTeachingSettings(data)
+  }
+
+  async saveTeachingSettings(settings: TeachingSettings): Promise<void> {
+    await this.teachingCall('/api/teaching/settings', 'PUT', normalizeTeachingSettings(settings))
+  }
+
+  /**
+   * Re-lay the reminder tasks from the current table and settings; the store
+   * is idempotent (it drops every `[teaching]` task first), so a save can call
+   * it every time.
+   */
+  async syncTeachingReminders(): Promise<void> {
+    await this.teachingCall('/api/teaching/reminders/sync', 'POST')
+  }
+
+  /** The digest and next-lesson reminder bodies, exactly as they will send. */
+  async getTeachingRemindersPreview(): Promise<ReminderPreview> {
+    const data = await this.teachingCall<ApiResult & { digest?: string; next_lesson?: string }>(
+      '/api/teaching/reminders/preview'
+    )
+    return { digest: String(data.digest || ''), lesson: String(data.next_lesson || '') }
   }
 
   // ---------------------------------------------------------

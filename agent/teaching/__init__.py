@@ -15,27 +15,33 @@ from agent.teaching.analysis import (
     student_total,
 )
 from agent.teaching.store import (
+    DEFAULT_SETTINGS,
     FILES,
     HOMEWORK_KINDS,
+    SETTINGS_KEYS,
     STORE_VERSION,
     SUBMISSION_STATES,
     TIMETABLE_KINDS,
     TeachingStore,
+    default_settings,
     teaching_dir,
 )
 
 __all__ = [
     "CRITICAL_MARGIN",
+    "DEFAULT_SETTINGS",
     "EXCELLENT_RATIO",
     "FILES",
     "HOMEWORK_KINDS",
     "LOW_RATIO",
     "PASS_RATIO",
+    "SETTINGS_KEYS",
     "STORE_VERSION",
     "SUBMISSION_STATES",
     "TIMETABLE_KINDS",
     "TeachingStore",
     "analyze",
+    "default_settings",
     "student_total",
     "teaching_dir",
 ]

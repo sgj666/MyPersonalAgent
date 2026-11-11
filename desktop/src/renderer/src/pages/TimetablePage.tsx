@@ -53,6 +53,8 @@ const CellDialog: React.FC<{
     override?.subject || slot?.subject || classOf(initialClass)?.subject || ''
   )
   const [kind, setKind] = useState<TimetableKind>(override?.kind || slot?.kind || 'regular')
+  // §7.1: a slot is mine by default; only mine slots raise a lesson reminder.
+  const [mine, setMine] = useState(slot?.mine !== false)
   const [error, setError] = useState('')
   const dayMode = Boolean(date)
 
@@ -86,6 +88,9 @@ const CellDialog: React.FC<{
         period: period.index,
         subject: subject.trim() || classOf(classId)?.subject || '',
         kind,
+        mine,
+        // Display-only attribution the editor does not edit: keep it.
+        ...(slot?.teacher ? { teacher: slot.teacher } : {}),
       })
     }
   }
@@ -179,6 +184,15 @@ const CellDialog: React.FC<{
             </select>
           </label>
         </div>
+        {!dayMode && (
+          <>
+            <label className="twb-check">
+              <input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} />
+              <span>{t('tw_tt_mine_check')}</span>
+            </label>
+            <p className="twb-hint">{t('tw_tt_mine_hint')}</p>
+          </>
+        )}
         {dayMode && override && (
           <button
             type="button"
@@ -287,6 +301,8 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
   const [date, setDate] = useState('')
   const [cell, setCell] = useState<{ weekday: number; period: TimetablePeriod } | null>(null)
   const [periodsOpen, setPeriodsOpen] = useState(false)
+  // Toolbar filter (§7.4): show only the teacher's own lessons.
+  const [mineOnly, setMineOnly] = useState(false)
   const saving = useRef(false)
 
   const load = useCallback(async () => {
@@ -333,6 +349,12 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
     setStatus(message)
     try {
       await apiClient.saveTeachingTimetable(payload)
+      // §7.3: the table is what the lesson reminders are built from, so every
+      // save re-lays them; the sync is idempotent. Report a failure rather
+      // than letting the table look synced when it is not.
+      await apiClient.syncTeachingReminders().catch((err) => {
+        setStatus(tf('tw_tt_sync_failed', { msg: errorText(err) }))
+      })
     } catch (err) {
       setStatus(tf('tw_save_failed', { msg: errorText(err) }))
       await load()
@@ -378,13 +400,14 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
     const byClass = new Map<string, Record<TimetableKind, number>>()
     let total = 0
     for (const slot of table.slots) {
+      if (mineOnly && slot.mine === false) continue
       total++
       const row = byClass.get(slot.class_id) || ({} as Record<TimetableKind, number>)
       row[slot.kind] = (row[slot.kind] || 0) + 1
       byClass.set(slot.class_id, row)
     }
     return { total, byClass }
-  }, [table.slots])
+  }, [table.slots, mineOnly])
 
   const weekend = date !== '' && (weekdayOf(date) === 0 || weekdayOf(date) === 6)
 
@@ -413,6 +436,14 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                   <span>{t('tw_tt_back_fixed')}</span>
                 </button>
               )}
+              <label className="twb-check">
+                <input
+                  type="checkbox"
+                  checked={mineOnly}
+                  onChange={(e) => setMineOnly(e.target.checked)}
+                />
+                <span>{t('tw_tt_mine_only')}</span>
+              </label>
               <button type="button" className="twb-btn" onClick={() => setPeriodsOpen(true)}>
                 <Settings2 size={14} />
                 <span>{t('tw_tt_periods')}</span>
@@ -473,6 +504,21 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                               const slot = slotAt(weekday, period.index)
                               const override = date && weekdayOf(date) === weekday ? overrideAt(period.index) : undefined
                               const shownClass = classOf(override?.class_id || slot?.class_id || '')
+                              // §7.1: a slot without the field is the teacher's own.
+                              const mine = slot?.mine !== false
+                              // The filter hides other teachers' lessons rather
+                              // than blanking the grid: the cell keeps its place
+                              // so the week still lines up, but it cannot be
+                              // edited into a lesson while it is out of view.
+                              if (mineOnly && slot && !mine) {
+                                return (
+                                  <td key={weekday}>
+                                    <div className="twb-tt-cell is-others" title={t('tw_tt_other_hidden')}>
+                                      <span className="twb-tt-add">·</span>
+                                    </div>
+                                  </td>
+                                )
+                              }
                               return (
                                 <td key={weekday}>
                                   <button
@@ -480,6 +526,8 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                                     className={`twb-tt-cell${slot || override ? ' is-filled' : ''}${
                                       override?.state === 'cancelled' ? ' is-cancelled' : ''
                                     }${override ? ' is-override' : ''}${
+                                      slot && !mine ? ' is-others' : ''
+                                    }${
                                       date && weekdayOf(date) !== weekday ? ' is-locked' : ''
                                     }`}
                                     onClick={() => {
@@ -493,6 +541,9 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                                       setCell({ weekday, period })
                                     }}
                                   >
+                                    {slot && mine && override?.state !== 'cancelled' && (
+                                      <i className="twb-tt-mine-dot" title={t('tw_tt_mine')} />
+                                    )}
                                     {override?.state === 'cancelled' ? (
                                       <>
                                         <b>{t('tw_tt_cancelled')}</b>
@@ -520,6 +571,10 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                       </tbody>
                     </table>
                   </div>
+                  <p className="twb-hint twb-tt-legend">
+                    <i className="twb-tt-mine-dot" />
+                    <span>{t('tw_tt_mine_legend')}</span>
+                  </p>
                   <p className="twb-hint">
                     {date ? t('tw_tt_cell_hint_date') : t('tw_tt_cell_hint_fixed')}
                   </p>
@@ -554,7 +609,9 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                   ) : (
                     <Empty icon={CalendarDays} text={t('tw_tt_need_classes')} />
                   )}
-                  <p className="twb-footnote">{t('tw_tt_stats_hint')}</p>
+                  <p className="twb-footnote">
+                    {mineOnly ? t('tw_tt_stats_hint_mine') : t('tw_tt_stats_hint')}
+                  </p>
                 </aside>
               </div>
             </>

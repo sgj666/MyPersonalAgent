@@ -26,6 +26,7 @@ let twTtCell = null;
 let twTtLoadToken = 0;
 let twTtWired = false;
 let twTtSaving = false;
+let twTtMineOnly = false;
 
 function loadTimetableView() {
     if (!twTtWired) {
@@ -56,6 +57,22 @@ function twTtClassOf(id) {
 function twTtClassName(id) {
     const cls = twTtClassOf(id);
     return cls ? (cls.name || '') : '';
+}
+
+/** Slots written before §7.1 carry no `mine`, and the store defaults them to
+    true, so only an explicit false marks someone else's lesson. */
+function twTtIsMine(slot) {
+    return !!slot && slot.mine !== false;
+}
+
+function twTtToggleMine() {
+    twTtMineOnly = !twTtMineOnly;
+    const btn = document.getElementById('tt-mine-toggle');
+    if (btn) {
+        btn.setAttribute('aria-pressed', twTtMineOnly ? 'true' : 'false');
+        btn.classList.toggle('is-active', twTtMineOnly);
+    }
+    twTtRenderGrid();
 }
 
 function twTtSlotAt(weekday, period) {
@@ -138,11 +155,23 @@ function twTtRenderGrid() {
                         <i class="fas fa-plus" aria-hidden="true"></i><span>${escapeHtml(t('tw_tt_cell_empty'))}</span>
                     </button></td>`;
                 }
-                return `<td class="tw-tt-td"><button type="button" class="tw-tt-cell is-${escapeHtml(kind)}"
-                        onclick="twTtOpenCell(${w}, ${p})" aria-label="${twAcadAttr(label)}">
+                const mine = twTtIsMine(slot);
+                if (twTtMineOnly && !mine) {
+                    // Filtered, not emptied: the slot is still there, so keep the
+                    // cell clickable and say why it looks blank.
+                    return `<td class="tw-tt-td"><button type="button" class="tw-tt-cell is-filtered"
+                            onclick="twTtOpenCell(${w}, ${p})"
+                            aria-label="${twAcadAttr(label + ' ' + t('tw_tt_filtered'))}"
+                            title="${twAcadAttr(t('tw_tt_filtered'))}">
+                        <i class="fas fa-eye-slash" aria-hidden="true"></i>
+                    </button></td>`;
+                }
+                return `<td class="tw-tt-td"><button type="button" class="tw-tt-cell is-${escapeHtml(kind)}${mine ? ' is-mine' : ' is-not-mine'}"
+                        onclick="twTtOpenCell(${w}, ${p})" aria-label="${twAcadAttr(label + ' ' + (mine ? t('tw_tt_mine') : ''))}">
                     <b>${escapeHtml(cls || '—')}</b>
                     <small>${escapeHtml(slot.subject || twTtKindLabel(kind))}</small>
                     <span class="tw-tt-kind">${escapeHtml(twTtKindLabel(kind))}</span>
+                    ${mine ? `<span class="tw-tt-mine"><i class="fas fa-circle" aria-hidden="true"></i>${escapeHtml(t('tw_tt_mine'))}</span>` : ''}
                 </button></td>`;
             }).join('');
             return `<tr>
@@ -303,6 +332,7 @@ function twTtOpenCell(weekday, period) {
     twTtRenderSubjectOptions();
     document.getElementById('tt-subject').value = slot ? (slot.subject || '') : '';
     document.getElementById('tt-kind').value = slot ? (slot.kind || 'regular') : 'regular';
+    document.getElementById('tt-mine').checked = slot ? twTtIsMine(slot) : true;
     document.getElementById('tt-mode').value = 'fixed';
     document.getElementById('tt-date').value = twAcadToday();
     const where = document.getElementById('tt-dialog-where');
@@ -330,6 +360,9 @@ function twTtModeChanged() {
     if (cancel) cancel.classList.toggle('hidden', mode !== 'once');
     const clear = document.querySelector('#tt-form .tw-tt-clear');
     if (clear) clear.classList.toggle('hidden', mode !== 'fixed');
+    // `mine` is a property of the fixed table (§7.1), not of a one-off change.
+    const mineField = document.getElementById('tt-mine-field');
+    if (mineField) mineField.classList.toggle('hidden', mode !== 'fixed');
 }
 
 function twTtClassChanged() {
@@ -344,6 +377,7 @@ async function twTtSubmit(event) {
     const classId = (document.getElementById('tt-class') || {}).value || '';
     const subject = (document.getElementById('tt-subject') || {}).value.trim();
     const kind = (document.getElementById('tt-kind') || {}).value || 'regular';
+    const mine = !!(document.getElementById('tt-mine') || {}).checked;
     const mode = (document.getElementById('tt-mode') || {}).value || 'fixed';
     if (!classId) {
         twAcadStatus('tt-dialog-status', t('tw_tt_pick_class'), true);
@@ -356,10 +390,11 @@ async function twTtSubmit(event) {
             existing.class_id = classId;
             existing.subject = subject;
             existing.kind = kind;
+            existing.mine = mine;
         } else {
             twTtData.slots.push({
                 id: twTtNewId(), class_id: classId, weekday: twTtCell.weekday,
-                period: twTtCell.period, subject: subject, kind: kind,
+                period: twTtCell.period, subject: subject, kind: kind, mine: mine,
             });
         }
         twTtCloseDialog();

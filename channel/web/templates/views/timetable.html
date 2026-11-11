@@ -11,6 +11,10 @@
                                     <p data-i18n="tw_tt_desc">周一至周五 × 节次。点格子排课；单次调课与停课只影响那一天，不改固定表。</p>
                                 </div>
                                 <div class="tw-head-controls tw-tt-controls">
+                                    <button type="button" id="tt-mine-toggle" class="tw-btn tw-tt-toggle"
+                                            aria-pressed="false" onclick="twTtToggleMine()">
+                                        <i class="fas fa-circle-dot" aria-hidden="true"></i><span data-i18n="tw_tt_mine_only">只看我的课</span>
+                                    </button>
                                     <button type="button" class="tw-btn" onclick="twTtAddPeriod()">
                                         <i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="tw_tt_add_period">加一节</span>
                                     </button>
@@ -83,6 +87,10 @@
                                         <select id="tt-kind" class="tw-select"></select>
                                     </label>
                                 </div>
+                                <label class="tw-check" id="tt-mine-field">
+                                    <input type="checkbox" id="tt-mine" checked>
+                                    <span data-i18n="tw_tt_mine_label">这是我的课</span>
+                                </label>
                                 <label class="tw-field">
                                     <span data-i18n="tw_tt_mode">生效</span>
                                     <select id="tt-mode" class="tw-select" onchange="twTtModeChanged()">

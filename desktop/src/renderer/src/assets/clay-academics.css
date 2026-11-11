@@ -984,6 +984,215 @@
   font-weight: 700;
 }
 
+/* ---------- home: today's lessons, brief and reminders (§7.4) ---------- */
+/* The three cards sit on #twb-home, whose clay tokens come from clay.css. */
+.twb-today-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.twb-lessons {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.twb-lesson {
+  display: grid;
+  grid-template-columns: 54px 10px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: var(--twb-ink);
+  cursor: pointer;
+}
+
+.twb-lesson:hover {
+  background: var(--twb-surface-2);
+  border-color: var(--twb-rim);
+}
+
+.twb-lesson:focus-visible {
+  outline: 3px solid var(--twb-accent);
+  outline-offset: 2px;
+}
+
+.twb-lesson-time {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.twb-lesson-time b {
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.twb-lesson-time small {
+  font-size: 10.5px;
+  color: var(--twb-ink-3);
+  font-weight: 600;
+}
+
+/* §7.1: green means the teacher's own lesson. */
+.twb-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  border: 2px solid var(--twb-line);
+  background: transparent;
+}
+
+.twb-dot.is-mine {
+  border-color: var(--twb-accent-hover);
+  background: var(--twb-accent);
+}
+
+.twb-lesson-what {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.twb-lesson-what b {
+  font-size: 13px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.twb-lesson-what small {
+  font-size: 11.5px;
+  color: var(--twb-ink-3);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.twb-lesson-topic {
+  grid-column: 1 / -1;
+  font-style: normal;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--twb-ink-2);
+  padding-left: 64px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.twb-digest {
+  margin: 0;
+  padding: 12px 14px;
+  border: 2px solid var(--twb-rim);
+  border-radius: 12px;
+  background: var(--twb-surface-2);
+  color: var(--twb-ink);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.twb-rem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.twb-rem-time {
+  width: 108px;
+}
+
+.twb-rem-min {
+  width: 76px;
+}
+
+/* The time/minutes field follows its own switch: off means the value is kept
+   but no longer editable, so it has to read as inert. */
+.twb-rem .twb-input:disabled {
+  background: var(--twb-surface-2);
+  color: var(--twb-ink-3);
+  cursor: not-allowed;
+}
+
+.twb-rem-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 12px 0 8px;
+}
+
+.twb-rem-preview {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.twb-rem-preview h3 {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--twb-ink-3);
+  margin: 0;
+}
+
+/* ---------- timetable: my lessons ---------- */
+.twb-tt-cell {
+  position: relative;
+}
+
+.twb-tt-mine-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  border: 1px solid var(--twb-accent-hover);
+  background: var(--twb-accent);
+}
+
+/* Another teacher's lesson: shown, never a reminder. */
+.twb-tt-cell.is-others {
+  border-style: dashed;
+  opacity: 0.6;
+}
+
+.twb-tt-cell.is-others b {
+  font-weight: 600;
+}
+
+.twb-tt-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.twb-tt-legend .twb-tt-mine-dot {
+  position: static;
+  flex-shrink: 0;
+}
+
 /* ---------- print: only the timetable ---------- */
 @media print {
   body * {
