@@ -319,3 +319,62 @@ html.menu-pending #sidebar-nav { visibility: hidden; }
 .me-art-name { font-size: 13px; color: rgb(var(--cw-slate-800)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .me-art-path { font-size: 11px; color: rgb(var(--cw-slate-400)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dark .me-art-name { color: rgb(var(--cw-slate-100)); }
+
+/* ---------------------------------------------------------------------------
+   Clay rail: the sidebar carries the same language as the teaching pages —
+   cream paper, ink rim, pastel active pill. Scoped to light theme; the dark
+   theme keeps its own solid rail.
+   ------------------------------------------------------------------------- */
+html:not(.dark) #sidebar {
+    background: #FFFDF8;
+    color: #4A5568;
+    border-right: 2px solid #2D3748;
+}
+html:not(.dark) #sidebar .sidebar-brand { border-bottom-color: #E7E0D3; }
+html:not(.dark) #sidebar .sidebar-brand span:first-child { color: #2D3748; }
+html:not(.dark) #sidebar .sidebar-brand span:last-child { color: #8A8175; }
+html:not(.dark) #sidebar #sidebar-home { border: 2px solid #2D3748; border-radius: 10px; background: #fff; }
+html:not(.dark) #sidebar .menu-group-head {
+    color: #8A8175;
+    font-weight: 700;
+    letter-spacing: .12em;
+}
+html:not(.dark) #sidebar .sidebar-item {
+    color: #4A5568;
+    border: 2px solid transparent;
+    border-radius: 12px;
+    font-weight: 500;
+}
+html:not(.dark) #sidebar .sidebar-item .item-icon { color: #7A8494; }
+html:not(.dark) #sidebar .sidebar-item:hover {
+    background: #FFF1E8 !important;
+    color: #2D3748 !important;
+    border-color: #E7D9C8;
+}
+html:not(.dark) #sidebar .sidebar-item.active {
+    background: #DCFCE7 !important;
+    color: #14532D !important;
+    border-color: #2D3748;
+    font-weight: 600;
+    box-shadow: 2px 2px 0 rgba(45, 55, 72, .14);
+}
+html:not(.dark) #sidebar .sidebar-item.active .item-icon { color: #15803D; }
+html:not(.dark) #sidebar .menu-subitem {
+    margin-left: 20px;
+    border-radius: 10px;
+    font-size: 13px;
+}
+html:not(.dark) #sidebar .menu-subitem.active {
+    background: #F0FDF4 !important;
+    box-shadow: none;
+}
+html:not(.dark) #sidebar .menu-group-edit { color: #8A8175; }
+html:not(.dark) #sidebar .menu-group-edit:hover { background: #FFF1E8; color: #2D3748; }
+html:not(.dark) #sidebar .sidebar-footer,
+html:not(.dark) #sidebar .sidebar-version { color: #8A8175; }
+html:not(.dark) #sidebar #sidebar-collapse-btn {
+    border: 2px solid #2D3748;
+    border-radius: 10px;
+    color: #4A5568;
+    background: #fff;
+}

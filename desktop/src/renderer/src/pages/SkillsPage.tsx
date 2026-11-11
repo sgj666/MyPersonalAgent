@@ -596,21 +596,21 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ baseUrl }) => {
   const openSkillVersion = doc ? skills.find((s) => s.name === doc.name)?.version : undefined
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
-      <div className="flex items-center justify-between px-6 pt-5 pb-3 flex-shrink-0">
+    <div className="clay-legacy flex-1 flex flex-col min-h-0">
+      <div className="clay-head flex items-center justify-between px-6 pt-5 pb-3 flex-shrink-0">
         <div>
-          <h2 className="text-xl font-bold text-content">{t('skills_title')}</h2>
-          <p className="text-xs text-content-tertiary mt-1">{t('skills_desc')}</p>
+          <h2 className="clay-head-title text-xl font-bold text-content">{t('skills_title')}</h2>
+          <p className="clay-head-desc text-xs text-content-tertiary mt-1">{t('skills_desc')}</p>
         </div>
         {skillsFirst && !doc && (
-          <div className="flex items-center gap-0.5 p-0.5 rounded-btn border border-default">
+          <div className="clay-tabs flex items-center gap-0.5 p-0.5 rounded-btn border border-default">
             {(['skills', 'tools'] as const).map((key) => (
               <button
                 key={key}
                 type="button"
                 onClick={() => setTab(key)}
-                className={`px-3 py-1 rounded-btn text-xs font-medium transition-colors cursor-pointer ${
-                  tab === key ? 'bg-accent-soft text-accent' : 'text-content-secondary hover:bg-surface-2'
+                className={`clay-tab px-3 py-1 rounded-btn text-xs font-medium transition-colors cursor-pointer ${
+                  tab === key ? 'clay-tab-on bg-accent-soft text-accent' : 'text-content-secondary hover:bg-surface-2'
                 }`}
               >
                 {t(key === 'skills' ? 'skills_section_title' : 'skills_tab_tools')}
@@ -977,7 +977,7 @@ const ActionBtn: React.FC<{ onClick: () => void; children: React.ReactNode }> = 
   <button
     type="button"
     onClick={onClick}
-    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-btn text-xs font-medium text-accent bg-accent-soft hover:brightness-95 dark:hover:brightness-110 cursor-pointer transition-all"
+    className="clay-btn-soft inline-flex items-center gap-1.5 px-3 py-1.5 rounded-btn text-xs font-medium text-accent bg-accent-soft hover:brightness-95 dark:hover:brightness-110 cursor-pointer transition-all"
   >
     {children}
   </button>
@@ -999,7 +999,7 @@ const EmptyState: React.FC<{ icon: LucideIcon; title: string; hint: string; tone
   hint,
   tone,
 }) => (
-  <div className="flex flex-col items-center justify-center px-4 py-7 rounded-card border border-dashed border-strong text-center">
+  <div className="clay-empty clay-empty-flat flex flex-col items-center justify-center px-4 py-7 rounded-card border border-dashed border-strong text-center">
     <div
       className={`w-10 h-10 mb-2.5 rounded-card flex items-center justify-center ${
         tone === 'accent' ? 'bg-accent-soft text-accent' : 'bg-amber-500/10 text-amber-500'

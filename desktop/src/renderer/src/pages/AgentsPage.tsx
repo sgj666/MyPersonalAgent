@@ -65,11 +65,11 @@ const AgentsPage: React.FC<AgentsPageProps> = ({ baseUrl }) => {
   }, [agents, defaultAgentId])
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
-      <div className="px-6 pt-5 pb-3 flex-shrink-0 flex items-start justify-between gap-4">
+    <div className="clay-legacy flex-1 flex flex-col min-h-0">
+      <div className="clay-head px-6 pt-5 pb-3 flex-shrink-0 flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-content">{t('agents_title')}</h2>
-          <p className="text-xs text-content-tertiary mt-1">{t('agents_desc')}</p>
+          <h2 className="clay-head-title text-xl font-bold text-content">{t('agents_title')}</h2>
+          <p className="clay-head-desc text-xs text-content-tertiary mt-1">{t('agents_desc')}</p>
         </div>
         <div className="flex items-center gap-2">
           {agents.length >= 2 && (
@@ -319,15 +319,15 @@ const AgentDetail: React.FC<{
         </div>
 
         {/* Tab bar */}
-        <div className="flex items-center gap-1 mt-4 border-b border-default">
+        <div className="clay-tabs clay-tabs-bare flex items-center gap-1 mt-4 border-b border-default">
           {tabs.map((tb) => (
             <button
               key={tb.key}
               type="button"
               onClick={() => setTab(tb.key)}
-              className={`relative px-4 py-2.5 text-sm font-medium cursor-pointer transition-colors -mb-px border-b-2 ${
+              className={`clay-tab relative px-4 py-2.5 text-sm font-medium cursor-pointer transition-colors -mb-px border-b-2 ${
                 tab === tb.key
-                  ? 'text-accent border-accent'
+                  ? 'clay-tab-on text-accent border-accent'
                   : 'text-content-tertiary border-transparent hover:text-content-secondary'
               }`}
             >

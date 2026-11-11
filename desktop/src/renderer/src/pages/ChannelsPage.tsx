@@ -209,11 +209,11 @@ const ChannelsPage: React.FC<ChannelsPageProps> = ({ baseUrl }) => {
   }, [selected])
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
-      <div className="px-6 pt-5 pb-3 flex-shrink-0 flex items-start justify-between gap-4">
+    <div className="clay-legacy flex-1 flex flex-col min-h-0">
+      <div className="clay-head px-6 pt-5 pb-3 flex-shrink-0 flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-content">{t('channels_title')}</h2>
-          <p className="text-xs text-content-tertiary mt-1">{t('channels_desc')}</p>
+          <h2 className="clay-head-title text-xl font-bold text-content">{t('channels_title')}</h2>
+          <p className="clay-head-desc text-xs text-content-tertiary mt-1">{t('channels_desc')}</p>
         </div>
         {!loading && available.length > 0 && !addOpen && (
           <Btn variant="primary" onClick={openAdd}>
@@ -235,7 +235,7 @@ const ChannelsPage: React.FC<ChannelsPageProps> = ({ baseUrl }) => {
           ) : (
             <div className="space-y-3">
               {connected.length === 0 && !addOpen ? (
-                <div className="flex flex-col items-center justify-center text-center py-16 px-6">
+                <div className="clay-empty flex flex-col items-center justify-center text-center py-16 px-6">
                   <span className="w-16 h-16 rounded-2xl bg-info/10 flex items-center justify-center mb-4">
                     <RadioTower size={26} className="text-info" />
                   </span>
@@ -268,7 +268,7 @@ const ChannelsPage: React.FC<ChannelsPageProps> = ({ baseUrl }) => {
               {/* Add-channel panel lives at the bottom of the list: pick a
                   channel from the dropdown, then configure/connect it inline. */}
               {addOpen && available.length > 0 && (
-                <div ref={panelRef} className="rounded-card border border-accent/40 bg-surface p-4 space-y-4">
+                <div ref={panelRef} className="clay-card rounded-card border border-accent/40 bg-surface p-4 space-y-4">
                   <div className="flex items-center justify-between gap-3">
                     <label className="text-sm font-medium text-content">{t('channels_select_label')}</label>
                     <button
@@ -421,8 +421,8 @@ const ModeTab: React.FC<{ icon: LucideIcon; label: string; active: boolean; onCl
   <button
     type="button"
     onClick={onClick}
-    className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[6px] text-sm font-medium cursor-pointer transition-colors ${
-      active ? 'bg-elevated dark:bg-white/10 text-content shadow-sm' : 'text-content-tertiary hover:text-content-secondary'
+    className={`clay-tab flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[6px] text-sm font-medium cursor-pointer transition-colors ${
+      active ? 'clay-tab-on bg-elevated dark:bg-white/10 text-content shadow-sm' : 'text-content-tertiary hover:text-content-secondary'
     }`}
   >
     <Icon size={14} />
@@ -669,7 +669,7 @@ const ChannelCard: React.FC<{
   )
 
   return (
-    <div className={defaultExpanded ? '' : 'rounded-card border border-default bg-surface p-4'}>
+    <div className={defaultExpanded ? 'clay-panel' : 'clay-card rounded-card border border-default bg-surface p-4'}>
       <div className="flex items-center gap-3">
         <ChannelIcon name={channel.name} size={40} />
         <div className="flex-1 min-w-0">
@@ -732,7 +732,7 @@ const ChannelCard: React.FC<{
       {/* Feishu: pick between one-click QR registration and manual credentials. */}
       {dualMode && (
         <div className="mt-4">
-          <div className="flex items-center gap-1 bg-inset-2 rounded-btn p-0.5 mb-4">
+          <div className="clay-tabs flex items-center gap-1 bg-inset-2 rounded-btn p-0.5 mb-4">
             <ModeTab
               icon={QrCode}
               label={t('feishu_mode_scan')}

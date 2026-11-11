@@ -1,0 +1,1078 @@
+/* Teacher workbench: the clay skin for the older console pages.
+
+   Knowledge, agents, config, skills, memory, channels and the chat shell keep
+   their markup, handlers and JavaScript exactly as they were; only surfaces
+   change -- background, rim, radius, shadow, colour, spacing inside the
+   existing boxes.
+
+   Two rules keep this file honest:
+
+   1. Everything is scoped to `html:not(.dark) .view:not(.tw-view)`. The eight
+      teaching views carry `.tw-view` and their own clay sheets (home.css,
+      board.css, teaching.css, teaching2.css); dark theme is untouched, so the
+      old look returns on both without a second stylesheet.
+   2. Modals are rendered outside `.view` (they are `position: fixed` children
+      of <body>), so the few this file restyles are addressed by the id of the
+      page that owns them.
+
+   Visual language: docs/plans/teacher-workbench-ui.html -- cream canvas,
+   paper plates with a 2px ink rim and a hard 3px offset shadow, green primary.
+   Loaded last in chat.html. */
+
+/* =====================================================================
+   Tokens
+   Declared on <html> in light theme, not on the views: the modals and the
+   session panel live outside `.view` but still need the same palette.
+   ===================================================================== */
+html:not(.dark) {
+    --cl-ink: #2D3748;
+    --cl-ink-2: #4A5568;
+    --cl-ink-3: #718096;
+    --cl-paper: #FFFDF8;
+    --cl-bg: #FFF9F5;
+    --cl-rim-color: #2D3748;
+    --cl-rim: 2px solid #2D3748;
+    --cl-line: rgba(45, 55, 72, 0.14);
+    --cl-line-strong: rgba(45, 55, 72, 0.32);
+    --cl-radius: 18px;
+    --cl-radius-sm: 12px;
+    --cl-radius-xs: 8px;
+    --cl-shadow: 3px 3px 0 rgba(45, 55, 72, 0.16);
+    --cl-shadow-sm: 2px 2px 0 rgba(45, 55, 72, 0.14);
+    --cl-accent: #22C55E;
+    --cl-accent-hover: #16A34A;
+    --cl-accent-soft: #DCFCE7;
+    --cl-head: #FFF1E8;
+    --cl-pink: #FFDDBB;
+    --cl-pastel-a: #FFE9A8;
+    --cl-pastel-b: #E6E6FA;
+    --cl-pastel-c: #ADD8E6;
+    --cl-field: #FFFFFF;
+}
+
+html:not(.dark) .view:not(.tw-view) {
+    background: var(--cl-bg);
+    color: var(--cl-ink);
+}
+
+html:not(.dark) .view:not(.tw-view) ::selection {
+    background: var(--cl-accent-soft);
+    color: var(--cl-ink);
+}
+
+/* Scrollbars: neutral pastel instead of the browser's grey slab. */
+html:not(.dark) .view:not(.tw-view) ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+html:not(.dark) .view:not(.tw-view) ::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+html:not(.dark) .view:not(.tw-view) ::-webkit-scrollbar-thumb {
+    background: rgba(45, 55, 72, 0.18);
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+}
+
+html:not(.dark) .view:not(.tw-view) ::-webkit-scrollbar-thumb:hover {
+    background: rgba(45, 55, 72, 0.3);
+    background-clip: padding-box;
+}
+
+/* =====================================================================
+   Page head banner
+   The templates carry `clay-head` on the header block plus
+   `clay-head-title` / `clay-head-desc` on the h2 / p inside it.
+   ===================================================================== */
+html:not(.dark) .view:not(.tw-view) .clay-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
+    background: var(--cl-paper);
+    border: var(--cl-rim);
+    border-radius: var(--cl-radius);
+    box-shadow: var(--cl-shadow);
+    padding: 16px 22px;
+}
+
+html:not(.dark) .view:not(.tw-view) .clay-head-title {
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--cl-ink);
+    letter-spacing: 0;
+}
+
+html:not(.dark) .view:not(.tw-view) .clay-head-desc {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.55;
+    color: var(--cl-ink-3);
+    margin-top: 4px;
+}
+
+/* A head whose title and description are direct children (the capability
+   page) keeps them stacked: the description takes a row of its own instead
+   of being pushed beside the title by the banner's flex row. */
+html:not(.dark) .view:not(.tw-view) .clay-head > .clay-head-title {
+    flex: 1 1 auto;
+}
+
+html:not(.dark) .view:not(.tw-view) .clay-head > .clay-head-desc {
+    flex: 1 1 100%;
+    margin-top: 0;
+}
+
+/* The agents page head is the roster column's title bar: the column is only
+   ~320px wide and the detail pane next to it owns the plate, so the banner
+   would be a plate inside a plate. Keep the typography, drop the box. */
+html:not(.dark) #view-agents .agents-list-head.clay-head {
+    background: transparent;
+    border: 0;
+    border-bottom: 1.5px solid var(--cl-line);
+    border-radius: 0;
+    box-shadow: none;
+    padding: 2px 4px 12px;
+    margin-bottom: 12px;
+}
+
+html:not(.dark) #view-agents .agents-list-head.clay-head .clay-head-title {
+    font-size: 17px;
+    font-weight: 800;
+}
+
+@media (max-width: 767px) {
+    html:not(.dark) .view:not(.tw-view) .clay-head { padding: 14px 16px; }
+    html:not(.dark) .view:not(.tw-view) .clay-head-title { font-size: 20px; }
+}
+
+/* =====================================================================
+   Plates: cards, panels, dropdown surfaces
+   ===================================================================== */
+html:not(.dark) .view:not(.tw-view) [class*="bg-panel"][class*="border"] {
+    background: var(--cl-paper);
+    border: var(--cl-rim);
+    border-radius: var(--cl-radius);
+    box-shadow: var(--cl-shadow);
+}
+
+/* A panel inside a plate is a zone, not another card: a thin line and no
+   shadow, so a card holding two panels still reads as one plate. */
+html:not(.dark) .view:not(.tw-view) [class*="bg-panel"][class*="border"] [class*="bg-panel"][class*="border"] {
+    border: 1.5px solid var(--cl-line-strong);
+    border-radius: 14px;
+    box-shadow: none;
+}
+
+/* The composer is not a card: it is a bar that hosts one. */
+html:not(.dark) .view:not(.tw-view) #chat-composer {
+    background: transparent;
+    border: 0;
+    border-top: 1.5px solid var(--cl-line);
+    border-radius: 0;
+    box-shadow: none;
+}
+
+/* Panels that are plates through their own class rather than bg-panel. */
+html:not(.dark) .view:not(.tw-view) .cap-empty {
+    background: var(--cl-paper);
+    border: var(--cl-rim);
+    border-radius: var(--cl-radius);
+    box-shadow: var(--cl-shadow);
+}
+
+html:not(.dark) .view:not(.tw-view) .cap-empty-icon {
+    border: 1.5px dashed var(--cl-line-strong);
+    border-radius: 14px;
+    background: var(--cl-bg);
+    color: var(--cl-ink-2);
+}
+
+/* =====================================================================
+   Type inside the plates
+   ===================================================================== */
+html:not(.dark) .view:not(.tw-view) h2,
+html:not(.dark) .view:not(.tw-view) h3 {
+    color: var(--cl-ink);
+}
+
+html:not(.dark) .view:not(.tw-view) label,
+html:not(.dark) .view:not(.tw-view) .agent-field-label {
+    color: var(--cl-ink-2);
+    font-weight: 700;
+}
+
+html:not(.dark) .view:not(.tw-view) .cfg-tip,
+html:not(.dark) .view:not(.tw-view) .agent-field-tip {
+    color: var(--cl-ink-3);
+}
+
+/* =====================================================================
+   Fields
+   ===================================================================== */
+html:not(.dark) .view:not(.tw-view) input[type="text"],
+html:not(.dark) .view:not(.tw-view) input[type="number"],
+html:not(.dark) .view:not(.tw-view) input[type="password"],
+html:not(.dark) .view:not(.tw-view) input[type="search"],
+html:not(.dark) .view:not(.tw-view) input[type="email"],
+html:not(.dark) .view:not(.tw-view) input[type="url"],
+html:not(.dark) .view:not(.tw-view) select,
+html:not(.dark) .view:not(.tw-view) textarea:not(.composer-textarea),
+html:not(.dark) .view:not(.tw-view) .agent-input,
+html:not(.dark) .view:not(.tw-view) .cap-input {
+    background: var(--cl-field);
+    border: var(--cl-rim);
+    border-radius: var(--cl-radius-sm);
+    box-shadow: none;
+    color: var(--cl-ink);
+}
+
+html:not(.dark) .view:not(.tw-view) input::placeholder,
+html:not(.dark) .view:not(.tw-view) textarea::placeholder {
+    color: var(--cl-ink-3);
+    opacity: 1;
+}
+
+html:not(.dark) .view:not(.tw-view) input[type="text"]:focus,
+html:not(.dark) .view:not(.tw-view) input[type="number"]:focus,
+html:not(.dark) .view:not(.tw-view) input[type="password"]:focus,
+html:not(.dark) .view:not(.tw-view) input[type="search"]:focus,
+html:not(.dark) .view:not(.tw-view) input[type="email"]:focus,
+html:not(.dark) .view:not(.tw-view) input[type="url"]:focus,
+html:not(.dark) .view:not(.tw-view) select:focus,
+html:not(.dark) .view:not(.tw-view) textarea:not(.composer-textarea):focus,
+html:not(.dark) .view:not(.tw-view) .agent-input:focus,
+html:not(.dark) .view:not(.tw-view) .cap-input:focus {
+    outline: none;
+    border-color: var(--cl-rim-color);
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.32);
+    background: #FFFFFF;
+}
+
+/* The masked API key keeps its monospace; the eye still sits inside the rim. */
+html:not(.dark) .view:not(.tw-view) .cfg-key-masked {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* File inputs stay hidden; the pickers around them are the control. */
+
+/* =====================================================================
+   Buttons
+   ===================================================================== */
+html:not(.dark) .view:not(.tw-view) button[class*="bg-primary-500"],
+html:not(.dark) .view:not(.tw-view) a[class*="bg-primary-500"] {
+    background: var(--cl-accent);
+    border: var(--cl-rim);
+    border-radius: var(--cl-radius-sm);
+    color: #FFFFFF;
+    font-weight: 700;
+    box-shadow: var(--cl-shadow-sm);
+    transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+}
+
+html:not(.dark) .view:not(.tw-view) button[class*="bg-primary-500"]:hover,
+html:not(.dark) .view:not(.tw-view) a[class*="bg-primary-500"]:hover {
+    background: var(--cl-accent-hover);
+}
+
+html:not(.dark) .view:not(.tw-view) button[class*="bg-primary-500"]:active,
+html:not(.dark) .view:not(.tw-view) a[class*="bg-primary-500"]:active {
+    transform: translate(1px, 1px);
+    box-shadow: none;
+}
+
+html:not(.dark) .view:not(.tw-view) button[class*="bg-primary-500"]:disabled {
+    opacity: 0.55;
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+/* Secondary: a bordered button on paper. */
+html:not(.dark) .view:not(.tw-view) button.border:not([class*="bg-primary"]),
+html:not(.dark) .view:not(.tw-view) button[class*="bg-white"]:not([class*="bg-primary"]),
+html:not(.dark) .view:not(.tw-view) button[class*="bg-slate-100"]:not([class*="bg-primary"]) {
+    background: var(--cl-paper);
+    border: var(--cl-rim);
+    border-radius: var(--cl-radius-sm);
+    color: var(--cl-ink);
+    font-weight: 700;
+    box-shadow: var(--cl-shadow-sm);
+}
+
+html:not(.dark) .view:not(.tw-view) button.border:not([class*="bg-primary"]):hover,
+html:not(.dark) .view:not(.tw-view) button[class*="bg-white"]:not([class*="bg-primary"]):hover,
+html:not(.dark) .view:not(.tw-view) button[class*="bg-slate-100"]:not([class*="bg-primary"]):hover {
+    background: var(--cl-accent-soft);
+}
+
+/* The document / skill / memory action buttons beside a viewer title. */
+html:not(.dark) .view:not(.tw-view) .doc-action-btn {
+    background: var(--cl-paper);
+    border: 1.5px solid var(--cl-rim-color);
+    border-radius: 10px;
+    color: var(--cl-ink);
+    font-weight: 700;
+}
+
+html:not(.dark) .view:not(.tw-view) .doc-action-btn:hover {
+    background: var(--cl-accent-soft);
+    color: var(--cl-ink);
+}
+
+html:not(.dark) .view:not(.tw-view) .doc-action-btn-primary {
+    background: var(--cl-accent);
+    border: var(--cl-rim);
+    color: #FFFFFF;
+    box-shadow: var(--cl-shadow-sm);
+}
+
+html:not(.dark) .view:not(.tw-view) .doc-action-btn-primary:hover {
+    background: var(--cl-accent-hover);
+    color: #FFFFFF;
+}
+
+/* The capability page's small inline actions. */
+html:not(.dark) .view:not(.tw-view) .cap-action-btn {
+    background: var(--cl-paper);
+    border: 1.5px solid var(--cl-rim-color);
+    border-radius: 10px;
+    color: var(--cl-ink);
+    font-weight: 700;
+    box-shadow: var(--cl-shadow-sm);
+}
+
+html:not(.dark) .view:not(.tw-view) .cap-action-btn:hover {
+    background: var(--cl-accent-soft);
+    color: var(--cl-ink);
+}
+
+html:not(.dark) .view:not(.tw-view) .cap-link-btn {
+    color: var(--cl-ink-2);
+    font-weight: 700;
+    border-radius: var(--cl-radius-xs);
+}
+
+html:not(.dark) .view:not(.tw-view) .cap-link-btn:hover {
+    background: var(--cl-accent-soft);
+    color: var(--cl-accent-hover);
+}
+
+/* Segmented control: white plate, active segment accent-soft with an ink rim. */
+html:not(.dark) .view:not(.tw-view) .knowledge-tab,
+html:not(.dark) .view:not(.tw-view) .config-tab,
+html:not(.dark) .view:not(.tw-view) .memory-tab,
+html:not(.dark) .view:not(.tw-view) .cap-tab,
+html:not(.dark) .view:not(.tw-view) .cfg-api-lang,
+html:not(.dark) .view:not(.tw-view) .agent-seg-btn {
+    border: 1.5px solid transparent;
+    border-radius: 10px;
+    color: var(--cl-ink-2);
+    font-weight: 700;
+    background: transparent;
+    box-shadow: none;
+}
+
+html:not(.dark) .view:not(.tw-view) .knowledge-tab.active,
+html:not(.dark) .view:not(.tw-view) .config-tab.active,
+html:not(.dark) .view:not(.tw-view) .memory-tab.active,
+html:not(.dark) .view:not(.tw-view) .cap-tab.active,
+html:not(.dark) .view:not(.tw-view) .cfg-api-lang.active,
+html:not(.dark) .view:not(.tw-view) .agent-seg-btn.active {
+    background: var(--cl-accent-soft);
+    border-color: var(--cl-rim-color);
+    color: var(--cl-ink);
+    box-shadow: none;
+}
+
+html:not(.dark) .view:not(.tw-view) [class*="bg-slate-100"][class*="rounded-lg"].flex,
+html:not(.dark) .view:not(.tw-view) .cap-tabs,
+html:not(.dark) .view:not(.tw-view) .agent-seg {
+    background: #FFFFFF;
+    border: 1.5px solid var(--cl-rim-color);
+    border-radius: 14px;
+    box-shadow: var(--cl-shadow-sm);
+}
+
+/* =====================================================================
+   Dropdowns
+   ===================================================================== */
+html:not(.dark) .view:not(.tw-view) .cfg-dropdown-selected {
+    background: var(--cl-field);
+    border: var(--cl-rim);
+    border-radius: var(--cl-radius-sm);
+    color: var(--cl-ink);
+    box-shadow: none;
+}
+
+html:not(.dark) .view:not(.tw-view) .cfg-dropdown-selected:hover {
+    border-color: var(--cl-rim-color);
+    background: #FFFFFF;
+}
+
+html:not(.dark) .view:not(.tw-view) .cfg-dropdown.open .cfg-dropdown-selected,
+html:not(.dark) .view:not(.tw-view) .cfg-dropdown:focus .cfg-dropdown-selected {
+    border-color: var(--cl-accent-hover);
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.28);
+}
+
+html:not(.dark) .view:not(.tw-view) .cfg-dropdown-menu {
+    background: var(--cl-paper);
+    border: var(--cl-rim);
+    border-radius: var(--cl-radius);
+    box-shadow: var(--cl-shadow);
+    padding: 5px;
+}
+
+html:not(.dark) .view:not(.tw-view) .cfg-dropdown-item {
+    border-radius: 10px;
+    color: var(--cl-ink-2);
+    font-weight: 600;
+}
+
+html:not(.dark) .view:not(.tw-view) .cfg-dropdown-item:hover {
+    background: var(--cl-accent-soft);
+    color: var(--cl-ink);
+}
+
+html:not(.dark) .view:not(.tw-view) .cfg-dropdown-item.active {
+    background: var(--cl-accent-soft);
+    color: var(--cl-ink);
+    font-weight: 700;
+}
+
+html:not(.dark) .view:not(.tw-view) .cfg-dropdown-more,
+html:not(.dark) .view:not(.tw-view) .cfg-dropdown-badge {
+    background: var(--cl-pastel-a);
+    border-radius: 999px;
+    color: var(--cl-ink);
+}
+
+/* The "new" menu on the knowledge page (an absolutely positioned plate). */
+html:not(.dark) .view:not(.tw-view) #knowledge-new-menu-list {
+    border-radius: var(--cl-radius);
+    box-shadow: var(--cl-shadow);
+    padding: 5px;
+}
+
+html:not(.dark) .view:not(.tw-view) #knowledge-new-menu-list > button {
+    border-radius: 10px;
+    color: var(--cl-ink-2);
+    font-weight: 600;
+}
+
+html:not(.dark) .view:not(.tw-view) #knowledge-new-menu-list > button:hover {
+    background: var(--cl-accent-soft);
+    color: var(--cl-ink);
+}
+
+/* =====================================================================
+   Tables
+   ===================================================================== */
+html:not(.dark) .view:not(.tw-view) table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+html:not(.dark) .view:not(.tw-view) table thead th {
+    background: var(--cl-head);
+    color: var(--cl-ink-2);
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    border-bottom: 1.5px solid var(--cl-line-strong);
+}
+
+html:not(.dark) .view:not(.tw-view) table tbody td {
+    border-bottom: 1.5px solid var(--cl-line);
+    color: var(--cl-ink);
+}
+
+html:not(.dark) .view:not(.tw-view) table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+html:not(.dark) .view:not(.tw-view) table tbody tr:hover td {
+    background: var(--cl-bg);
+}
+
+html:not(.dark) .view:not(.tw-view) table tbody td span[class*="rounded-full"] {
+    background: var(--cl-head);
+    border: 1.5px solid var(--cl-line-strong);
+    color: var(--cl-ink-2);
+    font-weight: 700;
+}
+
+/* =====================================================================
+   Empty states
+   ===================================================================== */
+html:not(.dark) #view-knowledge #knowledge-empty,
+html:not(.dark) #view-memory #memory-empty,
+html:not(.dark) #view-skills #skills-empty,
+html:not(.dark) #view-channels #channels-content > div:not([class*="bg-panel"]) {
+    background: var(--cl-paper);
+    border: var(--cl-rim);
+    border-radius: var(--cl-radius);
+    box-shadow: var(--cl-shadow);
+    padding: 32px 24px;
+}
+
+html:not(.dark) #view-knowledge #knowledge-empty > div:first-child,
+html:not(.dark) #view-memory #memory-empty > div:first-child,
+html:not(.dark) #view-skills #skills-empty > div:first-child,
+html:not(.dark) #view-channels #channels-content > div:not([class*="bg-panel"]) > div:first-child {
+    border: 1.5px dashed var(--cl-line-strong);
+    border-radius: 16px;
+    background: var(--cl-bg);
+}
+
+html:not(.dark) .view:not(.tw-view) .cap-empty-icon {
+    border: 1.5px dashed var(--cl-line-strong);
+}
+
+/* =====================================================================
+   Badges, chips, code
+   ===================================================================== */
+html:not(.dark) .view:not(.tw-view) .cap-count,
+html:not(.dark) .view:not(.tw-view) .cap-chip {
+    background: var(--cl-head);
+    border: 1.5px solid var(--cl-line-strong);
+    border-radius: 999px;
+    color: var(--cl-ink-2);
+    font-weight: 700;
+}
+
+html:not(.dark) .view:not(.tw-view) .cap-section-title {
+    color: var(--cl-ink);
+    font-weight: 800;
+}
+
+html:not(.dark) .view:not(.tw-view) pre {
+    background: var(--cl-bg);
+    border: 1.5px solid var(--cl-line-strong);
+    border-radius: var(--cl-radius-sm);
+    color: var(--cl-ink);
+}
+
+html:not(.dark) .view:not(.tw-view) :not(pre) > code {
+    background: var(--cl-head);
+    border-radius: 6px;
+    color: var(--cl-ink);
+}
+
+html:not(.dark) .view:not(.tw-view) blockquote {
+    border-left: 3px solid var(--cl-rim-color);
+    background: var(--cl-bg);
+    color: var(--cl-ink-2);
+}
+
+html:not(.dark) .view:not(.tw-view) hr {
+    border-color: var(--cl-line);
+}
+
+/* =====================================================================
+   Config view: model table, switches, provider cards
+   ===================================================================== */
+html:not(.dark) #view-config label > input.sr-only + div[class*="rounded-full"] {
+    background: var(--cl-head);
+    border: 2px solid var(--cl-rim-color);
+    box-shadow: none;
+}
+
+html:not(.dark) #view-config label > input.sr-only:checked + div[class*="rounded-full"] {
+    background: var(--cl-accent);
+}
+
+html:not(.dark) #view-config label > input.sr-only + div[class*="rounded-full"]::after {
+    border: 1.5px solid var(--cl-rim-color);
+}
+
+/* The capability page's per-skill switch is a button[role=switch], not the
+   checkbox + div pair the settings page uses. */
+html:not(.dark) .view:not(.tw-view) button[role="switch"] {
+    background: var(--cl-head);
+    border: 1.5px solid var(--cl-rim-color);
+    box-shadow: none;
+}
+
+html:not(.dark) .view:not(.tw-view) button[role="switch"][aria-checked="true"] {
+    background: var(--cl-accent);
+}
+
+html:not(.dark) .view:not(.tw-view) button[role="switch"] > span {
+    border: 1px solid var(--cl-rim-color);
+}
+
+html:not(.dark) #view-config .cfg-provider-item {
+    border: 1.5px solid var(--cl-line-strong);
+    border-radius: var(--cl-radius-sm);
+}
+
+html:not(.dark) #view-config .cfg-provider-item.active {
+    background: var(--cl-accent-soft);
+    border-color: var(--cl-rim-color);
+}
+
+html:not(.dark) #view-config .config-tab.cfg-api-lang.active {
+    background: var(--cl-accent-soft);
+}
+
+/* =====================================================================
+   Agents view: roster column + detail plate
+   ===================================================================== */
+html:not(.dark) #view-agents .agents-list-pane {
+    border-right: 1.5px solid var(--cl-line);
+    background: transparent;
+}
+
+html:not(.dark) #view-agents .agent-detail {
+    background: var(--cl-paper);
+    border: var(--cl-rim);
+    border-radius: var(--cl-radius);
+    box-shadow: var(--cl-shadow);
+    margin-right: 6px;
+}
+
+html:not(.dark) #view-agents .agent-detail.hidden::before {
+    color: var(--cl-ink-3);
+}
+
+html:not(.dark) #view-agents .agent-detail-tabs {
+    border-bottom: 1.5px solid var(--cl-line);
+}
+
+html:not(.dark) #view-agents .agent-detail-tab {
+    border-radius: 10px 10px 0 0;
+    color: var(--cl-ink-3);
+    font-weight: 700;
+}
+
+html:not(.dark) #view-agents .agent-detail-tab.active {
+    color: var(--cl-ink);
+    border-color: var(--cl-accent-hover);
+}
+
+html:not(.dark) #view-agents .agent-card {
+    border: 1.5px solid transparent;
+    border-radius: 12px;
+    background: transparent;
+}
+
+html:not(.dark) #view-agents .agent-card:hover {
+    background: #FFFFFF;
+    border-color: var(--cl-line-strong);
+}
+
+html:not(.dark) #view-agents .agent-card.selected {
+    background: var(--cl-accent-soft);
+    border-color: var(--cl-rim-color);
+    box-shadow: var(--cl-shadow-sm);
+}
+
+html:not(.dark) #view-agents .agent-card-name {
+    color: var(--cl-ink);
+    font-weight: 800;
+}
+
+html:not(.dark) #view-agents .agent-card-desc,
+html:not(.dark) #view-agents .agent-card-desc-empty {
+    color: var(--cl-ink-3);
+}
+
+html:not(.dark) #view-agents .agent-chip {
+    background: var(--cl-head);
+    border: 1.5px solid var(--cl-line-strong);
+    color: var(--cl-ink-2);
+    font-weight: 700;
+}
+
+html:not(.dark) #view-agents .agent-chip-on {
+    background: var(--cl-accent-soft);
+    color: var(--cl-accent-hover);
+}
+
+html:not(.dark) #view-agents .agent-avatar {
+    border: 1.5px solid var(--cl-rim-color);
+    box-shadow: none;
+}
+
+html:not(.dark) #view-agents .agent-core-editor,
+html:not(.dark) #view-agents .agent-core-preview {
+    background: var(--cl-bg);
+    border: 1.5px solid var(--cl-line-strong);
+    border-radius: var(--cl-radius-sm);
+    color: var(--cl-ink);
+}
+
+html:not(.dark) #view-agents .agent-input-locked {
+    background: var(--cl-bg);
+    border: 1.5px dashed var(--cl-line-strong);
+    border-radius: var(--cl-radius-sm);
+    color: var(--cl-ink-3);
+}
+
+html:not(.dark) #view-agents .agent-skill-row {
+    border-bottom: 1.5px solid var(--cl-line);
+}
+
+html:not(.dark) #view-agents .agent-detail-close {
+    border-radius: 10px;
+    color: var(--cl-ink-3);
+}
+
+html:not(.dark) #view-agents .agent-detail-close:hover {
+    background: var(--cl-head);
+    color: var(--cl-ink);
+}
+
+/* =====================================================================
+   Knowledge view: tree, viewer
+   ===================================================================== */
+html:not(.dark) #view-knowledge .knowledge-tree-file,
+html:not(.dark) #view-knowledge .knowledge-tree-group-btn {
+    border-radius: 10px;
+    color: var(--cl-ink-2);
+    font-weight: 600;
+}
+
+html:not(.dark) #view-knowledge .knowledge-tree-file:hover,
+html:not(.dark) #view-knowledge .knowledge-tree-group-btn:hover {
+    background: var(--cl-bg);
+    color: var(--cl-ink);
+}
+
+html:not(.dark) #view-knowledge .knowledge-tree-file.active {
+    background: var(--cl-accent-soft);
+    border: 1.5px solid var(--cl-rim-color);
+    color: var(--cl-ink);
+    font-weight: 700;
+}
+
+html:not(.dark) #view-knowledge .knowledge-action {
+    border-radius: 8px;
+}
+
+/* The graph keeps its canvas; only its frame is paper. */
+
+/* =====================================================================
+   Skills view: file tree beside the document
+   ===================================================================== */
+html:not(.dark) #view-skills #skill-files-panel {
+    background: var(--cl-bg);
+    border-right: 1.5px solid var(--cl-line);
+}
+
+html:not(.dark) #view-skills #skill-viewer-content,
+html:not(.dark) #view-skills #memory-viewer-content {
+    color: var(--cl-ink);
+}
+
+html:not(.dark) #view-skills .skill-files-switch {
+    background: var(--cl-paper);
+    border: 1.5px solid var(--cl-rim-color);
+    color: var(--cl-ink-2);
+    box-shadow: var(--cl-shadow-sm);
+}
+
+html:not(.dark) #view-skills .skill-files-switch:hover {
+    background: var(--cl-accent-soft);
+    color: var(--cl-ink);
+}
+
+/* =====================================================================
+   Memory view
+   ===================================================================== */
+html:not(.dark) #view-memory #memory-table-body td {
+    font-size: 13px;
+}
+
+html:not(.dark) #view-memory #memory-pagination button {
+    background: var(--cl-paper);
+    border: 1.5px solid var(--cl-rim-color);
+    border-radius: 10px;
+    color: var(--cl-ink);
+    font-weight: 700;
+}
+
+html:not(.dark) #view-memory #memory-pagination button:hover {
+    background: var(--cl-accent-soft);
+}
+
+/* =====================================================================
+   Channels view
+   ===================================================================== */
+html:not(.dark) #view-channels .channel-agent-bind {
+    border-radius: var(--cl-radius-sm);
+}
+
+/* =====================================================================
+   Chat (对话): bubbles, composer, welcome cards
+   ===================================================================== */
+html:not(.dark) #view-chat .composer-card {
+    background: #FFFFFF;
+    border: var(--cl-rim);
+    border-radius: 16px;
+    box-shadow: var(--cl-shadow);
+}
+
+html:not(.dark) #view-chat .composer-card:focus-within {
+    background: #FFFFFF;
+    border-color: var(--cl-rim-color);
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.28), var(--cl-shadow);
+}
+
+html:not(.dark) #view-chat .composer-card.drag-over {
+    background: var(--cl-accent-soft);
+    border-color: var(--cl-accent-hover);
+}
+
+html:not(.dark) #view-chat .composer-textarea {
+    color: var(--cl-ink);
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+}
+
+html:not(.dark) #view-chat .composer-divider {
+    background: var(--cl-line);
+}
+
+html:not(.dark) #view-chat .composer-chip {
+    border: 1.5px solid transparent;
+    border-radius: 10px;
+    color: var(--cl-ink-2);
+    font-weight: 700;
+}
+
+html:not(.dark) #view-chat .composer-chip:hover,
+html:not(.dark) #view-chat .composer-chip.open {
+    background: var(--cl-accent-soft);
+    border-color: var(--cl-rim-color);
+    color: var(--cl-ink);
+}
+
+html:not(.dark) #view-chat .composer-icon-btn {
+    border-radius: 10px;
+    color: var(--cl-ink-2);
+}
+
+html:not(.dark) #view-chat .composer-icon-btn:hover {
+    background: var(--cl-head);
+    color: var(--cl-ink);
+}
+
+html:not(.dark) #view-chat .composer-send-btn {
+    background: var(--cl-accent);
+    border: var(--cl-rim);
+    border-radius: 10px;
+    color: #FFFFFF;
+    box-shadow: var(--cl-shadow-sm);
+}
+
+html:not(.dark) #view-chat .composer-send-btn:hover:not(:disabled) {
+    background: var(--cl-accent-hover);
+}
+
+html:not(.dark) #view-chat .composer-send-btn:disabled {
+    background: #F1F5F9;
+    border-color: var(--cl-line-strong);
+    color: #94A3B8;
+    box-shadow: none;
+}
+
+html:not(.dark) #view-chat .composer-send-btn.composer-steer-btn {
+    background: #FFFFFF;
+    border-color: var(--cl-accent-hover);
+    color: var(--cl-accent-hover);
+    box-shadow: none;
+}
+
+html:not(.dark) #view-chat .composer-send-btn.composer-steer-btn:disabled {
+    background: #FFFFFF;
+    border-color: var(--cl-line);
+    color: #94A3B8;
+}
+
+/* Bubbles. The assistant speaks from a paper plate, the teacher from a soft
+   green one; both carry the ink rim so neither drowns in the canvas. */
+html:not(.dark) .view:not(.tw-view) .bot-message-group .msg-content {
+    background: var(--cl-paper);
+    border: var(--cl-rim);
+    border-radius: 16px;
+    box-shadow: var(--cl-shadow-sm);
+    color: var(--cl-ink);
+}
+
+html:not(.dark) .view:not(.tw-view) .user-bubble {
+    background: var(--cl-accent-soft);
+    border: var(--cl-rim);
+    border-radius: 16px;
+    box-shadow: var(--cl-shadow-sm);
+    color: var(--cl-ink);
+}
+
+html:not(.dark) .view:not(.tw-view) .user-bubble a {
+    color: var(--cl-accent-hover);
+}
+
+html:not(.dark) .view:not(.tw-view) .user-msg-file {
+    background: #FFFFFF;
+    border: 1.5px solid var(--cl-line-strong);
+    border-radius: 8px;
+    color: var(--cl-ink);
+}
+
+html:not(.dark) .view:not(.tw-view) .user-msg-file.is-openable:hover {
+    background: var(--cl-head);
+}
+
+html:not(.dark) .view:not(.tw-view) .user-msg-image {
+    border: 1.5px solid var(--cl-rim-color);
+    border-radius: 10px;
+}
+
+/* Menus that open from the composer are plates, like every other menu. */
+html:not(.dark) .view:not(.tw-view) .attach-menu,
+html:not(.dark) .view:not(.tw-view) .composer-menu,
+html:not(.dark) .view:not(.tw-view) .workspace-selector-menu,
+html:not(.dark) .view:not(.tw-view) .slash-menu,
+html:not(.dark) .view:not(.tw-view) .mention-menu {
+    background: var(--cl-paper);
+    border: var(--cl-rim);
+    border-radius: var(--cl-radius);
+    box-shadow: var(--cl-shadow);
+}
+
+html:not(.dark) .view:not(.tw-view) .attach-menu-item,
+html:not(.dark) .view:not(.tw-view) .composer-menu-item {
+    border-radius: 10px;
+    color: var(--cl-ink-2);
+    font-weight: 600;
+}
+
+html:not(.dark) .view:not(.tw-view) .attach-menu-item:hover,
+html:not(.dark) .view:not(.tw-view) .composer-menu-item:hover,
+html:not(.dark) .view:not(.tw-view) .composer-menu-item.active {
+    background: var(--cl-accent-soft);
+    color: var(--cl-ink);
+}
+
+html:not(.dark) .view:not(.tw-view) .composer-menu-divider {
+    background: var(--cl-line);
+}
+
+/* Welcome screen: the example cards are plates, the title stays ink. */
+html:not(.dark) #view-chat #welcome-screen h1 {
+    color: var(--cl-ink);
+}
+
+html:not(.dark) #view-chat #welcome-screen > img {
+    border: var(--cl-rim);
+    border-radius: 16px;
+    box-shadow: var(--cl-shadow);
+}
+
+html:not(.dark) #view-chat .example-card {
+    background: var(--cl-paper);
+    border: var(--cl-rim);
+    border-radius: var(--cl-radius);
+    box-shadow: var(--cl-shadow);
+}
+
+html:not(.dark) #view-chat .example-card:hover {
+    background: #FFFFFF;
+    border-color: var(--cl-rim-color);
+    box-shadow: var(--cl-shadow);
+}
+
+/* The workspace panel is part of the chat shell: previews are paper, the
+   tree keeps its own hairlines. */
+html:not(.dark) #view-chat #workspace-panel {
+    background: var(--cl-paper);
+    border-left: 1.5px solid var(--cl-line);
+}
+
+html:not(.dark) #view-chat .workspace-tab.active {
+    background: var(--cl-accent-soft);
+    border-color: var(--cl-rim-color);
+    color: var(--cl-ink);
+}
+
+html:not(.dark) #view-chat .workspace-search {
+    background: #FFFFFF;
+    border: 1.5px solid var(--cl-rim-color);
+    border-radius: var(--cl-radius-sm);
+}
+
+/* The session history panel is chat-only chrome: style it with the same
+   paper so the column does not read as a patch of another product. */
+html:not(.dark) #session-panel {
+    background: var(--cl-paper);
+    border-right: 1.5px solid var(--cl-line);
+}
+
+html:not(.dark) #session-panel .session-panel-new {
+    background: var(--cl-accent-soft);
+    border: 1.5px solid var(--cl-rim-color);
+    border-radius: var(--cl-radius-sm);
+    color: var(--cl-ink);
+    font-weight: 700;
+    box-shadow: var(--cl-shadow-sm);
+}
+
+html:not(.dark) #session-panel .session-item {
+    border-radius: 10px;
+}
+
+html:not(.dark) #session-panel .session-item:hover {
+    background: var(--cl-bg);
+}
+
+html:not(.dark) #session-panel .session-item.active {
+    background: var(--cl-accent-soft);
+    border: 1.5px solid var(--cl-rim-color);
+}
+
+html:not(.dark) #session-panel .session-group-label {
+    color: var(--cl-ink-3);
+    font-weight: 700;
+}
+
+/* =====================================================================
+   Modals owned by these pages (rendered outside .view)
+   ===================================================================== */
+html:not(.dark) #knowledge-dialog-card,
+html:not(.dark) #mcp-editor-overlay > div,
+html:not(.dark) #skill-add-overlay > div,
+html:not(.dark) .view:not(.tw-view) .agent-modal .agent-modal-card,
+html:not(.dark) #team-chat-modal .agent-modal-card {
+    background: var(--cl-paper);
+    border: var(--cl-rim);
+    border-radius: var(--cl-radius);
+    box-shadow: 6px 6px 0 rgba(45, 55, 72, 0.18);
+}
+
+html:not(.dark) #mcp-editor-overlay .cap-tabs,
+html:not(.dark) #skill-add-overlay .cap-tabs {
+    background: #FFFFFF;
+    border: 1.5px solid var(--cl-rim-color);
+    border-radius: 14px;
+}
+
+html:not(.dark) #mcp-editor-overlay .cap-tab.active,
+html:not(.dark) #skill-add-overlay .cap-tab.active {
+    background: var(--cl-accent-soft);
+    border-color: var(--cl-rim-color);
+    color: var(--cl-ink);
+    box-shadow: none;
+}
+
+html:not(.dark) #knowledge-dialog-label,
+html:not(.dark) #mcp-editor-overlay .cap-label,
+html:not(.dark) #skill-add-overlay .cap-label {
+    color: var(--cl-ink-2);
+    font-weight: 700;
+}

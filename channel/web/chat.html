@@ -75,6 +75,12 @@
     <link rel="stylesheet" href="/assets/css/board.css">
     <link rel="stylesheet" href="/assets/css/teaching.css">
     <link rel="stylesheet" href="/assets/css/teaching2.css">
+    <!-- Legacy console pages (knowledge, agents, config, skills, memory,
+         channels, chat): the same clay skin the teaching views wear. Every
+         rule is scoped to `html:not(.dark) .view:not(.tw-view)`, so dark
+         theme and the teaching views keep their own look. Must stay last:
+         it overrides the utility classes it restyles. -->
+    <link rel="stylesheet" href="/assets/css/clay-legacy.css">
     <!-- Apply theme/lang before first paint to avoid flash of unstyled content.
          This runs synchronously in <head> so the correct class is on <html>
          before any CSS or body rendering occurs. -->

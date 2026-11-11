@@ -155,17 +155,17 @@ const MemoryPage: React.FC<MemoryPageProps> = ({ baseUrl }) => {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="clay-legacy flex-1 flex flex-col min-h-0">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 pt-5 pb-3 flex-shrink-0">
+      <div className="clay-head flex items-center justify-between px-6 pt-5 pb-3 flex-shrink-0">
         <div>
-          <h2 className="text-xl font-bold text-content">{t('memory_title')}</h2>
-          <p className="text-xs text-content-tertiary mt-1">{t('memory_desc')}</p>
+          <h2 className="clay-head-title text-xl font-bold text-content">{t('memory_title')}</h2>
+          <p className="clay-head-desc text-xs text-content-tertiary mt-1">{t('memory_desc')}</p>
         </div>
         {!doc && (
           <div className="flex items-center gap-3">
             <AgentScopeSelect value={viewingAgentId} onChange={setScope} />
-            <div className="flex items-center gap-1 bg-inset-2 rounded-btn p-0.5">
+            <div className="clay-tabs flex items-center gap-1 bg-inset-2 rounded-btn p-0.5">
               <TabBtn icon={Brain} label={t('memory_tab_files')} active={tab === 'files'} onClick={() => void switchTab('files')} />
               <TabBtn
                 icon={Sprout}
@@ -233,13 +233,13 @@ const MemoryPage: React.FC<MemoryPageProps> = ({ baseUrl }) => {
                 {t('memory_loading')}
               </div>
             ) : items.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-content-tertiary">
+              <div className="flex flex-col items-center justify-center py-20 text-content-tertiary clay-empty">
                 {tab === 'evolution' ? <Sprout size={28} className="mb-3 opacity-60" /> : <Brain size={28} className="mb-3 opacity-60" />}
                 <p className="text-sm">{tab === 'evolution' ? t('memory_empty_evolution') : t('memory_empty_files')}</p>
               </div>
             ) : (
               <>
-                <div className="rounded-card border border-default overflow-hidden bg-surface">
+                <div className="rounded-card border border-default overflow-hidden bg-surface clay-card clay-table">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-default">
@@ -314,8 +314,8 @@ const TabBtn: React.FC<{ icon: LucideIcon; label: string; active: boolean; onCli
 }) => (
   <button
     onClick={onClick}
-    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-sm font-medium cursor-pointer transition-colors ${
-      active ? 'bg-elevated dark:bg-white/10 text-content shadow-sm' : 'text-content-tertiary hover:text-content-secondary'
+    className={`clay-tab inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-sm font-medium cursor-pointer transition-colors ${
+      active ? 'clay-tab-on bg-elevated dark:bg-white/10 text-content shadow-sm' : 'text-content-tertiary hover:text-content-secondary'
     }`}
   >
     <Icon size={14} />

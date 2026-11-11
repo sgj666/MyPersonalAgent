@@ -1153,3 +1153,30 @@
   color: var(--twb-ink-2);
   resize: vertical;
 }
+
+/* The rail, in the same language as the teaching pages: cream paper, an ink
+   outer edge and a pastel pill for the current destination. Light theme only;
+   the dark theme keeps its own solid rail. */
+html:not(.dark) .nav-rail {
+  background: #fffdf8;
+}
+html:not(.dark) .nav-rail div.border-r {
+  border-right: 2px solid #2d3748;
+}
+html:not(.dark) .nav-rail div.border-b {
+  border-bottom-color: #e7e0d3;
+}
+html:not(.dark) .nav-rail button {
+  border-radius: 12px;
+}
+html:not(.dark) .nav-rail button:hover {
+  background: #fff1e8 !important;
+  color: #2d3748 !important;
+}
+html:not(.dark) .nav-rail button[class*="bg-accent-soft"] {
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 2px #2d3748, 2px 2px 0 rgba(45, 55, 72, .14);
+}
+html:not(.dark) .nav-rail button[class*="bg-accent-soft"]:hover {
+  background: #d1fae5 !important;
+}

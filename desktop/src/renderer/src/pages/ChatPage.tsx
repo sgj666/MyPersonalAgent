@@ -470,7 +470,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ baseUrl }) => {
   }, [messages])
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 relative">
+    <div className="clay-legacy flex flex-col flex-1 min-h-0 relative">
       {!isEmpty && (
         <ChatTimeline sessionId={activeId} scrollRef={scrollRef} revision={timelineRevision} />
       )}

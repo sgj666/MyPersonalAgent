@@ -712,16 +712,16 @@ const KnowledgePage: React.FC<KnowledgePageProps> = ({ baseUrl }) => {
 
   if (isEmpty) {
     return (
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="clay-legacy flex-1 flex flex-col min-h-0">
         {/* Keep the header (and the Agent scope picker) so switching away from an
             empty Agent's base is still possible. */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-3 flex-shrink-0">
+        <div className="clay-head flex items-center justify-between px-6 pt-5 pb-3 flex-shrink-0">
           <div>
-            <h2 className="text-xl font-bold text-content">{t('knowledge_title')}</h2>
+            <h2 className="clay-head-title text-xl font-bold text-content">{t('knowledge_title')}</h2>
           </div>
           <AgentScopeSelect value={viewingAgentId} onChange={(id) => void setScope(id)} />
         </div>
-        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center border-t border-default">
+        <div className="clay-empty flex-1 flex flex-col items-center justify-center px-6 text-center border-t border-default">
           <div className="w-14 h-14 rounded-2xl bg-accent-soft text-accent flex items-center justify-center mb-5">
             <Files size={26} />
           </div>
@@ -742,12 +742,12 @@ const KnowledgePage: React.FC<KnowledgePageProps> = ({ baseUrl }) => {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="clay-legacy flex-1 flex flex-col min-h-0">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 pt-5 pb-3 flex-shrink-0">
+      <div className="clay-head flex items-center justify-between px-6 pt-5 pb-3 flex-shrink-0">
         <div>
-          <h2 className="text-xl font-bold text-content">{t('knowledge_title')}</h2>
-          <p className="text-xs text-content-tertiary mt-1">{statsLabel}</p>
+          <h2 className="clay-head-title text-xl font-bold text-content">{t('knowledge_title')}</h2>
+          <p className="clay-head-desc text-xs text-content-tertiary mt-1">{statsLabel}</p>
         </div>
         <div className="flex items-center gap-2">
           {status && (
@@ -761,7 +761,7 @@ const KnowledgePage: React.FC<KnowledgePageProps> = ({ baseUrl }) => {
             </span>
           )}
           <AgentScopeSelect value={viewingAgentId} onChange={(id) => void setScope(id)} />
-          <div className="flex items-center gap-1 bg-inset-2 rounded-btn p-0.5">
+          <div className="clay-tabs flex items-center gap-1 bg-inset-2 rounded-btn p-0.5">
             <TabBtn
               icon={Files}
               label={t('knowledge_tab_docs')}
@@ -801,7 +801,7 @@ const KnowledgePage: React.FC<KnowledgePageProps> = ({ baseUrl }) => {
 
       {tab === 'docs' ? (
         <div
-          className="flex-1 flex min-h-0 border-t border-default relative"
+          className="clay-card clay-split flex-1 flex min-h-0 border-t border-default relative"
           onDragEnter={(e) => {
             if (e.dataTransfer?.types?.includes('Files')) {
               e.preventDefault()
@@ -981,7 +981,7 @@ const NewMenu: React.FC<{
         <ChevronDown size={12} className="opacity-80" />
       </button>
       {open && (
-        <div className="absolute right-0 mt-1.5 w-44 z-50 bg-surface border border-default rounded-lg shadow-lg py-1">
+        <div className="clay-menu absolute right-0 mt-1.5 w-44 z-50 bg-surface border border-default rounded-lg shadow-lg py-1">
           <MenuItem icon={FolderPlus} label={t('knowledge_new_category')} onClick={() => pick(onCreateCategory)} />
           <MenuItem icon={FilePlus2} label={t('knowledge_new_document')} onClick={() => pick(onCreateDocument)} />
           <MenuItem icon={Upload} label={t('knowledge_import_documents')} onClick={() => pick(onImport)} />
@@ -998,7 +998,7 @@ const MenuItem: React.FC<{ icon: LucideIcon; label: string; onClick: () => void 
 }) => (
   <button
     onClick={onClick}
-    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-content-secondary hover:bg-surface-2 cursor-pointer transition-colors text-left"
+    className="clay-menu-item w-full flex items-center gap-2.5 px-3 py-2 text-sm text-content-secondary hover:bg-surface-2 cursor-pointer transition-colors text-left"
   >
     <Icon size={14} className="opacity-70 flex-shrink-0" />
     {label}
@@ -1120,7 +1120,7 @@ const KnowledgeDialog: React.FC<{
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4" onMouseDown={onClose}>
       <div
-        className="w-full max-w-lg bg-surface border border-default rounded-xl shadow-xl p-5"
+        className="clay-modal w-full max-w-lg bg-surface border border-default rounded-xl shadow-xl p-5"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <h3 className="text-base font-semibold text-content mb-1">{titleMap[state.kind]}</h3>
@@ -1279,7 +1279,7 @@ const CategorySelect: React.FC<{ value: string; options: string[]; onChange: (v:
         />
       </button>
       {open && (
-        <div className="absolute left-0 right-0 top-full mt-1 z-50 max-h-60 overflow-y-auto bg-surface border border-default rounded-lg shadow-lg p-1">
+        <div className="clay-menu absolute left-0 right-0 top-full mt-1 z-50 max-h-60 overflow-y-auto bg-surface border border-default rounded-lg shadow-lg p-1">
           {options.map((opt) => (
             <button
               key={opt}
@@ -1309,8 +1309,8 @@ const TabBtn: React.FC<{
 }> = ({ icon: Icon, label, active, onClick }) => (
   <button
     onClick={onClick}
-    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-sm font-medium cursor-pointer transition-colors ${
-      active ? 'bg-elevated dark:bg-white/10 text-content shadow-sm' : 'text-content-tertiary hover:text-content-secondary'
+    className={`clay-tab inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-sm font-medium cursor-pointer transition-colors ${
+      active ? 'clay-tab-on bg-elevated dark:bg-white/10 text-content shadow-sm' : 'text-content-tertiary hover:text-content-secondary'
     }`}
   >
     <Icon size={14} />

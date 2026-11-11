@@ -221,7 +221,7 @@ const NavRail: React.FC<NavRailProps> = ({ onLangChange }) => {
   }
 
   return (
-    <aside className={`${width} flex flex-col flex-shrink-0 h-full bg-base transition-[width] duration-200`}>
+    <aside className={`nav-rail ${width} flex flex-col flex-shrink-0 h-full bg-base transition-[width] duration-200`}>
       {/* Top: full-width drag strip; bottom border continues the header divider
           across the whole window. No right border so it doesn't cut the lights.
           On Windows/Linux the top-left corner is empty (no traffic lights), so
