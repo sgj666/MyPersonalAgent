@@ -164,7 +164,7 @@ def _registered_views():
     return re.findall(r"^\s+(\w+):\s*\{", block.group(1), re.M)
 
 
-def test_the_menu_opens_on_the_workbench_with_home_before_chat():
+def test_the_menu_opens_on_the_daily_group_with_home_before_chat():
     groups = _default_groups()
     assert [gid for gid, _ in groups][:2] == ["daily", "chat"]
     assert groups[0][1] == ["home"]
@@ -182,7 +182,7 @@ def test_agents_and_tasks_are_registered_but_out_of_the_default_menu():
     assert {"agents", "tasks", "home", "config"} <= registered
 
 
-def test_the_workbench_group_and_home_page_are_named_in_every_language():
+def test_the_daily_group_and_home_page_are_named_in_every_language():
     with open(I18N_JS, encoding="utf-8") as f:
         i18n = f.read()
     # One entry per language table (zh, zh-Hant, en).
