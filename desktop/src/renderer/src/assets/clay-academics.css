@@ -1253,7 +1253,7 @@ html:not(.dark) #twb-home {
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(288px, 336px);
   grid-template-rows: auto auto;
   gap: 14px;
-  align-items: stretch;
+  align-items: start;
 }
 
 #twb-home .twb-home-cell {
