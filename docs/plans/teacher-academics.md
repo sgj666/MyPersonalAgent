@@ -57,3 +57,28 @@
 - 后端：`tests/test_teaching_*` 覆盖存储、校验、跨租户、统计口径（缺考不计入、分项满分校验、平行班对比）。
 - 前端：`npm run build`（桌面）/ 控制台资产测试（Web）；真实服务冒烟：建班 → 导入 10 名学生 → 排一节课 → 记一次作业 → 建一次考试录分 → 分析返回合理数字。
 - 菜单：两组客户端均按 §1 渲染，组不可折叠。
+
+---
+
+## 6 实施记录（第二期）
+
+### 6.1 已落地
+
+- **数据层** `agent/teaching/`：7 个 JSON（classes/students/timetable/progress/homework/exams/scores），原子写 + 文件锁，租户隔离；删除班级级联清理学生、课表槽位、进度、作业与考试
+- **分析** `analysis.py`：及格 60% / 优秀 85% / 低分 40%，缺考不计；班级与分项得分率、临界生（线下方 5 分带）、平行班、同科历次趋势
+- **接口** `/api/teaching/*` 共 10 条，已扁平化并入 `web.py URLS`（注意：web.py 只接受扁平 pattern/handler 对）
+- **Web 控制台**：班级与学生 / 课表 / 教学进度 / 作业 / 成绩 五个视图，真实接口；菜单按 §1 重排且**组不可折叠**；非聊天视图不再显示历史会话栏
+- **桌面客户端**：同样五页（React），路由 `/classes` `/timetable` `/progress` `/homework` `/scores`，菜单同 IA；`npm run build` 通过
+
+### 6.2 验收
+
+- `tests/test_teaching_store|api|analysis.py` → 24 passed
+- `scripts/teacher_smoke.py` → 21 项全过（新增：建班 → 导入 10 人 → 写课表 → 作业+逐人状态 → 建考试（分项）→ 整班录分 → 分析）
+- Web 控制台：`test_web_console_assets/routing/menu` 41 passed（唯一失败为既有的子进程缺 web.py）
+- 桌面：renderer+main 构建通过；`tsc --noEmit` 仅剩 9 个既有 ChannelsPage 类型报错
+- 浏览器/CDP 实测：`/classes`、`/timetable` 等页面渲染，菜单分组与顺序正确，侧栏无折叠箭头
+
+### 6.3 说明
+
+- 桌面端 i18n 仅 zh/en（无繁体）；教学工具在桌面端为「预填输入框」，Web 端为直接发送
+- 演示用的测试班级/考试已从 `~/cow` 真实工作区清理
