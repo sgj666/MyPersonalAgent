@@ -33,7 +33,7 @@ MARKER_START = "<!-- teacher-profile:start -->"
 MARKER_END = "<!-- teacher-profile:end -->"
 
 #: How long a greeting may wait for the model before the fixed pool answers.
-MODEL_TIMEOUT = 6.0
+MODEL_TIMEOUT = 4.0
 
 #: Sentences used when no model is configured, when it fails, or when its
 #: answer is unusable. Each one is 18-30 characters, like the generated ones.
@@ -160,6 +160,8 @@ def _split_motives(raw: str) -> List[str]:
     lines = []
     for line in (raw or "").splitlines():
         text = re.sub(r"^\s*(?:\d+[.、)]|[-*•])\s*", "", line).strip().strip('"“”')
+        # A model that numbers inline leaves a trailing "2" behind.
+        text = re.sub(r"\s+\d{1,2}[.、)]?\s*$", "", text).strip()
         if len(text) >= 8:
             lines.append(text)
     return lines[:3]
@@ -229,7 +231,22 @@ def motto_from_model(profile: dict, day: date, lessons: List[dict]) -> str:
             "role": "user",
             "content": _motto_prompt(profile, day, lessons),
         }]
-        result = Bridge().get_bot("chat").reply_text(session) or {}
+        bot = Bridge().get_bot("chat")
+        # This is a one-line flourish, not a reasoning task: thinking mode adds
+        # seconds of latency and burns the token budget before the answer starts.
+        args = dict(getattr(bot, "args", {}) or {})
+        supports = getattr(bot, "_model_supports_thinking", None)
+        try:
+            if callable(supports) and supports(str(args.get("model", ""))):
+                args["thinking"] = {"type": "disabled"}
+                args.pop("reasoning_effort", None)
+        except Exception:
+            pass
+        try:
+            result = bot.reply_text(session, args=args) or {}
+        except TypeError:
+            # Providers whose reply_text has no args parameter.
+            result = bot.reply_text(session) or {}
         if (result.get("completion_tokens", 0) or 0) <= 0:
             return ""
         return str(result.get("content") or "")

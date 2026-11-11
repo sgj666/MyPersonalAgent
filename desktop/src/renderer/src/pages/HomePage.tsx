@@ -326,7 +326,11 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
     if (mottoBusy) return
     setMottoBusy(true)
     try {
-      setGreeting(await apiClient.getTeachingGreeting(true))
+      // A slow model must not leave the button spinning forever: keep the lines
+      // already on screen and stop after eight seconds.
+      const timeout = new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 8000))
+      const fresh = await Promise.race([apiClient.getTeachingGreeting(true), timeout])
+      if (fresh) setGreeting(fresh)
     } catch {
       // Keep the line already on screen; the next load asks again.
     } finally {
