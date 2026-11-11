@@ -120,12 +120,12 @@
 
 /* ---------- hero ---------- */
 .twb-hero {
+  background: linear-gradient(120deg, #fff1e4 0%, #e9f8ef 58%, #eaf4fd 100%);
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 24px;
   flex-wrap: wrap;
-  background: var(--twb-card-c);
   border: 1px solid var(--twb-rim);
   border-radius: 20px;
   box-shadow: var(--twb-shadow);
@@ -691,7 +691,6 @@
   justify-content: space-between;
   gap: 18px;
   flex-wrap: wrap;
-  background: var(--twb-card-c);
   border: 1px solid var(--twb-rim);
   border-radius: 20px;
   box-shadow: var(--twb-shadow);
