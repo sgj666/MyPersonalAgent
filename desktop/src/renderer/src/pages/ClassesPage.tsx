@@ -281,10 +281,23 @@ const ClassesPage: React.FC<ClassesPageProps> = ({ baseUrl }) => {
   const importStudents = async () => {
     if (!selected || !paste.rows.length) return
     try {
-      await apiClient.importTeachingStudents(selected.id, paste.rows)
+      const report = await apiClient.importTeachingStudents(selected.id, paste.rows)
       setPasteOpen(false)
       setPasteText('')
-      setStatus(tf('tw_classes_imported', { n: paste.rows.length, name: selected.name }))
+      const done = report.imported + report.updated
+      const skipped = report.failed.length
+      setStatus(
+        tf('tw_classes_imported', { n: done, name: selected.name }) +
+          (skipped
+            ? ` · ${tf('tw_classes_import_failed', {
+                n: skipped,
+                rows: report.failed
+                  .map((row) => `${row.row}: ${row.reason}`)
+                  .slice(0, 5)
+                  .join('; '),
+              })}`
+            : '')
+      )
       await loadStudents(selected.id)
     } catch (err) {
       setStatus(tf('tw_save_failed', { msg: errorText(err) }))

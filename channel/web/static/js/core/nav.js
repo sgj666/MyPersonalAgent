@@ -56,6 +56,12 @@ function _switchToView(viewId) {
     // The Agent detail is a fixed drawer, so it would otherwise hang over
     // whatever view you navigate to. It only belongs to the Agent Team page.
     if (viewId !== 'agents') closeAgentDetail();
+    // The history panel belongs to the chat view; on every other view it is
+    // just an empty column of chrome. skipPersist keeps the chat preference.
+    if (viewId !== 'chat' && viewId !== 'agents'
+        && typeof sessionPanelOpen !== 'undefined' && sessionPanelOpen) {
+        closeSessionPanel(true);
+    }
     if (viewId === 'agents') {
         // The team page is a wide two-pane workbench; the history panel on top
         // of it would leave the detail cramped. Tuck it away on entry and put it

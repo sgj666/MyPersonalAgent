@@ -361,9 +361,10 @@ async function twClsSubmitClass(event) {
     try {
         await twAcadJSON('/api/teaching/classes', id ? 'PATCH' : 'POST', body);
         document.getElementById('class-dialog').classList.add('hidden');
-        twAcadStatus('classes-status', t(id ? 'tw_c_saved' : 'tw_cls_class_created'));
         if (!id) twClsSelected = '';
+        // Reload first: the loader clears the status line before it fetches.
         await twClsLoad();
+        twAcadStatus('classes-status', t(id ? 'tw_c_saved' : 'tw_cls_class_created'));
     } catch (err) {
         twAcadFail('class-dialog-status', err);
     }

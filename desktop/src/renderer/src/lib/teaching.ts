@@ -2,6 +2,7 @@
 // the small formatting rules the five views share. No React, no network — a
 // page keeps only what is specific to it.
 import type {
+  HomeworkKind,
   HomeworkState,
   TeachingStudentInput,
   TimetableKind,
@@ -10,13 +11,21 @@ import type {
 } from '../types'
 
 export const TIMETABLE_KINDS: TimetableKind[] = [
-  'lesson',
+  'regular',
   'morning',
-  'tutorial',
+  'tutor',
   'evening',
   'after_school',
   'research',
   'duty',
+]
+
+export const HOMEWORK_KINDS: HomeworkKind[] = [
+  'practice',
+  'paper',
+  'preview',
+  'project',
+  'correction',
 ]
 
 export const HOMEWORK_STATES: HomeworkState[] = ['submitted', 'excellent', 'fix', 'missing']
@@ -343,11 +352,10 @@ export function computePace(items: { planned_periods: number; taught_periods: nu
 // Formatting
 // ---------------------------------------------------------
 
-/** A ratio as a percent, tolerating a backend that already sends 0–100. */
+/** The store reports rates as percentages already (0–100, two decimals). */
 export function percentText(value: number | null | undefined): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return '—'
-  const pct = value <= 1 ? value * 100 : value
-  return `${Math.round(pct * 10) / 10}%`
+  return `${Math.round(value * 10) / 10}%`
 }
 
 /** One decimal, or an em dash for a value that isn't there. */

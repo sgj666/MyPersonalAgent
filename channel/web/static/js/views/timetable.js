@@ -7,7 +7,8 @@
    channel/web/README.md before changing the load order. */
 
 const TW_TT_WEEKDAYS = [1, 2, 3, 4, 5];
-const TW_TT_KINDS = ['normal', 'morning', 'tutor', 'evening', 'after', 'research', 'duty'];
+// The store's enum (agent/teaching/store.py TIMETABLE_KINDS); labels are ours.
+const TW_TT_KINDS = ['regular', 'morning', 'tutor', 'evening', 'after_school', 'research', 'duty'];
 const TW_TT_DEFAULT_PERIODS = [
     { start: '08:00', end: '08:40' },
     { start: '08:50', end: '09:30' },
@@ -129,7 +130,7 @@ function twTtRenderGrid() {
             const cells = TW_TT_WEEKDAYS.map(w => {
                 const slot = twTtSlotAt(w, p);
                 const cls = slot ? twTtClassName(slot.class_id) : '';
-                const kind = slot ? (slot.kind || 'normal') : '';
+                const kind = slot ? (slot.kind || 'regular') : '';
                 const label = [twTtWeekLabel(w), t('tw_tt_period_n').replace('{n}', String(p)), cls].join(' ');
                 if (!slot) {
                     return `<td class="tw-tt-td"><button type="button" class="tw-tt-cell is-empty"
@@ -167,7 +168,7 @@ function twTtRenderStats() {
     if (!el) return;
     const rows = twTtClasses.map(cls => {
         const own = twTtData.slots.filter(s => s.class_id === cls.id);
-        const normal = own.filter(s => (s.kind || 'normal') === 'normal').length;
+        const normal = own.filter(s => (s.kind || 'regular') === 'regular').length;
         return { cls: cls, total: own.length, normal: normal, other: own.length - normal };
     }).sort((a, b) => b.total - a.total || String(a.cls.name || '').localeCompare(String(b.cls.name || ''), 'zh'));
 
@@ -176,7 +177,7 @@ function twTtRenderStats() {
         return;
     }
     el.innerHTML = `<div class="tw-table-wrap"><table class="tw-table tw-tt-stats-table">
-        <thead><tr><th>${escapeHtml(t('tw_c_class'))}</th><th>${escapeHtml(t('tw_tt_kind_normal'))}</th>
+        <thead><tr><th>${escapeHtml(t('tw_c_class'))}</th><th>${escapeHtml(t('tw_tt_kind_regular'))}</th>
             <th>${escapeHtml(t('tw_tt_other'))}</th><th>${escapeHtml(t('tw_tt_hours'))}</th></tr></thead>
         <tbody>${rows.map(row => `<tr${row.total ? '' : ' class="is-muted"'}>
             <td>${escapeHtml(row.cls.name || '')}</td>
@@ -301,7 +302,7 @@ function twTtOpenCell(weekday, period) {
     twTtRenderClassOptions(slot ? slot.class_id : '');
     twTtRenderSubjectOptions();
     document.getElementById('tt-subject').value = slot ? (slot.subject || '') : '';
-    document.getElementById('tt-kind').value = slot ? (slot.kind || 'normal') : 'normal';
+    document.getElementById('tt-kind').value = slot ? (slot.kind || 'regular') : 'regular';
     document.getElementById('tt-mode').value = 'fixed';
     document.getElementById('tt-date').value = twAcadToday();
     const where = document.getElementById('tt-dialog-where');
@@ -342,7 +343,7 @@ async function twTtSubmit(event) {
     if (!twTtCell) return;
     const classId = (document.getElementById('tt-class') || {}).value || '';
     const subject = (document.getElementById('tt-subject') || {}).value.trim();
-    const kind = (document.getElementById('tt-kind') || {}).value || 'normal';
+    const kind = (document.getElementById('tt-kind') || {}).value || 'regular';
     const mode = (document.getElementById('tt-mode') || {}).value || 'fixed';
     if (!classId) {
         twAcadStatus('tt-dialog-status', t('tw_tt_pick_class'), true);
@@ -399,7 +400,7 @@ async function twTtCancelSlot() {
     }
     twTtData.overrides.push({
         date: date, period: twTtCell.period, class_id: classId,
-        subject: '', kind: 'normal', state: 'cancelled',
+        subject: '', kind: 'regular', state: 'cancelled',
     });
     twTtCloseDialog();
     twTtRender();

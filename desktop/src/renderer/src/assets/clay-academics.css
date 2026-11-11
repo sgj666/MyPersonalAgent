@@ -611,7 +611,7 @@
   color: var(--twb-ink-2);
 }
 
-.twb-kind-lesson {
+.twb-kind-regular {
   background: var(--twb-accent-soft);
   color: var(--twb-accent-hover);
   border-color: var(--twb-accent);
@@ -622,7 +622,7 @@
   color: #8a6100;
 }
 
-.twb-kind-tutorial {
+.twb-kind-tutor {
   background: #dbeafe;
   color: #1e4a8a;
 }
@@ -648,7 +648,7 @@
 }
 
 .dark .twb-kind-morning,
-.dark .twb-kind-tutorial,
+.dark .twb-kind-tutor,
 .dark .twb-kind-evening,
 .dark .twb-kind-after_school,
 .dark .twb-kind-research,

@@ -1449,11 +1449,11 @@ export interface TimetablePeriod {
   end: string
 }
 
-/** 正课 / 早读 / 辅导 / 晚自习 / 课后服务 / 教研 / 值班 */
+/** 正课 / 早读 / 辅导 / 晚自习 / 课后服务 / 教研 / 值班 (the store's keys). */
 export type TimetableKind =
-  | 'lesson'
+  | 'regular'
   | 'morning'
-  | 'tutorial'
+  | 'tutor'
   | 'evening'
   | 'after_school'
   | 'research'
@@ -1507,6 +1507,9 @@ export interface ProgressFields {
   order?: number
 }
 
+/** 练习 / 试卷 / 预习 / 项目 / 订正 (the store's keys). */
+export type HomeworkKind = 'practice' | 'paper' | 'preview' | 'project' | 'correction'
+
 /** submitted 已交 · excellent 优秀 · fix 待订正 · missing 未交 */
 export type HomeworkState = 'submitted' | 'excellent' | 'fix' | 'missing'
 
@@ -1514,7 +1517,7 @@ export interface HomeworkItem {
   id: string
   class_ids: string[]
   title: string
-  kind: string
+  kind: HomeworkKind
   /** `YYYY-MM-DD`. */
   due: string
   created_at: string
@@ -1523,7 +1526,7 @@ export interface HomeworkItem {
 export interface HomeworkFields {
   class_ids?: string[]
   title?: string
-  kind?: string
+  kind?: HomeworkKind
   due?: string
 }
 
@@ -1566,50 +1569,81 @@ export interface ScoreEntry {
   items: Record<string, number | null>
 }
 
-/** `by_exam[exam_id][student_id]`. */
-export interface TeachingScores {
-  by_exam: Record<string, Record<string, ScoreEntry>>
-}
-
+/**
+ * The exam-level statistics (agent/teaching/analysis.py). Rates are
+ * percentages (0–100); every value is null when nobody sat the paper, so the
+ * page prints an em dash rather than a fake zero.
+ */
 export interface AnalysisSummary {
-  /** Students counted (缺考 excluded from the averages). */
-  count: number
-  average: number
-  /** 0–1. */
-  pass_rate: number
-  excellent_rate: number
-  stddev: number
-  full_score?: number
-  pass_score?: number
-  excellent_score?: number
-  missing?: number
+  exam_id: string
+  name: string
+  date: string
+  subject: string
+  full_score: number
+  class_ids: string[]
+  class_id: string | null
+  pass_line: number
+  excellent_line: number
+  low_line: number
+  /** Everyone on the exam's rosters. */
+  students: number
+  /** 缺考: no record, or every item null. */
+  absent: number
+  /** 参考人数: the students the averages are computed from. */
+  scored: number
+  average: number | null
+  pass_rate: number | null
+  excellent_rate: number | null
+  low_rate: number | null
+  stddev: number | null
+  max: number | null
+  min: number | null
 }
 
 export interface AnalysisClassRow {
   class_id: string
-  name: string
-  count: number
-  average: number
-  pass_rate: number
-  excellent_rate: number
-  stddev: number
+  class_name: string
+  students: number
+  absent: number
+  scored: number
+  average: number | null
+  pass_rate: number | null
+  excellent_rate: number | null
+  low_rate: number | null
+  stddev: number | null
+  max: number | null
+  min: number | null
 }
 
 export interface AnalysisItemRow {
   key: string
   label: string
   full: number
-  average: number
-  /** 得分率, 0–1. */
-  rate: number
+  scored: number
+  absent: number
+  average: number | null
+  /** 得分率, 0–100. */
+  rate: number | null
+  by_class?: Array<{
+    class_id: string
+    class_name: string
+    scored: number
+    absent: number
+    average: number | null
+    rate: number | null
+  }>
 }
 
-/** 临界生: total within `gap` points below the pass line. */
+/** 临界生: within 5 points below the pass or excellent line. */
 export interface AnalysisCriticalRow {
   student_id: string
   name: string
+  no: string
   class_id: string
+  class_name: string
   total: number
+  kind: 'pass' | 'excellent'
+  line: number
   gap: number
 }
 
@@ -1618,13 +1652,21 @@ export interface AnalysisTrendPoint {
   name: string
   date: string
   total: number | null
+  absent: boolean
 }
 
 export interface AnalysisStudentRow {
   student_id: string
   name: string
+  no: string
   class_id: string
-  trend: AnalysisTrendPoint[]
+  class_name: string
+  total: number | null
+  absent: boolean
+  /** Every exam of the same subject this student sat, oldest first. */
+  exams: AnalysisTrendPoint[]
+  /** The same series as bare totals, for a quick chart. */
+  trend: Array<number | null>
 }
 
 /** GET /api/teaching/analysis?exam_id=&class_id= */

@@ -71,8 +71,8 @@ const ExamDialog: React.FC<{
       setError(t('tw_sc_pick_class'))
       return
     }
-    if (itemsMismatch) {
-      setError(tf('tw_sc_items_mismatch', { sum: itemTotal, full }))
+    if (items.some((item) => !(Number(item.full) > 0))) {
+      setError(t('tw_sc_item_full'))
       return
     }
     setSaving(true)
@@ -380,15 +380,17 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
       })
   }, [classId])
 
+  // The report spans every class of the exam, so the parallel-class table is
+  // real rather than a single row of the class the entry grid happens to show.
   useEffect(() => {
-    if (view !== 'analysis' || !selectedExam || !classId) return
-    const key = `${selectedExam.id}|${classId}`
+    if (view !== 'analysis' || !selectedExam) return
+    const key = selectedExam.id
     if (analysisKey === key) return
     let cancelled = false
     setAnalysisLoading(true)
     setAnalysisError('')
     apiClient
-      .getTeachingAnalysis(selectedExam.id, classId)
+      .getTeachingAnalysis(selectedExam.id)
       .then((data) => {
         if (cancelled) return
         setAnalysis(data)
@@ -403,7 +405,7 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
     return () => {
       cancelled = true
     }
-  }, [view, selectedExam, classId, analysisKey])
+  }, [view, selectedExam, analysisKey])
 
   const itemColumns = selectedExam?.items || []
   const columns = itemColumns.length
@@ -435,8 +437,12 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
     const full = column === Column.total ? selectedExam.full_score : itemColumns.find((item) => item.key === column)?.full || 0
     const parsed = raw.trim() === '' ? null : parseScoreCell(raw)
     const value = parsed === null ? null : Math.max(0, Math.min(full, parsed))
-    if (column === Column.total) entry.total = value
-    else {
+    if (column === Column.total) {
+      // An itemised paper's total is the sum of its parts (the store recomputes
+      // it on save), so a pasted total must not create a second version of it.
+      if (itemColumns.length) return next
+      entry.total = value
+    } else {
       entry.items[column] = value
       entry.total = itemsTotal(entry.items)
     }
@@ -499,22 +505,23 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
   const save = async () => {
     if (!selectedExam || !classId || saving) return
     setSaving(true)
+    // The store replaces the exam's whole block, so send every recorded
+    // student — including the other classes of a shared exam — and let a
+    // student with no entry stay unrecorded.
     const payload: Record<string, ScoreEntry> = {}
-    students.forEach((student) => {
-      const entry = scores[student.id]
-      if (!entry) return
+    Object.entries(scores).forEach(([studentId, entry]) => {
       if (itemColumns.length) {
         const items: Record<string, number | null> = {}
         itemColumns.forEach((item) => {
           items[item.key] = entry.items?.[item.key] ?? null
         })
-        payload[student.id] = { total: entry.total, items }
+        payload[studentId] = { total: entry.total, items }
       } else {
-        payload[student.id] = { total: entry.total, items: {} }
+        payload[studentId] = { total: entry.total, items: {} }
       }
     })
     try {
-      await apiClient.saveTeachingScores(selectedExam.id, classId, payload)
+      await apiClient.saveTeachingScores(selectedExam.id, payload)
       setStatus(tf('tw_sc_saved', { n: Object.keys(payload).length }))
       setAnalysisKey('')
     } catch (err) {
@@ -816,7 +823,8 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
                         <div className="twb-stats">
                           <div className="twb-stat">
                             <span>{t('tw_an_count')}</span>
-                            <b>{analysis.summary.count}</b>
+                            <b>{analysis.summary.scored}</b>
+                            <small>{tf('tw_an_absent_n', { n: analysis.summary.absent })}</small>
                           </div>
                           <div className="twb-stat">
                             <span>{t('tw_an_average')}</span>
@@ -853,8 +861,8 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
                               <tbody>
                                 {analysis.by_class.map((row) => (
                                   <tr key={row.class_id}>
-                                    <td>{row.name}</td>
-                                    <td className="is-num">{row.count}</td>
+                                    <td>{row.class_name}</td>
+                                    <td className="is-num">{row.students}</td>
                                     <td className="is-num">{numberText(row.average)}</td>
                                     <td className="is-num">{percentText(row.pass_rate)}</td>
                                     <td className="is-num">{percentText(row.excellent_rate)}</td>
@@ -886,7 +894,7 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
                                     <td className="is-num">{numberText(item.average)}</td>
                                     <td>
                                       <div className="twb-progress-bar">
-                                        <i style={{ width: `${Math.round(Math.min(1, item.rate) * 100)}%` }} />
+                                        <i style={{ width: `${Math.round(Math.min(100, item.rate ?? 0))}%` }} />
                                       </div>
                                       <small className="twb-hint">{percentText(item.rate)}</small>
                                     </td>
@@ -905,6 +913,8 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
                                 <li key={row.student_id}>
                                   <b>{row.name}</b>
                                   <span>
+                                    {row.class_name}
+                                    {' · '}
                                     {wholeText(row.total)}
                                     {' · '}
                                     {tf('tw_an_gap', { n: numberText(row.gap) })}
@@ -925,6 +935,7 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
                                 <thead>
                                   <tr>
                                     <th>{t('tw_st_name')}</th>
+                                    <th>{t('tw_an_class')}</th>
                                     <th>{t('tw_an_trend')}</th>
                                     <th className="is-num">{t('tw_sc_total')}</th>
                                     <th className="is-num">{t('tw_an_delta')}</th>
@@ -932,21 +943,26 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
                                 </thead>
                                 <tbody>
                                   {analysis.students.map((student) => {
-                                    const last = student.trend[student.trend.length - 1]
-                                    const before = student.trend[student.trend.length - 2]
-                                    const lastTotal = last && last.total !== null ? last.total : null
-                                    const beforeTotal = before && before.total !== null ? before.total : null
+                                    // The backend sends each student's whole
+                                    // subject series; compare the last two
+                                    // sittings that produced a total.
+                                    const scored = student.exams.filter(
+                                      (point) => point.total !== null
+                                    )
+                                    const first = scored[scored.length - 2]
+                                    const second = scored[scored.length - 1]
                                     const delta =
-                                      lastTotal !== null && beforeTotal !== null
-                                        ? lastTotal - beforeTotal
+                                      first && second && first.total !== null && second.total !== null
+                                        ? second.total - first.total
                                         : null
                                     return (
                                       <tr key={student.student_id}>
                                         <td>{student.name}</td>
+                                        <td>{student.class_name}</td>
                                         <td>
-                                          <TrendChart points={student.trend} />
+                                          <TrendChart points={student.exams} />
                                         </td>
-                                        <td className="is-num">{wholeText(last?.total)}</td>
+                                        <td className="is-num">{wholeText(student.total)}</td>
                                         <td className="is-num">
                                           {delta === null
                                             ? '—'

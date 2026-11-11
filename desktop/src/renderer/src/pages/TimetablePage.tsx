@@ -52,7 +52,7 @@ const CellDialog: React.FC<{
   const [subject, setSubject] = useState(
     override?.subject || slot?.subject || classOf(initialClass)?.subject || ''
   )
-  const [kind, setKind] = useState<TimetableKind>(override?.kind || slot?.kind || 'lesson')
+  const [kind, setKind] = useState<TimetableKind>(override?.kind || slot?.kind || 'regular')
   const [error, setError] = useState('')
   const dayMode = Boolean(date)
 
@@ -479,8 +479,19 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                                     type="button"
                                     className={`twb-tt-cell${slot || override ? ' is-filled' : ''}${
                                       override?.state === 'cancelled' ? ' is-cancelled' : ''
-                                    }${override ? ' is-override' : ''}`}
-                                    onClick={() => setCell({ weekday, period })}
+                                    }${override ? ' is-override' : ''}${
+                                      date && weekdayOf(date) !== weekday ? ' is-locked' : ''
+                                    }`}
+                                    onClick={() => {
+                                      // A dated edit belongs to that date's own
+                                      // weekday column; recording it from another
+                                      // column would save a row nobody can see.
+                                      if (date && weekdayOf(date) !== weekday) {
+                                        setStatus(t('tw_tt_wrong_day'))
+                                        return
+                                      }
+                                      setCell({ weekday, period })
+                                    }}
                                   >
                                     {override?.state === 'cancelled' ? (
                                       <>
@@ -493,7 +504,7 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                                         <small>
                                           {override?.subject || slot?.subject || shownClass?.subject || ''}
                                           {' · '}
-                                          {kindLabel(override?.kind || slot?.kind || 'lesson')}
+                                          {kindLabel(override?.kind || slot?.kind || 'regular')}
                                         </small>
                                         {override && <em>{t('tw_tt_changed')}</em>}
                                       </>

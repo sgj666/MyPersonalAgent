@@ -388,21 +388,21 @@ html.dark #view-scores.tw-view {
 .tw-tt-cell.is-empty i { font-size: 12px; }
 .tw-tt-cell.is-empty:hover { background: var(--tw-surface-2); }
 
-.tw-tt-cell.is-normal { background: var(--tw-accent-soft); }
+.tw-tt-cell.is-regular { background: var(--tw-accent-soft); }
 .tw-tt-cell.is-morning { background: #FFE9A8; }
 .tw-tt-cell.is-tutor { background: #E6E6FA; }
 .tw-tt-cell.is-evening { background: #ADD8E6; }
-.tw-tt-cell.is-after { background: #FDBCB4; }
+.tw-tt-cell.is-after_school { background: #FDBCB4; }
 .tw-tt-cell.is-research { background: #FFE4D6; }
 .tw-tt-cell.is-duty { background: #E5E7EB; }
 
 html.dark .tw-tt-cell { color: var(--tw-ink); }
 html.dark .tw-tt-cell small { color: var(--tw-ink-2); }
-html.dark .tw-tt-cell.is-normal { background: var(--tw-card-a); }
+html.dark .tw-tt-cell.is-regular { background: var(--tw-card-a); }
 html.dark .tw-tt-cell.is-morning { background: var(--tw-card-e); }
 html.dark .tw-tt-cell.is-tutor { background: var(--tw-card-c); }
 html.dark .tw-tt-cell.is-evening { background: var(--tw-card-d); }
-html.dark .tw-tt-cell.is-after { background: var(--tw-card-b); }
+html.dark .tw-tt-cell.is-after_school { background: var(--tw-card-b); }
 html.dark .tw-tt-cell.is-research { background: var(--tw-urgent-soft); }
 html.dark .tw-tt-cell.is-duty { background: var(--tw-surface-2); }
 html.dark .tw-tt-kind { background: rgba(0, 0, 0, 0.28); }

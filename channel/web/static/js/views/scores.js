@@ -356,10 +356,7 @@ function twScSaveScores() {
         scores[stu.id] = entry;
     });
     twAcadStatus('scores-status', '');
-    return twAcadJSON('/api/teaching/scores/' + encodeURIComponent(exam.id), 'PUT', {
-        class_id: twScClassName,
-        scores: scores,
-    }).then(() => {
+    return twAcadJSON('/api/teaching/scores/' + encodeURIComponent(exam.id), 'PUT', { scores: scores }).then(() => {
         twScDirty = false;
         twAcadStatus('scores-status', t('tw_sc_saved'));
         return true;
@@ -384,10 +381,12 @@ function twScSwitchTab(kind) {
     if (twScTab === 'analysis') twScLoadAnalysis();
 }
 
+/** Rates arrive as percentages already (agent/teaching/analysis.py), so a
+    small rate like 0.5% must not be mistaken for a fraction. */
 function twScPercent(value) {
     const n = Number(value);
     if (!isFinite(n) || value === null || value === '') return null;
-    return n <= 1 ? Math.round(n * 1000) / 10 : Math.round(n * 10) / 10;
+    return Math.round(n * 10) / 10;
 }
 
 function twScRateText(value) {
@@ -447,9 +446,9 @@ function twScRenderAnalysis(data) {
     if (avg != null) metrics.push(twScMetric(t('tw_sc_avg'), twScNumText(avg)));
     if (summary.pass_rate != null) metrics.push(twScMetric(t('tw_sc_pass_rate'), twScRateText(summary.pass_rate)));
     if (summary.excellent_rate != null) metrics.push(twScMetric(t('tw_sc_excellent_rate'), twScRateText(summary.excellent_rate)));
-    const std = summary.std != null ? summary.std : summary.stdev;
+    const std = summary.stddev != null ? summary.stddev : summary.std;
     if (std != null) metrics.push(twScMetric(t('tw_sc_std'), twScNumText(std)));
-    const count = summary.count != null ? summary.count : summary.n;
+    const count = summary.scored != null ? summary.scored : (summary.count != null ? summary.count : summary.n);
     if (count != null) metrics.push(twScMetric(t('tw_sc_count'), t('tw_sc_count_value').replace('{n}', String(count))));
     if (summary.max != null) metrics.push(twScMetric(t('tw_sc_max'), twScNumText(summary.max)));
     if (summary.min != null) metrics.push(twScMetric(t('tw_sc_min'), twScNumText(summary.min)));
@@ -480,7 +479,7 @@ function twScRenderAnalysis(data) {
                 const name = row.name || row.class_name || twScClassNameOf(row.class_id) || '—';
                 return `<tr><td>${escapeHtml(name)}</td><td>${twScNumText(row.avg != null ? row.avg : row.average)}</td>`
                     + `<td>${twScRateText(row.pass_rate)}</td><td>${twScRateText(row.excellent_rate)}</td>`
-                    + `<td>${row.count != null ? row.count : (row.n != null ? row.n : '—')}</td></tr>`;
+                    + `<td>${row.scored != null ? row.scored : (row.count != null ? row.count : '—')}</td></tr>`;
             }).join('') + `</tbody></table></div>`;
     }
     if (items.length) {
@@ -501,13 +500,17 @@ function twScRenderAnalysis(data) {
         html += `<h3 class="tw-sc-section-h">${escapeHtml(t('tw_sc_critical'))}</h3>`
             + `<div class="tw-table-wrap"><table class="tw-table"><thead><tr>`
             + `<th>${escapeHtml(t('tw_sc_student'))}</th><th>${escapeHtml(t('tw_c_class'))}</th>`
-            + `<th>${escapeHtml(t('tw_sc_total'))}</th><th>${escapeHtml(t('tw_sc_reason'))}</th>`
+            + `<th>${escapeHtml(t('tw_sc_total'))}</th><th>${escapeHtml(t('tw_sc_gap_title'))}</th>`
             + `</tr></thead><tbody>${critical.map(row => {
                 const name = row.name || row.student_name || '';
                 const cls = row.class_name || twScClassNameOf(row.class_id);
+                // The report gives the distance to the line it is near, not a
+                // free-text reason; show that when there is no reason.
+                const note = row.reason
+                    || (row.gap != null ? t('tw_sc_gap').replace('{n}', twScNumText(row.gap)) : '');
                 return `<tr><td>${escapeHtml(name)}</td><td>${escapeHtml(cls)}</td>`
                     + `<td>${twScNumText(row.score != null ? row.score : row.total)}</td>`
-                    + `<td>${escapeHtml(row.reason || '')}</td></tr>`;
+                    + `<td>${escapeHtml(note)}</td></tr>`;
             }).join('')}</tbody></table></div>`;
     }
     if (students.length) {
@@ -519,9 +522,17 @@ function twScRenderAnalysis(data) {
                 const name = row.name || row.student_name || '';
                 const trend = twScTrendValues(row);
                 const last = row.last != null ? row.last : (row.total != null ? row.total : (trend.length ? trend[trend.length - 1] : null));
-                const delta = row.delta != null ? row.delta : row.change;
+                let delta = row.delta != null ? row.delta : row.change;
+                // The report lists a student's marks oldest first; the change
+                // is the last step of that series.
+                if (delta == null && trend.length >= 2) {
+                    const prev = Number(trend[trend.length - 2]);
+                    const now = Number(trend[trend.length - 1]);
+                    if (isFinite(prev) && isFinite(now)) delta = Math.round((now - prev) * 100) / 100;
+                }
                 const deltaText = delta == null ? '—' : (Number(delta) > 0 ? '+' : '') + twScNumText(delta);
-                return `<tr><td>${escapeHtml(name)}</td><td>${last == null ? '—' : escapeHtml(String(last))}</td>`
+                const lastText = row.absent ? t('tw_sc_absent') : (last == null ? '—' : String(last));
+                return `<tr><td>${escapeHtml(name)}</td><td>${escapeHtml(lastText)}</td>`
                     + `<td class="${Number(delta) < 0 ? 'tw-sc-down' : ''}">${escapeHtml(deltaText)}</td>`
                     + `<td class="tw-mono">${escapeHtml(trend.join(' / ') || '—')}</td></tr>`;
             }).join('')}</tbody></table></div>`;

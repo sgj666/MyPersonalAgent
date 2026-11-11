@@ -64,7 +64,6 @@ import type {
   TeachingExam,
   ExamFields,
   ScoreEntry,
-  TeachingScores,
   TeachingAnalysis,
 } from '../types'
 import { getLang, t } from '../i18n'
@@ -1560,9 +1559,27 @@ class ApiClient {
     return this.rowsOf<TeachingStudent>(data, 'students', 'items')
   }
 
-  /** Bulk paste import: upserts by 学号 inside the class. */
-  async importTeachingStudents(classId: string, students: TeachingStudentInput[]): Promise<void> {
-    await this.teachingCall('/api/teaching/students', 'POST', { class_id: classId, students })
+  /**
+   * Bulk paste import: upserts by 学号 inside the class. The store reports
+   * one bad row instead of aborting the batch, so the report is returned for
+   * the preview to say which rows were skipped.
+   */
+  async importTeachingStudents(
+    classId: string,
+    students: TeachingStudentInput[]
+  ): Promise<{ imported: number; updated: number; failed: { row: number; reason: string }[] }> {
+    const data = await this.teachingCall<
+      ApiResult & {
+        imported?: number
+        updated?: number
+        failed?: { row: number; reason: string }[]
+      }
+    >('/api/teaching/students', 'POST', { class_id: classId, students })
+    return {
+      imported: Number(data.imported) || 0,
+      updated: Number(data.updated) || 0,
+      failed: Array.isArray(data.failed) ? data.failed : [],
+    }
   }
 
   async updateTeachingStudent(id: string, fields: TeachingStudentFields): Promise<void> {
@@ -1664,45 +1681,58 @@ class ApiClient {
     await this.teachingCall('/api/teaching/exams', 'DELETE', { id })
   }
 
-  /**
-   * The scores already recorded for an exam. The plan lists only the write
-   * (`PUT /api/teaching/scores/<exam_id>`); reading the same resource back is
-   * its counterpart, and the grid cannot edit saved rows without it.
-   */
+  /** The scores already recorded for an exam, keyed by student id. */
   async getTeachingScores(examId: string): Promise<Record<string, ScoreEntry>> {
-    const data = await this.teachingCall<
-      ApiResult & { by_exam?: Record<string, Record<string, ScoreEntry>>; scores?: Record<string, ScoreEntry> }
-    >(`/api/teaching/scores/${encodeURIComponent(examId)}`)
-    if (data.scores && typeof data.scores === 'object') return data.scores
-    const byExam = data.by_exam
-    if (byExam && typeof byExam === 'object' && byExam[examId]) return byExam[examId]
-    return {}
+    const data = await this.teachingCall<ApiResult & { scores?: Record<string, ScoreEntry> }>(
+      `/api/teaching/scores/${encodeURIComponent(examId)}`
+    )
+    return data.scores && typeof data.scores === 'object' ? data.scores : {}
   }
 
-  /** The whole class's block: one student → {total, items}, for one class. */
-  async saveTeachingScores(
-    examId: string,
-    classId: string,
-    scores: Record<string, ScoreEntry>
-  ): Promise<void> {
+  /**
+   * The whole score block for one exam. The store replaces the exam's block,
+   * so the caller sends every student it knows about, other classes included;
+   * a student left out is simply unrecorded.
+   */
+  async saveTeachingScores(examId: string, scores: Record<string, ScoreEntry>): Promise<void> {
     await this.teachingCall(`/api/teaching/scores/${encodeURIComponent(examId)}`, 'PUT', {
-      class_id: classId,
       scores,
     })
   }
 
-  async getTeachingAnalysis(examId: string, classId: string): Promise<TeachingAnalysis> {
-    const qs = new URLSearchParams({ exam_id: examId, class_id: classId })
+  /**
+   * Exam statistics. Leaving `classId` out scopes the report to all of the
+   * exam's classes, which is what makes the parallel-class comparison (§4)
+   * available; a single class passed in narrows it to that class.
+   */
+  async getTeachingAnalysis(examId: string, classId?: string): Promise<TeachingAnalysis> {
+    const qs = new URLSearchParams({ exam_id: examId })
+    if (classId) qs.set('class_id', classId)
     const data = await this.teachingCall<ApiResult & Partial<TeachingAnalysis>>(
       `/api/teaching/analysis?${qs.toString()}`
     )
     return {
       summary: data.summary || {
-        count: 0,
-        average: 0,
-        pass_rate: 0,
-        excellent_rate: 0,
-        stddev: 0,
+        exam_id: examId,
+        name: '',
+        date: '',
+        subject: '',
+        full_score: 0,
+        class_ids: [],
+        class_id: classId || null,
+        pass_line: 0,
+        excellent_line: 0,
+        low_line: 0,
+        students: 0,
+        absent: 0,
+        scored: 0,
+        average: null,
+        pass_rate: null,
+        excellent_rate: null,
+        low_rate: null,
+        stddev: null,
+        max: null,
+        min: null,
       },
       by_class: Array.isArray(data.by_class) ? data.by_class : [],
       items: Array.isArray(data.items) ? data.items : [],

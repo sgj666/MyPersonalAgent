@@ -4,16 +4,17 @@ import { t, tf } from '../i18n'
 import apiClient from '../api/client'
 import { askConfirm } from '../store/confirmStore'
 import {
+  HOMEWORK_KINDS,
   HOMEWORK_STATES,
   errorText,
   nextClassDate,
-  percentText,
   todayISO,
 } from '../lib/teaching'
 import { Empty, Loading, Modal, PageError, Status, copyToClipboard } from './teachingShared'
 import type {
   HomeworkFields,
   HomeworkItem,
+  HomeworkKind,
   HomeworkState,
   TeachingClass,
   TeachingStudent,
@@ -24,7 +25,6 @@ interface HomeworkPageProps {
   baseUrl: string
 }
 
-const HOMEWORK_KINDS = ['作业', '试卷', '背诵', '实践']
 
 const HomeworkDialog: React.FC<{
   initial: HomeworkItem | null
@@ -34,7 +34,7 @@ const HomeworkDialog: React.FC<{
   onSubmit: (fields: HomeworkFields) => Promise<void>
 }> = ({ initial, classes, slots, onClose, onSubmit }) => {
   const [title, setTitle] = useState(initial?.title || '')
-  const [kind, setKind] = useState(initial?.kind || HOMEWORK_KINDS[0])
+  const [kind, setKind] = useState<HomeworkKind>(initial?.kind || 'practice')
   const [classIds, setClassIds] = useState<string[]>(initial?.class_ids || [])
   const [due, setDue] = useState(initial?.due || '')
   const [error, setError] = useState('')
@@ -64,7 +64,7 @@ const HomeworkDialog: React.FC<{
     try {
       await onSubmit({
         title: title.trim(),
-        kind: kind.trim() || HOMEWORK_KINDS[0],
+        kind,
         class_ids: classIds,
         due: due || nextClassDate(slots, classIds[0]),
       })
@@ -108,19 +108,17 @@ const HomeworkDialog: React.FC<{
         <div className="twb-field-row">
           <label className="twb-field">
             <span>{t('tw_hw_kind')}</span>
-            <input
-              className="twb-input"
-              type="text"
-              maxLength={20}
-              list="twb-hw-kinds"
+            <select
+              className="twb-select"
               value={kind}
-              onChange={(e) => setKind(e.target.value)}
-            />
-            <datalist id="twb-hw-kinds">
+              onChange={(e) => setKind(e.target.value as HomeworkKind)}
+            >
               {HOMEWORK_KINDS.map((item) => (
-                <option key={item} value={item} />
+                <option key={item} value={item}>
+                  {t(`tw_hwk_${item}`)}
+                </option>
               ))}
-            </datalist>
+            </select>
           </label>
           <label className="twb-field">
             <span>{t('tw_hw_due')}</span>
@@ -155,6 +153,13 @@ const HomeworkDialog: React.FC<{
       </form>
     </Modal>
   )
+}
+
+/** The store's kind key, shown in the current language. */
+const homeworkKindLabel = (kind: HomeworkKind): string => {
+  const key = `tw_hwk_${kind}`
+  const label = t(key)
+  return label === key ? kind : label
 }
 
 const HomeworkPage: React.FC<HomeworkPageProps> = ({ baseUrl }) => {
@@ -240,7 +245,7 @@ const HomeworkPage: React.FC<HomeworkPageProps> = ({ baseUrl }) => {
     // `rosters` is read through a ref: loading one homework's roster must not
     // re-run this effect for every student list it just stored.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected?.id])
+  }, [selected?.id, selected?.class_ids.join(',')])
 
   const flushRecords = useCallback(async () => {
     if (savingRecords.current) return
@@ -399,7 +404,7 @@ const HomeworkPage: React.FC<HomeworkPageProps> = ({ baseUrl }) => {
                         >
                           <b>{item.title}</b>
                           <small>
-                            {item.kind}
+                            {homeworkKindLabel(item.kind)}
                             {item.due ? ` · ${item.due}` : ''}
                             {item.due && item.due < today ? ` · ${t('tw_hw_overdue')}` : ''}
                           </small>
@@ -452,12 +457,14 @@ const HomeworkPage: React.FC<HomeworkPageProps> = ({ baseUrl }) => {
                       <div>
                         <h2 id="twb-hw-main-title">{selected.title}</h2>
                         <p className="twb-hint">
-                          {selected.kind}
+                          {homeworkKindLabel(selected.kind)}
                           {selected.due ? ` · ${tf('tw_hw_due_at', { date: selected.due })}` : ''}
                           {` · ${tf('tw_hw_rate', {
                             handed: summary.handed,
                             total: summary.total,
-                            pct: percentText(summary.total ? summary.handed / summary.total : 0),
+                            pct: Math.round(
+                              (summary.total ? summary.handed / summary.total : 0) * 100
+                            ),
                           })}`}
                         </p>
                       </div>

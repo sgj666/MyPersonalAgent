@@ -381,7 +381,7 @@ function twHwClassPicked() {
 function twHwOpenCreateDialog() {
     twHwDueTouched = false;
     document.getElementById('homework-title-input').value = '';
-    document.getElementById('homework-kind').value = 'homework';
+    document.getElementById('homework-kind').value = 'practice';
     twHwRenderClassPicks();
     const filter = (document.getElementById('homework-filter') || {}).value || '';
     const boxes = [...document.querySelectorAll('#homework-class-picks input')];
