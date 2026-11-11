@@ -719,8 +719,31 @@ const KnowledgePage: React.FC<KnowledgePageProps> = ({ baseUrl }) => {
           <div>
             <h2 className="clay-head-title text-xl font-bold text-content">{t('knowledge_title')}</h2>
           </div>
-          <AgentScopeSelect value={viewingAgentId} onChange={(id) => void setScope(id)} />
+          <div className="flex items-center gap-2">
+            <AgentScopeSelect value={viewingAgentId} onChange={(id) => void setScope(id)} />
+            <NewMenu
+              open={menuOpen}
+              setOpen={setMenuOpen}
+              onCreateCategory={() => setDialog({ kind: 'category' })}
+              onCreateDocument={() => {
+                if (!categories.length) {
+                  showStatus(t('knowledge_need_category'), true)
+                  return
+                }
+                setDialog({ kind: 'doc-pick-category' })
+              }}
+              onImport={() => fileInputRef.current?.click()}
+            />
+          </div>
         </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept=".md,.txt,.pdf,.docx,text/markdown,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          className="hidden"
+          onChange={onFilesPicked}
+        />
         <div className="clay-empty flex-1 flex flex-col items-center justify-center px-6 text-center border-t border-default">
           <div className="w-14 h-14 rounded-2xl bg-accent-soft text-accent flex items-center justify-center mb-5">
             <Files size={26} />
@@ -729,13 +752,22 @@ const KnowledgePage: React.FC<KnowledgePageProps> = ({ baseUrl }) => {
           {data?.enabled === false ? t('knowledge_disabled') : t('knowledge_empty')}
         </h2>
         <p className="text-sm text-content-tertiary max-w-md mb-6">{t('knowledge_empty_guide')}</p>
-          <button
-            onClick={() => navigate('/')}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-btn bg-accent text-accent-contrast hover:bg-accent-hover text-sm font-medium cursor-pointer transition-colors"
-          >
-            <MessageSquarePlus size={15} />
-            {t('knowledge_go_chat')}
-          </button>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-btn bg-accent text-accent-contrast hover:bg-accent-hover text-sm font-medium cursor-pointer transition-colors"
+            >
+              <Upload size={15} />
+              {t('knowledge_import_documents')}
+            </button>
+            <button
+              onClick={() => navigate('/')}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-btn border border-default bg-surface hover:bg-surface-2 text-sm font-medium text-content cursor-pointer transition-colors"
+            >
+              <MessageSquarePlus size={15} />
+              {t('knowledge_go_chat')}
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -793,7 +825,7 @@ const KnowledgePage: React.FC<KnowledgePageProps> = ({ baseUrl }) => {
           ref={fileInputRef}
           type="file"
           multiple
-          accept=".md,.txt,text/markdown,text/plain"
+          accept=".md,.txt,.pdf,.docx,text/markdown,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           className="hidden"
           onChange={onFilesPicked}
         />

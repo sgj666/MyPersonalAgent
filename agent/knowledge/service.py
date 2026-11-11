@@ -42,6 +42,9 @@ class KnowledgeService:
     INDEX_SUMMARY_RE = re.compile(r'\]\(([^)\s]+)\)\s*(?:—|–|--?)\s*(.+?)\s*$')
     IMPORT_EXTENSIONS = {".md", ".txt", ".pdf", ".docx"}
     MAX_IMPORT_FILES = 100
+
+    # Import with no target lands here, so an empty knowledge base is not a trap.
+    DEFAULT_IMPORT_CATEGORY = "未分类"
     MAX_IMPORT_FILE_SIZE = 10 * 1024 * 1024
     MAX_IMPORT_TOTAL_SIZE = 200 * 1024 * 1024
 
@@ -430,6 +433,10 @@ class KnowledgeService:
                          conflict_strategy: str = "skip") -> dict:
         if not isinstance(files, list):
             raise ValueError("files must be a list")
+        # No category is the normal state of a fresh knowledge base; do not
+        # make the user create one just to get a first document in.
+        target_category = (target_category or "").strip() or self.DEFAULT_IMPORT_CATEGORY
+        self.create_category(target_category)
         if len(files) > self.MAX_IMPORT_FILES:
             raise ValueError(f"too many files: max {self.MAX_IMPORT_FILES}")
         results = []
