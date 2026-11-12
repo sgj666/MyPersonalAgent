@@ -238,3 +238,9 @@ tail -f /tmp/edesktop.log
 | E 五页 UI | `current`（本 worktree） | claude | `ctx_b42c3a99758b` | `task_1aa8f4fe85a8` |
 
 合并顺序（协调者执行）：A → C → D → B（纯文档，最后） → 拼 `TEACHING_URLS + TEACHING_INSIGHTS_URLS` 一行 → 全量 `pytest` + `npm run build` + 五页视觉走查。
+
+## 9 派工规则（2026-11-12 起）
+
+- 默认派 `pi` 或 `omp`（oh-my-pi）执行；**设计相关或复杂工作**（布局/视觉/交互设计、跨模块架构、难判断的取舍）派 `claude`。
+- `codex` 只在需要它的特定能力时点名，不作为默认。
+- 每个 worker 仍按 §1 的文件归属切分，避免同一 worktree 抢文件。
