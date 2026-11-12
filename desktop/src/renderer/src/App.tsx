@@ -347,6 +347,7 @@ const App: React.FC = () => {
             <Route path="/scores" element={<ScoresPage baseUrl={backend.baseUrl} />} />
             <Route path="/board" element={<BoardPage baseUrl={backend.baseUrl} />} />
             <Route path="/teaching" element={<TeachingPage />} />
+            <Route path="/teaching/:tab" element={<TeachingPage />} />
             <Route path="/artifacts" element={<ArtifactsPage />} />
             <Route path="/knowledge" element={<KnowledgePage baseUrl={backend.baseUrl} />} />
             <Route path="/memory" element={<MemoryPage baseUrl={backend.baseUrl} />} />

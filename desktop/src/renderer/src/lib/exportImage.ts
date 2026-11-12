@@ -4,9 +4,14 @@ const unsupported = (): { ok: false; error: string } => ({ ok: false, error: 'å½
 
 export function saveCardImage(
   htmlPath: string,
-  { width = 1080, height = 1440, outPath }: { width?: number; height?: number; outPath?: string } = {},
+  {
+    width = 1080,
+    height = 1440,
+    outPath,
+    selector,
+  }: { width?: number; height?: number; outPath?: string; selector?: string } = {},
 ): Promise<ExportResult<{ path: string; width: number; height: number }>> {
-  return window.electronAPI?.exportImage?.({ htmlPath, width, height, outPath }) ?? Promise.resolve(unsupported())
+  return window.electronAPI?.exportImage?.({ htmlPath, width, height, outPath, selector }) ?? Promise.resolve(unsupported())
 }
 
 export function saveCardPdf(htmlPath: string): Promise<ExportResult<{ path: string }>> {

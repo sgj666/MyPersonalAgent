@@ -196,6 +196,91 @@ def main() -> int:
               f"{status} {json.dumps(summary, ensure_ascii=False)[:200]}")
         check("analysis compares the class", len(report.get("by_class") or []) == 1, str(report.get("by_class"))[:120])
 
+        # --- the teaching tools' pipeline: facts -> draft -> render --------
+        # The card and the deck are what the teacher actually ships, so the
+        # smoke walks the real path: JSON draft in, files out.
+        status, body = call("GET", f"/api/teaching/facts?class_id={class_id}&unit=Unit%203", headers=auth_a)
+        facts = json.loads(body)
+        keys = [f["key"] for f in facts.get("facts", [])]
+        # No progress rows exist yet, so the gap only shows up after the plan
+        # import below; homework and exam evidence is already there.
+        check("facts read homework and exam evidence",
+              status == 200 and {"homework_missing", "exam_avg", "exam_weak"} <= set(keys),
+              f"{status} {keys}")
+        check("facts carry the class size", facts.get("stats", {}).get("students") == 10,
+              str(facts.get("stats"))[:160])
+
+        card = {
+            "version": 1,
+            "meta": {"class_name": "七(3)班", "class_ids": [class_id], "subject": "英语",
+                     "stage": "初中", "book": "人教新版", "unit": "Unit 3",
+                     "title": "Unit 3 课后作业", "date": "2026-11-12", "due": "周四", "teacher": "甲老师"},
+            "summary": "今晚 20 分钟，重点是 be going to 的三种句型。",
+            "sections": [{"heading": "一、词汇巩固", "tier": "basic", "hint": "每题 2 分",
+                          "items": [{"no": 1, "type": "fill", "stem": "看望祖父母 ______",
+                                     "lines": 1, "answer": "visit grandparents"}]}],
+            "footer": {"score": True, "parent_sign": True},
+        }
+        status, body = call("PUT", "/api/teaching/draft", {"kind": "card", "slug": "smoke-card", "draft": card},
+                            headers=auth_a)
+        check("card draft saves", status == 200 and "artifacts/教学工具/card/" in body, f"{status} {body[:200]}")
+
+        status, body = call("POST", "/api/teaching/render",
+                            {"kind": "card", "draft": card, "out_name": "smoke-card",
+                             "formats": ["html", "a4"]}, headers=auth_a)
+        rendered = json.loads(body)
+        formats = [f["format"] for f in rendered.get("files", [])]
+        check("card renders html and a4", status == 200 and formats == ["html", "a4"],
+              f"{status} {body[:200]}")
+        card_path = pathlib.Path(rendered["files"][0]["path"])
+        card_html = card_path.read_text(encoding="utf-8") if card_path.is_file() else ""
+        check("card html is self-contained", card_html.startswith("<!doctype html") and "http://" not in card_html
+              and "https://" not in card_html, card_html[:120])
+        check("card keeps the parent line", "今晚 20 分钟" in card_html, card_html[:120])
+
+        deck = {
+            "version": 1, "theme": "lecture",
+            "meta": {"title": "Unit 3 My weekend plan", "subtitle": "人教新版 七年级上",
+                     "stage": "初中", "subject": "英语", "book": "人教新版", "unit": "Unit 3",
+                     "teacher": "甲老师", "date": "2026-11-12"},
+            "slides": [
+                {"layout": "cover", "title": "Unit 3 My weekend plan", "subtitle": "第 2 课时"},
+                {"layout": "objectives", "title": "学习目标", "bullets": ["能说出 5 个短语"]},
+                {"layout": "table", "title": "作业分层",
+                 "table": {"headers": ["层次", "内容"], "rows": [["基础", "抄写"], ["提升", "写话"]]}},
+                {"layout": "end", "title": "谢谢"},
+            ],
+        }
+        status, body = call("POST", "/api/teaching/render",
+                            {"kind": "deck", "draft": deck, "out_name": "smoke-deck",
+                             "formats": ["pptx", "html"]}, headers=auth_a)
+        rendered = json.loads(body)
+        files = {f["format"]: f for f in rendered.get("files", [])}
+        check("deck renders pptx and html", status == 200 and set(files) == {"pptx", "html"},
+              f"{status} {body[:200]}")
+        check("deck pptx has every slide", files.get("pptx", {}).get("pages") == 4
+              and files["pptx"]["size"] > 10_000, str(files.get("pptx"))[:200])
+        check("deck html is offline", "http://" not in pathlib.Path(files["html"]["path"]).read_text(encoding="utf-8"),
+              files["html"]["path"])
+
+        status, body = call("GET", "/api/teaching/drafts?kind=card&limit=5", headers=auth_a)
+        check("recent card drafts list", status == 200 and "smoke-card" in body, f"{status} {body[:200]}")
+
+        weeks = [{"week": 1, "unit": "Unit 3", "topic": "听说", "periods": 2}] * 1
+        status, body = call("POST", "/api/teaching/progress/import",
+                            {"class_ids": [class_id], "weeks": weeks}, headers=auth_a)
+        imported = json.loads(body)
+        check("plan writes into progress", status == 200 and imported.get("created") == 1, body[:200])
+        status, body = call("POST", "/api/teaching/progress/import",
+                            {"class_ids": [class_id], "weeks": weeks}, headers=auth_a)
+        again = json.loads(body)
+        check("import is idempotent", again.get("created") == 0 and again.get("skipped") == 1, body[:200])
+
+        status, body = call("GET", f"/api/teaching/facts?class_id={class_id}&unit=Unit%203", headers=auth_a)
+        keys = [f["key"] for f in json.loads(body).get("facts", [])]
+        check("facts gains the progress gap after the plan lands",
+              status == 200 and "progress_gap" in keys, f"{status} {keys}")
+
         print(f"\n{len(checks)} checks passed. sandbox: {sandbox}")
         return 0
     finally:

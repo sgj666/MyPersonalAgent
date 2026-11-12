@@ -87,6 +87,75 @@ export interface TeachingSuggestions {
   cached: boolean
 }
 
+// ----- teaching tools (docs/plans/teaching-tools-implementation.md §4) -----
+
+/** The draft kinds the render/draft/recent endpoints accept (§4.2, §4.5). */
+export type TeachingDraftKind = 'deck' | 'card' | 'plan' | 'advice'
+
+/** One file POST /api/teaching/render wrote. */
+export interface TeachingRenderFile {
+  format: string
+  /** Absolute path on the backend's disk. */
+  path: string
+  /** Workspace-relative, e.g. `artifacts/教学工具/deck/x.pptx`. */
+  rel: string
+  size: number
+  pages?: number
+}
+
+export interface TeachingRenderRequest {
+  kind: 'deck' | 'card'
+  /** Wins over `draft_path` when both are sent. */
+  draft?: unknown
+  draft_path?: string
+  out_name?: string
+  formats?: string[]
+  a4?: boolean
+}
+
+export interface TeachingRenderResult {
+  files: TeachingRenderFile[]
+  warnings: string[]
+}
+
+export interface TeachingRecentItem {
+  slug: string
+  title: string
+  when: string
+  rel: string
+  kind: string
+  class_ids: string[]
+}
+
+/** One computed number of the facts strip (§4.3); never model prose. */
+export interface TeachingFact {
+  key: string
+  label: string
+  value: string
+  detail: string
+}
+
+export interface TeachingFacts {
+  facts: TeachingFact[]
+  stats: Record<string, unknown>
+}
+
+/** One row of the term schedule as §4.4 imports it. */
+export interface TeachingWeek {
+  week: number
+  unit: string
+  topic: string
+  periods: number
+  goal: string
+  assess: string
+}
+
+export interface TeachingProgressImport {
+  created: number
+  skipped: number
+  conflicts: unknown[]
+}
+
 export interface ExternalApiState {
   enabled: boolean
   api_key: string
@@ -1919,6 +1988,76 @@ class ApiClient {
       '/api/teaching/reminders/preview'
     )
     return { digest: String(data.digest || ''), lesson: String(data.next_lesson || '') }
+  }
+
+  // ----- teaching tools: render, drafts, recent, facts, progress import -----
+
+  /** POST /api/teaching/render — a deck or card draft to files on disk. */
+  async renderTeachingDraft(req: TeachingRenderRequest): Promise<TeachingRenderResult> {
+    const data = await this.teachingCall<ApiResult & Partial<TeachingRenderResult>>(
+      '/api/teaching/render',
+      'POST',
+      req
+    )
+    return {
+      files: Array.isArray(data.files) ? data.files : [],
+      warnings: Array.isArray(data.warnings) ? data.warnings.map(String) : [],
+    }
+  }
+
+  /** PUT /api/teaching/draft; answers the workspace-relative path it wrote. */
+  async saveTeachingDraft(kind: TeachingDraftKind, slug: string, draft: unknown): Promise<string> {
+    const data = await this.teachingCall<ApiResult & { path?: string }>('/api/teaching/draft', 'PUT', {
+      kind,
+      slug,
+      draft,
+    })
+    return String(data.path || '')
+  }
+
+  /** GET /api/teaching/draft; the draft is returned unchecked for the caller to validate. */
+  async getTeachingDraft(kind: TeachingDraftKind, slug: string): Promise<{ draft: unknown; path: string }> {
+    const qs = new URLSearchParams({ kind, slug })
+    const data = await this.teachingCall<ApiResult & { draft?: unknown; path?: string }>(
+      `/api/teaching/draft?${qs.toString()}`
+    )
+    return { draft: data.draft ?? null, path: String(data.path || '') }
+  }
+
+  /** GET /api/teaching/recent — newest outputs of one kind. */
+  async listTeachingRecent(params: { kind: TeachingDraftKind; limit?: number }): Promise<TeachingRecentItem[]> {
+    const qs = new URLSearchParams({ kind: params.kind, limit: String(params.limit ?? 5) })
+    const data = await this.teachingCall<ApiResult>(`/api/teaching/recent?${qs.toString()}`)
+    return this.rowsOf<TeachingRecentItem>(data, 'items')
+  }
+
+  /** GET /api/teaching/facts — computed class facts; a fact with no data is absent. */
+  async getTeachingFacts(params: { class_id?: string; unit?: string }): Promise<TeachingFacts> {
+    const qs = new URLSearchParams({ class_id: params.class_id || '', unit: params.unit || '' })
+    const data = await this.teachingCall<ApiResult & Partial<TeachingFacts>>(
+      `/api/teaching/facts?${qs.toString()}`
+    )
+    return {
+      facts: Array.isArray(data.facts) ? data.facts : [],
+      stats: data.stats && typeof data.stats === 'object' ? data.stats : {},
+    }
+  }
+
+  /**
+   * POST /api/teaching/progress/import. `overwrite` is always false: the
+   * backend only fills empty rows and never touches a taught one (ADR-3).
+   */
+  async importTeachingProgress(classIds: string[], weeks: TeachingWeek[]): Promise<TeachingProgressImport> {
+    const data = await this.teachingCall<ApiResult & Partial<TeachingProgressImport>>(
+      '/api/teaching/progress/import',
+      'POST',
+      { class_ids: classIds, weeks, overwrite: false }
+    )
+    return {
+      created: Number(data.created) || 0,
+      skipped: Number(data.skipped) || 0,
+      conflicts: Array.isArray(data.conflicts) ? data.conflicts : [],
+    }
   }
 
   // ---------------------------------------------------------
