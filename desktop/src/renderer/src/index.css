@@ -1240,3 +1240,36 @@ body[data-wallpaper='on'] .art-day-label {
 }
 .art-toast.show { opacity: 1; transform: translate(-50%, 0); }
 .dark .art-toast { background: #2a2a2e; color: #f1f5f9; box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.8); }
+
+/* ---------- first-run setup wizard ---------- */
+/* A card on a dim scrim, not a bare full-bleed fill. Two reasons: the scrim
+   keeps it legible whatever page is underneath (the teacher workbench is a
+   busy dashboard), and a wallpaper/glass theme rewrites .bg-base to 45%
+   transparent — bare text on that fill was unreadable. z-index sits below the
+   workbench's own modal (.twb-modal, 80) so the profile dialog still wins when
+   both are open. */
+.onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow-y: auto;
+  background: rgba(20, 26, 33, 0.45);
+}
+
+.onboarding-card {
+  position: relative;
+  width: 100%;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  padding: 28px 32px;
+  border: 1px solid var(--border-strong);
+  border-radius: 20px;
+  /* A dedicated class, so the wallpaper rules never make it translucent. */
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+}

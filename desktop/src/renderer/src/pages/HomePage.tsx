@@ -529,7 +529,7 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
                   <h2 id="twb-today-reminders">{t('tw_rem_title')}</h2>
                 </div>
                 {settings ? (
-                  <>
+                  <div className="twb-rem-body">
                     <div className="twb-rem">
                       <label className="twb-check">
                         <input
@@ -621,7 +621,7 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
                         </pre>
                       </div>
                     )}
-                  </>
+                  </div>
                 ) : settingsError ? (
                   <PanelError message={settingsError} onRetry={() => void load()} />
                 ) : (

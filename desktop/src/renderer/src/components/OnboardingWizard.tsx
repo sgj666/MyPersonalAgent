@@ -136,8 +136,8 @@ const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onDone }) => {
   const stepLabel = t('onboarding_step').replace('{n}', String(step)).replace('{total}', String(TOTAL_STEPS))
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-base">
-      <div className="w-full max-w-lg px-8">
+    <div className="onboarding-overlay">
+      <div className="onboarding-card max-w-lg">
         {/* Progress dots */}
         <div className="flex items-center justify-center gap-2 mb-8">
           {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
