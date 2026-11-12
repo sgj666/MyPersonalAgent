@@ -84,6 +84,7 @@ from channel.web.api.teaching import (  # noqa: F401
     TeachingAnalysisHandler, TeachingClassesHandler, TeachingExamsHandler,
     TeachingGreetingHandler, TeachingHomeworkHandler, TeachingHomeworkRecordsHandler,
     TeachingProfileHandler, TeachingProgressHandler,
+    TeachingDraftsHandler, TeachingDraftHandler, TeachingRenderHandler,
     TeachingRemindersPreviewHandler,
     TeachingRemindersSyncHandler, TeachingScoresHandler, TeachingSettingsHandler,
     TeachingStudentsHandler, TeachingStudentHandler, TeachingSuggestionsHandler,

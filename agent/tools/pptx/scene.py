@@ -74,66 +74,87 @@ def deck_scenes(spec):
                 text(value, x + .26, y + i * row, w - .32, row - .12, size)
 
         layout = slide['layout']
-        shape(0, 0, WIDTH, .13, theme.accent)
-        if layout in ('cover', 'end'):
-            shape(.8, 2, .09, 2.1, theme.accent)
-            text(slide['title'], 1.15, 2, 10.9, 1.4, 32, True, theme.title)
-            text(slide.get('subtitle', spec['meta'].get('subtitle', '') if layout == 'cover' else ''),
-                 1.18, 3.65, 10.6, 1.1, 20)
-            if layout == 'cover':
-                text('  '.join(str(spec['meta'].get(k, '')) for k in ('teacher', 'date')).strip(),
-                     1.18, 5.7, 10, .5, 14)
+        shape(0, 0, WIDTH, .16, theme.accent)
+        if layout == 'cover':
+            # A soft panel bleeding off the right edge gives the cover a
+            # composition instead of a lone column of text on white.
+            shape(8.05, .16, WIDTH - 8.05, HEIGHT - .16, theme.accent + '0E')
+            shape(8.05, .16, .055, HEIGHT - .16, theme.accent + '33')
+            shape(.8, 2.02, .09, 1.55, theme.accent)
+            text(slide['title'], 1.15, 1.95, 6.75, 1.5, 32, True, theme.title)
+            text(slide.get('subtitle', spec['meta'].get('subtitle', '')), 1.18, 3.6, 6.7, 1.0, 20)
+            text('  ·  '.join(str(spec['meta'].get(k, '')) for k in ('teacher', 'date') if spec['meta'].get(k)),
+                 1.18, 5.75, 6.7, .5, 14)
+        elif layout == 'end':
+            shape(.8, 2.0, .09, 1.55, theme.accent)
+            text(slide['title'], 1.15, 2.0, 10.9, 1.4, 32, True, theme.title)
+            text(slide.get('subtitle', ''), 1.18, 3.6, 10.6, 1.0, 20)
+            if spec['meta'].get('teacher'):
+                text('  ·  '.join(str(spec['meta'].get(k, '')) for k in ('teacher', 'date') if spec['meta'].get(k)),
+                     1.18, 5.75, 10, .5, 14)
         else:
             text(slide['title'], .75, .48, 11.8, .85, 32, True, theme.title)
-            shape(.8, 1.5, 1.25, .045, theme.accent)
+            shape(.8, 1.42, 1.05, .05, theme.accent)
+            # A hairline footer with the unit on the left and the number on the
+            # right: cheap orientation for the teacher while presenting.
+            shape(.8, 6.9, 11.72, .012, 'E6E9EF')
+            footer = '  ·  '.join(str(spec['meta'].get(k, '')) for k in ('unit', 'subject') if spec['meta'].get(k))
+            if footer:
+                text(footer, .8, 6.99, 9, .35, 14)
             if layout in ('two-col', 'compare'):
                 for i, col in enumerate(slide['columns']):
-                    x = .8 + i * 6
-                    shape(x, 1.9, 5.7, 4.7, theme.accent + '12', True)
-                    text(col.get('heading', ''), x + .3, 2.15, 5.1, .7, 24, True, theme.title)
-                    items(col.get('bullets', []), x + .3, 3.1, 5.05, 3.15, 20)
+                    x = .8 + i * 6.05
+                    shape(x, 1.85, 5.6, 4.75, theme.accent + '0E', True)
+                    shape(x + .32, 2.1, .5, .06, theme.accent)
+                    text(col.get('heading', ''), x + .3, 2.24, 5.0, .7, 24, True, theme.title)
+                    items(col.get('bullets', []), x + .3, 3.1, 4.95, 3.15, 20)
             elif layout in ('process', 'timeline'):
                 steps = slide['steps']
                 if layout == 'process':
                     w = 11.7 / len(steps)
                     for i, step in enumerate(steps):
                         x = .8 + i * w
-                        shape(x, 2.35, w - .18, 3.7, theme.accent + '12', True)
-                        text(f'{i + 1:02}', x + .2, 2.6, w - .58, .55, 20, True, theme.accent)
-                        text(step.get('label', ''), x + .2, 3.35, w - .58, .8, 24, True, theme.title)
-                        text(step.get('text', ''), x + .2, 4.25, w - .58, 1.4, 20)
+                        shape(x, 2.3, w - .18, 3.75, theme.accent + '0E', True)
+                        shape(x + .22, 2.52, .62, .62, theme.accent, True)
+                        text(f'{i + 1:02}', x + .26, 2.6, .55, .45, 16, True, 'FFFFFF')
+                        text(step.get('label', ''), x + .2, 3.4, w - .58, .8, 24, True, theme.title)
+                        text(step.get('text', ''), x + .2, 4.3, w - .58, 1.4, 20)
                 else:
-                    h = 4.65 / len(steps)
-                    shape(2.9, 1.95, .035, 4.65, theme.accent)
+                    h = 4.55 / len(steps)
+                    shape(3.02, 2.02, .03, 4.55, theme.accent + '33')
                     for i, step in enumerate(steps):
                         y = 1.95 + i * h
-                        text(step.get('label', ''), .8, y, 1.9, h - .08, 20, True, theme.accent)
-                        text(step.get('text', ''), 3.3, y, 9, h - .08, 20)
+                        shape(2.9, y + .28, .27, .27, theme.accent, True)
+                        text(step.get('label', ''), .8, y + .2, 1.95, h - .08, 20, True, theme.accent)
+                        text(step.get('text', ''), 3.42, y + .2, 8.9, h - .08, 20)
             elif layout == 'table':
                 data = slide['table']
-                elements.append(dict(kind='table', x=.8, y=1.95, w=11.7, h=4.65, data=data))
+                elements.append(dict(kind='table', x=.8, y=1.9, w=11.7, h=4.7, data=data))
             elif layout == 'image':
                 image = slide.get('image', {})
-                elements.append(dict(kind='image', x=.8, y=1.95, w=11.7, h=3.95, image=image))
+                elements.append(dict(kind='image', x=.8, y=1.85, w=11.7, h=4.05, image=image))
                 text(image.get('caption', ''), .8, 6.05, 11.7, .55, 16)
             elif layout == 'quote':
-                shape(1.1, 2.15, .07, 3.65, theme.accent)
-                text(slide.get('quote', ''), 1.55, 2.35, 10.25, 3.4, 32, False, theme.title)
+                shape(.8, 1.85, 11.7, 4.75, theme.accent + '08', True)
+                shape(1.15, 2.2, .09, 3.5, theme.accent)
+                text('\u201c', 1.5, 1.95, 1.4, 1.4, 32, True, theme.accent)
+                text(slide.get('quote', ''), 1.75, 2.75, 9.9, 2.9, 32, False, theme.title)
             elif layout in ('agenda', 'objectives'):
                 values = slide.get('bullets', [])
-                row = 4.65 / max(1, len(values))
+                row = 4.6 / max(1, len(values))
                 for i, value in enumerate(values):
-                    y = 1.95 + i * row
+                    y = 1.9 + i * row
                     if layout == 'objectives':
-                        shape(.8, y, 11.7, row - .12, theme.accent + '12', True)
-                    text(f'{i + 1:02}', 1.05, y + .12, .65, row - .3, 20, True, theme.accent)
-                    text(value, 2, y + .12, 10.1, row - .3, 24)
+                        shape(.8, y, 11.7, row - .12, theme.accent + '0E', True)
+                    shape(1.02, y + .16, .52, .52, theme.accent, True)
+                    text(f'{i + 1:02}', 1.05, y + .22, .46, .4, 16, True, 'FFFFFF')
+                    text(value, 1.95, y + .14, 10.2, row - .3, 24)
             elif layout == 'summary':
-                shape(.8, 1.95, 11.7, 4.65, theme.accent + '12', True)
-                items(slide.get('bullets', []), 1.15, 2.2, 10.9, 4.15)
+                shape(.8, 1.9, 11.7, 4.7, theme.accent + '0E', True)
+                items(slide.get('bullets', []), 1.2, 2.2, 10.8, 4.1)
             else:
-                items(slide.get('bullets', []), .9, 1.95, 11.4, 4.65)
-        text(str(number), 12, 6.95, .65, .3, 14)
+                items(slide.get('bullets', []), .9, 1.9, 11.4, 4.6)
+        text(str(number), 12.0, 6.99, .55, .3, 14)
         pages.append(dict(layout=layout, title=slide['title'], notes=slide.get('notes', ''), elements=elements))
     return pages, theme, warnings
 
