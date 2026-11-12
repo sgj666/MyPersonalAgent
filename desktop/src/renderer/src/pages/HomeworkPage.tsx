@@ -501,7 +501,7 @@ const HomeworkPage: React.FC<HomeworkPageProps> = ({ baseUrl }) => {
                       <li>用 be going to 写 3 句话</li>
                       <li>读课文，标出不懂的句子</li>
                     </ol>
-                    <span className="twb-hw-mock-note">给家长：今晚 20 分钟，重点是 be going to。</span>
+                    <span className="twb-hw-mock-note">提醒：明天上课前交给课代表，订正用红笔。</span>
                   </div>
                   <figcaption>{t('tw_hw_mock_caption')}</figcaption>
                 </figure>

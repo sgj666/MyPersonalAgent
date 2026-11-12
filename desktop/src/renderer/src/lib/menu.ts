@@ -115,16 +115,16 @@ export function defaultTeachingChildren(): MenuChild[] {
 // group open (no folding); a group lists its pages 日常高频 → 低频.
 //
 // 首页 opens the first group, ahead of 对话: it is where the app lands at
-// launch, so it is the rail's first entry. 智能体 and 定时 are left out of the
-// default groups — they stay registered in MENU_BUILTINS, so the menu editor
-// can still add them back.
+// launch, so it is the rail's first entry. 定时 is left out of the default
+// groups — it stays registered in MENU_BUILTINS, so the menu editor can still
+// add it back.
 export const MENU_DEFAULT: { id: string; views: string[] }[] = [
   { id: 'daily', views: ['home', 'chat', 'artifacts'] },
   {
     id: 'teach',
     views: ['classes', 'timetable', 'progress', 'homework', 'scores', 'teaching', 'board', 'knowledge'],
   },
-  { id: 'manage', views: ['config', 'skills', 'memory', 'channels'] },
+  { id: 'manage', views: ['agents', 'config', 'skills', 'memory', 'channels'] },
   { id: 'monitor', views: ['logs'] },
 ]
 
