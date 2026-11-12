@@ -1,280 +1,125 @@
-"""Build a 16:9 .pptx deck from a plain dict spec, offline.
-
-Everything is drawn as plain shapes and text boxes on the blank layout: no
-Office install, no bundled .potx template, no network. Only two fonts are ever
-named (Calibri for Latin, 等线 for CJK) and nothing is embedded, so the file
-opens the same on a machine without the original author's fonts.
-
-The spec, as produced by the courseware-ppt skill::
-
-    {
-        "title": "Unit 3 My weekend plan",
-        "subtitle": "人教版 七年级上 · 第 2 课时",     # optional
-        "theme": "lecture" | "activity" | "review",
-        "slides": [
-            {"title": "教学目标", "bullets": ["…", "…"], "notes": "…"}  # notes optional
-        ],
-    }
-
-A title slide is generated from ``title``/``subtitle``; one content slide is
-generated per ``slides`` entry.
-"""
-
-from __future__ import annotations
-
-import os
-from typing import Any, Dict, List
+"""Offline v1 deck renderer. Every slide is explicit; output is editable OOXML."""
+from pathlib import Path
 
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
-from pptx.enum.text import PP_ALIGN
-from pptx.oxml.ns import qn
-from pptx.util import Emu, Inches, Pt
 from pptx.oxml.xmlchemy import OxmlElement
+from pptx.util import Emu, Inches, Pt
 
-from agent.tools.pptx.themes import THEMES, Theme
+from agent.tools.pptx.scene import deck_scenes, table_cells
+from agent.tools.pptx.validation import MAX_BULLET_CHARS, MAX_SLIDES
 
-# 16:9, exact EMU rather than truncated inches.
-SLIDE_WIDTH = Emu(12192000)   # 13.333 in
-SLIDE_HEIGHT = Emu(6858000)   # 7.5 in
+__all__ = ["build_deck", "MAX_BULLET_CHARS", "MAX_SLIDES"]
 
-FONT_LATIN = "Calibri"
-FONT_EA = "等线"
-
-MAX_SLIDES = 40
-MAX_BULLET_CHARS = 200
-
-_BLANK_LAYOUT = 6
+SLIDE_WIDTH, SLIDE_HEIGHT = Emu(12192000), Emu(6858000)
 
 
-def build_deck(spec: Dict[str, Any], out_path: str) -> str:
-    """Render ``spec`` to ``out_path`` and return the absolute path written.
-
-    Raises ValueError when the spec cannot become a usable deck: not a dict, no
-    title, no slides, more than 40 slides, a bullet over 200 characters, or a
-    theme/font-irrelevant field of the wrong type.
-    """
-    title, subtitle, theme, slides = _normalize(spec)
-    if not isinstance(out_path, (str, os.PathLike)) or not os.fspath(out_path).strip():
-        raise ValueError("out_path must be a non-empty path")
-
-    prs = Presentation()
-    prs.slide_width = SLIDE_WIDTH
-    prs.slide_height = SLIDE_HEIGHT
-
-    _add_title_slide(prs, theme, title, subtitle)
-    for number, entry in enumerate(slides, start=2):
-        _add_content_slide(prs, theme, entry, number)
-
-    path = os.path.abspath(os.fspath(out_path))
-    parent = os.path.dirname(path)
-    if parent:
-        os.makedirs(parent, exist_ok=True)
-    prs.save(path)
-    return path
+def _color(value):
+    if len(value) == 8:
+        alpha = int(value[-2:], 16) / 255
+        value = ''.join(f'{round(int(value[i:i+2], 16) * alpha + 255 * (1-alpha)):02X}' for i in (0, 2, 4))
+    return RGBColor.from_string(value)
 
 
-# ---------------------------------------------------------------- validation
-
-def _normalize(spec: Dict[str, Any]):
-    if not isinstance(spec, dict):
-        raise ValueError("spec must be an object")
-
-    title = spec.get("title")
-    if not isinstance(title, str) or not title.strip():
-        raise ValueError("spec.title is required and must be non-empty text")
-
-    subtitle = spec.get("subtitle")
-    if subtitle is not None and not isinstance(subtitle, str):
-        raise ValueError("spec.subtitle must be text")
-
-    theme_key = spec.get("theme", "lecture")
-    if not isinstance(theme_key, str) or theme_key not in THEMES:
-        raise ValueError("spec.theme must be one of: " + ", ".join(sorted(THEMES)))
-
-    raw_slides = spec.get("slides")
-    if not isinstance(raw_slides, list) or not raw_slides:
-        raise ValueError("spec.slides must be a non-empty list")
-    if len(raw_slides) > MAX_SLIDES:
-        raise ValueError(
-            f"spec.slides has {len(raw_slides)} entries; at most {MAX_SLIDES} are allowed"
-        )
-
-    slides: List[Dict[str, Any]] = []
-    for index, raw in enumerate(raw_slides):
-        where = f"spec.slides[{index}]"
-        if not isinstance(raw, dict):
-            raise ValueError(f"{where} must be an object")
-
-        slide_title = raw.get("title")
-        if not isinstance(slide_title, str) or not slide_title.strip():
-            raise ValueError(f"{where}.title is required and must be non-empty text")
-
-        bullets = raw.get("bullets", [])
-        if not isinstance(bullets, list):
-            raise ValueError(f"{where}.bullets must be a list of strings")
-        clean_bullets = []
-        for position, bullet in enumerate(bullets):
-            label = f"{where}.bullets[{position}]"
-            if not isinstance(bullet, str):
-                raise ValueError(f"{label} must be text")
-            text = " ".join(bullet.split())
-            if not text:
-                raise ValueError(f"{label} is empty")
-            if len(text) > MAX_BULLET_CHARS:
-                raise ValueError(
-                    f"{label} is {len(text)} characters; the limit is {MAX_BULLET_CHARS}"
-                )
-            clean_bullets.append(text)
-
-        notes = raw.get("notes")
-        if notes is not None and not isinstance(notes, str):
-            raise ValueError(f"{where}.notes must be text")
-
-        slides.append({
-            "title": slide_title.strip(),
-            "bullets": clean_bullets,
-            "notes": notes.strip() if isinstance(notes, str) and notes.strip() else None,
-        })
-
-    return title.strip(), (subtitle or "").strip(), THEMES[theme_key], slides
-
-
-# ------------------------------------------------------------------- drawing
-
-def _rgb(hex_value: str) -> RGBColor:
-    return RGBColor.from_string(hex_value)
-
-
-def _style(run, size: int, color: RGBColor, bold: bool = False) -> None:
-    font = run.font
-    font.name = FONT_LATIN
-    font.size = Pt(size)
-    font.bold = bold
-    font.color.rgb = color
-    _set_east_asian_font(run)
-
-
-def _set_east_asian_font(run) -> None:
-    """Name 等线 for CJK runs.
-
-    python-pptx only exposes ``a:latin``; without ``a:ea`` PowerPoint falls back
-    to the theme's CJK font and the deck's typography splits in two.
-    """
-    rPr = run._r.get_or_add_rPr()
-    ea = rPr.find(qn("a:ea"))
-    if ea is None:
-        ea = OxmlElement("a:ea")
-        latin = rPr.find(qn("a:latin"))
-        if latin is not None:
-            latin.addnext(ea)
-        else:
-            rPr.append(ea)
-    ea.set("typeface", FONT_EA)
-
-
-def _text_box(slide, left, top, width, height):
-    box = slide.shapes.add_textbox(left, top, width, height)
-    frame = box.text_frame
-    frame.word_wrap = True
-    return frame
-
-
-def _rect(slide, left, top, width, height, color: RGBColor) -> None:
-    shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, height)
+def _fill(shape, color):
     shape.fill.solid()
-    shape.fill.fore_color.rgb = color
+    shape.fill.fore_color.rgb = _color(color)
     shape.line.fill.background()
-    shape.shadow.inherit = False
 
 
-def _set_bullet(paragraph, color: RGBColor) -> None:
-    """Draw a real • bullet with hanging indent, so wrapped lines align."""
-    pPr = paragraph._p.get_or_add_pPr()
-    indent = int(Inches(0.34))
-    pPr.set("marL", str(indent))
-    pPr.set("indent", str(-indent))
-
-    buClr = OxmlElement("a:buClr")
-    srgb = OxmlElement("a:srgbClr")
-    srgb.set("val", str(color))
-    buClr.append(srgb)
-
-    buFont = OxmlElement("a:buFont")
-    buFont.set("typeface", FONT_LATIN)
-
-    buChar = OxmlElement("a:buChar")
-    buChar.set("char", "\u2022")
-
-    for element in (buClr, buFont, buChar):
-        pPr.append(element)
-
-
-def _body_size(bullet_count: int) -> int:
-    if bullet_count <= 4:
-        return 26
-    if bullet_count <= 6:
-        return 23
-    if bullet_count <= 9:
-        return 20
-    return 18
-
-
-def _add_title_slide(prs, theme: Theme, title: str, subtitle: str) -> None:
-    slide = prs.slides.add_slide(prs.slide_layouts[_BLANK_LAYOUT])
-    accent = _rgb(theme.accent)
-
-    _rect(slide, 0, 0, Inches(0.42), SLIDE_HEIGHT, accent)
-    _rect(slide, Inches(1.05), Inches(2.05), Inches(0.09), Inches(2.15), accent)
-
-    frame = _text_box(slide, Inches(1.42), Inches(1.95), Inches(10.9), Inches(1.9))
-    paragraph = frame.paragraphs[0]
-    paragraph.alignment = PP_ALIGN.LEFT
-    run = paragraph.add_run()
-    run.text = title
-    _style(run, 40, _rgb(theme.title), bold=True)
-
-    if subtitle:
-        frame = _text_box(slide, Inches(1.45), Inches(3.95), Inches(10.6), Inches(0.9))
-        paragraph = frame.paragraphs[0]
+def _text(frame, value, size, color, bold=False):
+    frame.clear()
+    frame.word_wrap = False  # The shared layout engine has already wrapped to capacity.
+    frame.margin_left = frame.margin_right = 0
+    frame.margin_top = frame.margin_bottom = 0
+    for i, line in enumerate(value.split('\n')):
+        paragraph = frame.paragraphs[0] if i == 0 else frame.add_paragraph()
+        paragraph.line_spacing = 1.2
+        paragraph.space_after = Pt(0)
         run = paragraph.add_run()
-        run.text = subtitle
-        _style(run, 20, _rgb(theme.body))
+        run.text = line
+        run.font.name, run.font.size, run.font.bold = 'Calibri', Pt(size), bold
+        run.font.color.rgb = _color(color)
+        ea = OxmlElement('a:ea')
+        ea.set('typeface', '等线')
+        run._r.get_or_add_rPr().append(ea)
 
 
-def _add_content_slide(prs, theme: Theme, entry: Dict[str, Any], number: int) -> None:
-    slide = prs.slides.add_slide(prs.slide_layouts[_BLANK_LAYOUT])
-    accent = _rgb(theme.accent)
+def _image(slide, element, theme, warnings, number):
+    x, y, w, h = [Inches(element[k]) for k in ('x', 'y', 'w', 'h')]
+    image = element['image']
+    path = Path(image.get('path', ''))
+    if image.get('path') and path.is_file():
+        try:
+            if image.get('fit', 'contain') == 'cover':
+                picture = slide.shapes.add_picture(str(path), x, y)
+                picture_ratio = picture.width / picture.height
+                target_ratio = w / h
+                picture.width, picture.height = w, h
+                if picture_ratio > target_ratio:
+                    crop = (1 - target_ratio / picture_ratio) / 2
+                    picture.crop_left = picture.crop_right = crop
+                else:
+                    crop = (1 - picture_ratio / target_ratio) / 2
+                    picture.crop_top = picture.crop_bottom = crop
+            else:
+                picture = slide.shapes.add_picture(str(path), x, y)
+                ratio = min(w / picture.width, h / picture.height)
+                picture.width, picture.height = round(picture.width * ratio), round(picture.height * ratio)
+                picture.left, picture.top = x + (w - picture.width) // 2, y + (h - picture.height) // 2
+            return
+        except (OSError, ValueError):
+            warnings.append(f'第 {number} 页图片无法读取，已使用占位框，请替换图片')
+    else:
+        warnings.append(f'第 {number} 页图片缺失，已使用占位框，请补充 image.path')
+    box = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, x, y, w, h)
+    _fill(box, 'F2F5F9')
+    from agent.tools.pptx.scene import fit_text
+    caption, size = fit_text('图片占位\n' + image.get('caption', ''), element['w'] - .5,
+                             element['h'] - .5, 24, warnings, f'第 {number} 页图片说明')
+    _text(box.text_frame, caption, size, theme.body)
 
-    _rect(slide, 0, 0, SLIDE_WIDTH, Inches(0.16), accent)
 
-    frame = _text_box(slide, Inches(0.85), Inches(0.5), Inches(11.6), Inches(0.95))
-    paragraph = frame.paragraphs[0]
-    run = paragraph.add_run()
-    run.text = entry["title"]
-    _style(run, 30, _rgb(theme.title), bold=True)
-
-    _rect(slide, Inches(0.9), Inches(1.52), Inches(1.5), Inches(0.05), accent)
-
-    bullets = entry["bullets"]
-    if bullets:
-        frame = _text_box(slide, Inches(0.9), Inches(1.9), Inches(11.45), Inches(4.55))
-        size = _body_size(len(bullets))
-        for position, text in enumerate(bullets):
-            paragraph = frame.paragraphs[0] if position == 0 else frame.add_paragraph()
-            paragraph.space_after = Pt(12)
-            _set_bullet(paragraph, accent)
-            run = paragraph.add_run()
-            run.text = text
-            _style(run, size, _rgb(theme.body))
-
-    frame = _text_box(slide, Inches(12.15), Inches(6.62), Inches(0.75), Inches(0.4))
-    paragraph = frame.paragraphs[0]
-    paragraph.alignment = PP_ALIGN.RIGHT
-    run = paragraph.add_run()
-    run.text = str(number)
-    _style(run, 12, _rgb(theme.body))
-
-    if entry["notes"]:
-        slide.notes_slide.notes_text_frame.text = entry["notes"]
+def build_deck(spec, out_path):
+    """Validate, render, and return absolute path, page count and layout warnings."""
+    pages, theme, warnings = deck_scenes(spec)
+    if not isinstance(out_path, (str, Path)) or not str(out_path).strip():
+        raise ValueError('输出路径请填写非空文件路径')
+    prs = Presentation()
+    prs.slide_width, prs.slide_height = SLIDE_WIDTH, SLIDE_HEIGHT
+    for number, page in enumerate(pages, 1):
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
+        slide.name = page['layout']
+        for element in page['elements']:
+            x, y, w, h = [Inches(element[k]) for k in ('x', 'y', 'w', 'h')]
+            kind = element['kind']
+            if kind == 'shape':
+                box = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE if element['rounded'] else MSO_SHAPE.RECTANGLE, x, y, w, h)
+                _fill(box, element['color'])
+            elif kind == 'text':
+                box = slide.shapes.add_textbox(x, y, w, h)
+                box.name = 'title' if element['text'] == page['title'] else 'text'
+                _text(box.text_frame, element['text'], element['size'], element['color'], element['bold'])
+            elif kind == 'image':
+                _image(slide, element, theme, warnings, number)
+            elif kind == 'table':
+                cells = table_cells(element['data'], element['w'], element['h'], warnings, f'第 {number} 页表格')
+                table = slide.shapes.add_table(len(cells), len(cells[0]), x, y, w, h).table
+                for row_index, row in enumerate(cells):
+                    table.rows[row_index].height = h // len(cells)
+                    for col_index, (value, size) in enumerate(row):
+                        cell = table.cell(row_index, col_index)
+                        cell.margin_left = cell.margin_right = Inches(.08)
+                        cell.margin_top = cell.margin_bottom = Inches(.03)
+                        cell.fill.solid()
+                        cell.fill.fore_color.rgb = _color(theme.accent if row_index == 0 else ('F2F5F9' if row_index % 2 else 'FFFFFF'))
+                        _text(cell.text_frame, value, size, 'FFFFFF' if row_index == 0 else theme.body, row_index == 0)
+            if kind in ('shape', 'text'):
+                box.shadow.inherit = False
+        if page['notes']:
+            slide.notes_slide.notes_text_frame.text = page['notes']
+    path = Path(out_path).resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    prs.save(str(path))
+    return {'path': str(path), 'pages': len(pages), 'warnings': warnings}

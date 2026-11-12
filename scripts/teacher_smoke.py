@@ -131,8 +131,10 @@ def main() -> int:
         from agent.tools.pptx import build_deck
 
         out = sandbox / "deck.pptx"
-        build_deck({"title": "Unit 3", "theme": "lecture",
-                    "slides": [{"title": "目标", "bullets": ["能描述周末计划"]}]}, str(out))
+        result = build_deck({"version": 1, "meta": {"title": "Unit 3"}, "theme": "lecture",
+                             "slides": [{"layout": "objectives", "title": "目标",
+                                         "bullets": ["能描述周末计划"]}]}, str(out))
+        assert result["path"] == str(out.resolve()) and result["pages"] == 1
         check("pptx builds offline", out.exists() and out.stat().st_size > 10000, str(out.stat().st_size if out.exists() else 0))
 
         # ---- teaching academics: class -> students -> timetable -> homework -> exam -> analysis
