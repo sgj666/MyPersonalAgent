@@ -90,6 +90,10 @@ from channel.web.api.teaching import (  # noqa: F401
     TeachingTimetableHandler,
     TeachingTodayHandler,
 )
+from channel.web.api.teaching_insights import (  # noqa: F401
+    TEACHING_INSIGHTS_URLS,
+    TeachingFactsHandler, TeachingProgressImportHandler, TeachingRecentHandler,
+)
 from channel.web.api.tasks import (  # noqa: F401
     TaskDeleteHandler, TaskUpdateHandler, TasksHandler,
 )
@@ -195,7 +199,7 @@ URLS = (
     '/api/scheduler/recipients', 'SchedulerRecipientsHandler',
     '/api/scheduler/instances', 'SchedulerInstancesHandler',
     # web.py wants flat pattern/handler pairs, not (pattern, handler) tuples.
-    *[part for pair in TEACHING_URLS for part in pair],
+    *[part for pair in TEACHING_URLS + TEACHING_INSIGHTS_URLS for part in pair],
     '/api/tasks', 'TasksHandler',
     '/api/tasks/update', 'TaskUpdateHandler',
     '/api/tasks/delete', 'TaskDeleteHandler',
