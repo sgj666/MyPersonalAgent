@@ -25,18 +25,23 @@ ALLOWED_FRONTMATTER_KEYS = {
 }
 
 # skill name -> text that must appear in the body, so a rewrite cannot quietly
-# drop the output path or the command the skill is contracted to run.
+# drop the output path or the shape the page renders (see
+# docs/plans/teaching-tools-implementation.md §2/§3: the skills emit JSON
+# drafts, the backend renders the .pptx / .html).
 REQUIRED_TEXT = {
     "lesson-plan": ["knowledge/教案/"],
-    "courseware-ppt": [
-        "from agent.tools.pptx import build_deck",
-        "artifacts/",
-        "getsize",
-        "ValueError",
-    ],
-    "homework-card": ["@media print", "artifacts/作业卡片/", "PNG"],
-    "teaching-advice": ["memory_search"],
-    "teaching-plan": ["task_board"],
+    "courseware-ppt": ["artifacts/教学工具/deck/", "layout", "notes"],
+    "homework-card": ["artifacts/教学工具/card/", "advanced", "summary"],
+    "homework-summary": ["weak_points", "summary"],
+    "teaching-advice": ["facts", "actions"],
+    "teaching-plan": ["weeks", "artifacts/教学工具/plan/"],
+}
+
+# Rendering moved out of the skills (the backend owns it), so a skill that
+# still tells the model to build the deck itself has drifted from the contract.
+FORBIDDEN_TEXT = {
+    "courseware-ppt": ["from agent.tools.pptx import build_deck", "build_deck("],
+    "homework-card": ["html2canvas"],
 }
 
 
@@ -73,6 +78,12 @@ def test_instructions_are_chinese_and_keep_the_contract(name):
 
     for expected in REQUIRED_TEXT[name]:
         assert expected in body, f"{name} must mention {expected!r}"
+
+    for forbidden in FORBIDDEN_TEXT.get(name, []):
+        assert forbidden not in body, (
+            f"{name} must not carry the old pipeline ({forbidden!r}): rendering is "
+            "the backend's job, per docs/plans/teaching-tools-implementation.md"
+        )
 
     assert "http://" not in body and "https://" not in body, (
         f"{name} must stay offline: no network URLs"
