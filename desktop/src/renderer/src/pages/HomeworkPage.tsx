@@ -1,5 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { CheckCheck, ClipboardCopy, ClipboardList, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import {
+  ArrowRight,
+  CheckCheck,
+  ClipboardCopy,
+  ClipboardList,
+  ImageDown,
+  Pencil,
+  Plus,
+  Trash2,
+  Users,
+} from 'lucide-react'
 import { t, tf } from '../i18n'
 import apiClient from '../api/client'
 import { askConfirm } from '../store/confirmStore'
@@ -164,6 +175,7 @@ const homeworkKindLabel = (kind: HomeworkKind): string => {
 }
 
 const HomeworkPage: React.FC<HomeworkPageProps> = ({ baseUrl }) => {
+  const navigate = useNavigate()
   const [classes, setClasses] = useState<TeachingClass[]>([])
   const [slots, setSlots] = useState<TimetableSlot[]>([])
   const [items, setItems] = useState<HomeworkItem[]>([])
@@ -284,6 +296,17 @@ const HomeworkPage: React.FC<HomeworkPageProps> = ({ baseUrl }) => {
 
   const studentsOf = (classId: string) => rosters[classId] || []
 
+  /** Per-homework submission state, for the list's thin progress bar. */
+  const itemProgress = (item: HomeworkItem) => {
+    const book = records[item.id] || {}
+    const rows = item.class_ids.flatMap((id) => studentsOf(id))
+    const handed = rows.filter(
+      (student) => book[student.id] === 'submitted' || book[student.id] === 'excellent'
+    ).length
+    return { handed, total: rows.length, pct: rows.length ? Math.round((handed / rows.length) * 100) : 0 }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }
+
   const summary = useMemo(() => {
     if (!selected) return { total: 0, handed: 0, missing: [] as TeachingStudent[] }
     const rows = selected.class_ids.flatMap((id) => studentsOf(id))
@@ -358,6 +381,43 @@ const HomeworkPage: React.FC<HomeworkPageProps> = ({ baseUrl }) => {
   }
 
   const today = todayISO()
+  // One pass over every homework so the header can answer "what needs me
+  // today": how many were set this week, how many still have unregistered
+  // students, and how many students are missing work overall.
+  const board = useMemo(() => {
+    const weekAgo = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10)
+    let thisWeek = 0
+    let pending = 0
+    let missing = 0
+    let total = 0
+    let handed = 0
+    for (const item of items) {
+      if ((item.due || '') >= weekAgo) thisWeek += 1
+      const book = records[item.id] || {}
+      const rows = item.class_ids.flatMap((id) => studentsOf(id))
+      if (!rows.length) continue
+      total += rows.length
+      let itemHanded = 0
+      let itemMissing = 0
+      for (const student of rows) {
+        const state = book[student.id]
+        if (state === 'submitted' || state === 'excellent') itemHanded += 1
+        else if (state === 'missing' || state === 'fix') itemMissing += 1
+      }
+      handed += itemHanded
+      missing += itemMissing
+      if (itemHanded + itemMissing < rows.length) pending += 1
+    }
+    return { thisWeek, pending, missing, rate: total ? handed / total : 0 }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, records, rosters])
+
+  /** Share one homework's numbers with the card page, so the card repeats it. */
+  const makeCard = (item?: HomeworkItem | null) => {
+    const source = item || selected
+    const unit = source?.title || ''
+    navigate(`/teaching?tool=card${unit ? `&unit=${encodeURIComponent(unit)}` : ''}`)
+  }
 
   return (
     <div id="twb-homework" className="flex-1 flex flex-col min-h-0">
@@ -392,8 +452,106 @@ const HomeworkPage: React.FC<HomeworkPageProps> = ({ baseUrl }) => {
             <Loading />
           ) : error ? (
             <PageError message={error} onRetry={() => void load()} />
+          ) : !items.length ? (
+            /* Nothing set yet: one panel that names the whole loop instead of
+               two bordered boxes on an otherwise empty page. */
+            <section className="twb-card twb-hw-first">
+              <div className="twb-hw-first-head">
+                <span className="twb-hw-first-badge" aria-hidden="true">
+                  <ClipboardList size={22} />
+                </span>
+                <div>
+                  <h2>{t('tw_hw_first_title')}</h2>
+                  <p>{t('tw_hw_first_desc')}</p>
+                </div>
+              </div>
+              <div className="twb-hw-first-body">
+                <ol className="twb-hw-steps">
+                  <li>
+                    <b>1</b>
+                    <div>
+                      <h3>{t('tw_hw_first_s1')}</h3>
+                      <p>{t('tw_hw_first_s1_desc')}</p>
+                    </div>
+                  </li>
+                  <li>
+                    <b>2</b>
+                    <div>
+                      <h3>{t('tw_hw_first_s2')}</h3>
+                      <p>{t('tw_hw_first_s2_desc')}</p>
+                    </div>
+                  </li>
+                  <li>
+                    <b>3</b>
+                    <div>
+                      <h3>{t('tw_hw_first_s3')}</h3>
+                      <p>{t('tw_hw_first_s3_desc')}</p>
+                    </div>
+                  </li>
+                </ol>
+                {/* What the third step actually makes. A static mock beats a
+                    description: the teacher sees the card, not a promise. */}
+                <figure className="twb-hw-mock" aria-label={t('tw_hw_mock_label')}>
+                  <div className="twb-hw-mock-card">
+                    <span className="twb-hw-mock-eyebrow">七(3)班 · 英语 · Unit 3</span>
+                    <strong>Unit 3 课后作业</strong>
+                    <span className="twb-hw-mock-due">截止 周四 · 预计 20 分钟</span>
+                    <ol>
+                      <li>单词抄写 3 遍（visit, picnic…）</li>
+                      <li>用 be going to 写 3 句话</li>
+                      <li>读课文，标出不懂的句子</li>
+                    </ol>
+                    <span className="twb-hw-mock-note">给家长：今晚 20 分钟，重点是 be going to。</span>
+                  </div>
+                  <figcaption>{t('tw_hw_mock_caption')}</figcaption>
+                </figure>
+              </div>
+              {classes.length ? (
+                <div className="twb-hw-first-actions">
+                  <button
+                    type="button"
+                    className="twb-btn twb-btn-primary"
+                    onClick={() => setDialog({ open: true, target: null })}
+                  >
+                    <Plus size={15} />
+                    <span>{t('tw_hw_first_cta')}</span>
+                  </button>
+                  <button type="button" className="twb-btn" onClick={() => makeCard(null)}>
+                    <ImageDown size={15} />
+                    <span>{t('tw_hw_make_card')}</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="twb-hw-first-actions">
+                  <p className="twb-hint">{t('tw_hw_need_class')}</p>
+                  <button type="button" className="twb-btn twb-btn-primary" onClick={() => navigate('/classes')}>
+                    <Users size={15} />
+                    <span>{t('tw_hw_go_classes')}</span>
+                  </button>
+                </div>
+              )}
+            </section>
           ) : (
-            <div className="twb-split">
+            <>
+              <div className="twb-hw-stats">
+                <div className="twb-hw-stat">
+                  <span>{t('tw_hw_this_week')}</span>
+                  <b>{board.thisWeek}</b>
+                </div>
+                <div className={`twb-hw-stat${board.pending ? ' is-warn' : ''}`}>
+                  <span>{t('tw_hw_pending')}</span>
+                  <b>{board.pending}</b>
+                </div>
+                <div className={`twb-hw-stat${board.missing ? ' is-warn' : ''}`}>
+                  <span>{t('tw_hw_missing_people')}</span>
+                  <b>{board.missing}</b>
+                </div>
+                <div className="twb-hw-stat">
+                  <span>{t('tw_hw_rate_short')}</span>
+                  <b>{Math.round(board.rate * 100)}%</b>
+                </div>
+              </div>
+              <div className="twb-split">
               <aside className="twb-card twb-side">
                 <div className="twb-card-head">
                   <h2>{t('tw_hw_list')}</h2>
@@ -420,6 +578,19 @@ const HomeworkPage: React.FC<HomeworkPageProps> = ({ baseUrl }) => {
                               .filter(Boolean)
                               .join('、')}
                           </small>
+                          {/* A two-pixel bar reads the submission state at a
+                              glance, which the old list needed a click for. */}
+                          {(() => {
+                            const progress = itemProgress(item)
+                            return progress.total ? (
+                              <small className="twb-hw-bar" aria-hidden="true">
+                                <i style={{ width: `${progress.pct}%` }} />
+                                <em>
+                                  {progress.handed}/{progress.total}
+                                </em>
+                              </small>
+                            ) : null
+                          })()}
                         </button>
                         <span className="twb-side-actions">
                           <button
@@ -493,6 +664,10 @@ const HomeworkPage: React.FC<HomeworkPageProps> = ({ baseUrl }) => {
                           <ClipboardCopy size={14} />
                           <span>{t('tw_hw_copy_missing')}</span>
                         </button>
+                        <button type="button" className="twb-btn" onClick={() => makeCard(selected)}>
+                          <ImageDown size={14} />
+                          <span>{t('tw_hw_make_card')}</span>
+                        </button>
                       </div>
                     </div>
 
@@ -550,6 +725,7 @@ const HomeworkPage: React.FC<HomeworkPageProps> = ({ baseUrl }) => {
                 )}
               </section>
             </div>
+            </>
           )}
         </div>
       </div>

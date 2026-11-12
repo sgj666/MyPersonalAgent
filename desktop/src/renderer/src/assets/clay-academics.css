@@ -3353,3 +3353,244 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
   .twt-phone-shell { min-height: 520px; }
   .twt-stage .twt-preview-box { min-height: 260px; }
 }
+
+/* ---------- homework: first run + submission overview ---------- */
+/* An empty 作业 page used to be two dashed boxes on a blank canvas. It now
+   states the loop (set → register → card) in one panel, and once there are
+   rows the header answers "what needs me today" before the list does. */
+#twb-homework .twb-hw-first {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 26px 28px 24px;
+  max-width: 900px;
+}
+
+.twb-hw-first-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.twb-hw-first-head h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--twb-ink);
+}
+
+.twb-hw-first-head p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.65;
+  font-weight: 600;
+  color: var(--twb-ink-2);
+}
+
+.twb-hw-first-badge {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  color: var(--twb-accent-hover);
+  background: var(--twb-accent-soft);
+  border: 1px solid var(--twb-rim);
+  border-radius: 14px;
+}
+
+.twb-hw-first-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(240px, .65fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.twb-hw-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.twb-hw-steps li {
+  display: flex;
+  gap: 10px;
+  padding: 14px 14px 12px;
+  background: var(--twb-surface-2);
+  border: 1px solid var(--twb-rim);
+  border-radius: 14px;
+}
+
+.twb-hw-steps b {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--twb-accent-ink);
+  background: var(--twb-accent);
+}
+
+.twb-hw-steps h3 {
+  margin: 1px 0 4px;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--twb-ink);
+}
+
+.twb-hw-steps p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--twb-ink-2);
+}
+
+.twb-hw-first-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Header figures: one row, number first, label under it. */
+#twb-homework .twb-hw-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.twb-hw-stat {
+  padding: 12px 16px;
+  background: var(--twb-surface);
+  border: 1px solid var(--twb-rim);
+  border-radius: 14px;
+  box-shadow: var(--twb-shadow-sm);
+}
+
+.twb-hw-stat span {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--twb-ink-3);
+}
+
+.twb-hw-stat b {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--twb-ink);
+}
+
+.twb-hw-stat.is-warn b {
+  color: var(--twb-urgent);
+}
+
+/* Submission bar in the list row. */
+.twb-side-item .twb-hw-bar {
+  position: relative;
+  display: block;
+  height: 4px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: var(--twb-surface-3);
+  overflow: visible;
+}
+
+.twb-side-item .twb-hw-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--twb-accent);
+}
+
+.twb-side-item .twb-hw-bar em {
+  display: block;
+  margin-top: 4px;
+  font-size: 10.5px;
+  font-style: normal;
+  font-weight: 700;
+  color: var(--twb-ink-3);
+}
+
+/* The card the third step produces, at a readable size. */
+.twb-hw-mock {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.twb-hw-mock-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 16px 14px;
+  border: 1px solid var(--twb-rim);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #f4fbf7 0%, var(--twb-surface) 40%);
+  box-shadow: var(--twb-shadow-sm);
+}
+
+.twb-hw-mock-eyebrow {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--twb-accent-hover);
+}
+
+.twb-hw-mock-card strong {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--twb-ink);
+}
+
+.twb-hw-mock-due {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--twb-ink-3);
+}
+
+.twb-hw-mock-card ol {
+  margin: 6px 0 2px;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--twb-ink-2);
+}
+
+.twb-hw-mock-note {
+  margin-top: 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--twb-accent-soft);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.6;
+  color: var(--twb-accent-hover);
+}
+
+.twb-hw-mock figcaption {
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--twb-ink-3);
+}
+
+@media (max-width: 1100px) {
+  .twb-hw-first-body,
+  #twb-homework .twb-hw-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .twb-hw-first-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
