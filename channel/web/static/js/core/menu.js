@@ -36,15 +36,15 @@ const MENU_BUILTINS = {
 // the teacher's own page first, the chat it feeds second.
 //
 // A page can be registered in MENU_BUILTINS and still be left out of the
-// default: agents and tasks stay reachable from the menu editor's "add a
-// built-in page" list, which reads MENU_BUILTINS, without cluttering a menu
-// most teachers never use those for.
+// default: tasks stay reachable from the menu editor's "add a built-in page"
+// list, which reads MENU_BUILTINS, without cluttering a menu most teachers
+// never use it for.
 const MENU_DEFAULT = [
     { id: 'daily', views: ['home'] },
     { id: 'chat',    views: ['chat', 'artifacts'] },
     { id: 'teach',   views: ['classes', 'timetable', 'progress', 'homework', 'scores',
                              'teaching', 'board', 'knowledge'] },
-    { id: 'manage',  views: ['config', 'skills', 'memory', 'channels'] },
+    { id: 'manage',  views: ['agents', 'config', 'skills', 'memory', 'channels'] },
     { id: 'monitor', views: ['logs'] },
 ];
 

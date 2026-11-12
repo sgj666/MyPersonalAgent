@@ -172,9 +172,9 @@ def test_the_menu_opens_on_the_daily_group_with_home_before_chat():
     assert groups[1][1][0] == "chat"
 
 
-def test_agents_and_tasks_are_registered_but_out_of_the_default_menu():
+def test_agents_are_in_the_default_menu_and_tasks_are_only_registered():
     default = {view for _, views in _default_groups() for view in views}
-    assert "agents" not in default and "tasks" not in default
+    assert "agents" in default and "tasks" not in default
     # They stay pages a menu can point at: the menu editor's candidate list is
     # Object.keys(MENU_BUILTINS), so removing the registration would remove
     # the page from the console's vocabulary, not just from the default menu.
