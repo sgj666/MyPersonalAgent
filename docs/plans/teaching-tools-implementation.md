@@ -53,7 +53,8 @@
   },
   "slides": [
     {"id": "s1", "layout": "cover", "title": "...", "subtitle": "...", "notes": "开场 30 秒"},
-    {"id": "s2", "layout": "objectives", "title": "学习目标", "bullets": ["..."]},
+    {"id": "s2", "layout": "agenda", "title": "本课安排", "bullets": ["导入 3′", "新授 20′"]},
+    {"id": "s3", "layout": "objectives", "title": "学习目标", "bullets": ["..."]},
     {"id": "s3", "layout": "bullets", "title": "...", "bullets": ["每条 ≤ 40 字"]},
     {"id": "s4", "layout": "two-col", "title": "...",
       "columns": [{"heading": "词汇", "bullets": []}, {"heading": "句型", "bullets": []}]},
@@ -75,7 +76,7 @@
 ```
 
 硬规则（渲染器校验，违反即 `ValueError` 带中文修法）：
-- `slides` 1–40；`layout` 必须是上表 13 种之一；`bullets` 每条 ≤ 60 字、每页 ≤ 6 条；`process/timeline` 的 `steps` ≤ 6；`table` ≤ 6 列 × 8 行。
+- `slides` 1–40；`layout` 必须是 13 种之一（cover / agenda / objectives / bullets / two-col / compare / process / timeline / table / image / quote / summary / end，与 `agent/tools/pptx` 的 `LAYOUTS` 常量一致，那里是唯一权威）；`bullets` 每条 ≤ 60 字、每页 ≤ 6 条；`process/timeline` 的 `steps` ≤ 6；`table` ≤ 6 列 × 8 行。
 - 版式内文本自动排版：超出容量时**缩小字号到下限后截断并写 warning**，绝不溢出画布。
 - 字体：`Calibri` + `等线`（拉丁 + 中文），不嵌字体；字号阶梯 32/24/20/16/14。
 - 主题只换配色与少量装饰（色块、圆角），不改版式骨架。
@@ -103,7 +104,7 @@
   "footer": {"score": true, "parent_sign": true}
 }
 ```
-规则：1–4 个 section；每 section ≤ 8 题；`type` ∈ fill|choice|short|read|match；答案只进答案版。渲染两种形态：`group`（1080×1440，群图）与 `a4`（A4 打印，`@page`）。
+规则：1–4 个 section；每 section ≤ 8 题；`tier` ∈ `basic` | `advanced` | `challenge`（与渲染器 `card_html.py` 的枚举一致，**不是** `plus`）；`type` ∈ fill|choice|short|read|match；答案只进答案版。渲染两种形态：`group`（1080×1440，群图）与 `a4`（A4 打印，`@page`）。
 
 ---
 
