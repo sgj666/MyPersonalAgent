@@ -8,6 +8,19 @@ export type ThemeImportResult =
   | { status: 'canceled' }
   | { status: 'error'; code: 'no_theme' | 'bad_json' | 'bad_zip' | 'too_large' | 'failed' }
 
+export interface PdfExportOptions {
+  htmlPath: string
+  outPath?: string
+}
+
+export interface ImageExportOptions extends PdfExportOptions {
+  width: number
+  height: number
+  selector?: string
+}
+
+export type ExportResult<T> = ({ ok: true } & T) | { ok: false; error: string }
+
 export interface ElectronAPI {
   getBackendPort: () => Promise<number | null>
   getBackendStatus: () => Promise<string>
@@ -28,6 +41,8 @@ export interface ElectronAPI {
   openPath: (targetPath: string) => Promise<string>
   /** Show a local file selected in Finder / Explorer. */
   revealPath?: (targetPath: string) => Promise<void>
+  exportImage?: (options: ImageExportOptions) => Promise<ExportResult<{ path: string; width: number; height: number }>>
+  exportPdf?: (options: PdfExportOptions) => Promise<ExportResult<{ path: string }>>
   // Listener registrars return an unsubscribe fn for cleanup.
   onBackendStatus: (callback: (data: BackendStatusEvent) => void) => () => void
   onBackendLog: (callback: (line: string) => void) => () => void

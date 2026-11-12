@@ -1,4 +1,5 @@
 import * as electron from 'electron'
+import type { ExportResult, ImageExportOptions, PdfExportOptions } from './export'
 
 const { contextBridge, ipcRenderer } = electron
 
@@ -29,6 +30,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectFile: (filters?: Electron.FileFilter[]) => ipcRenderer.invoke('select-file', filters),
   openPath: (targetPath: string) => ipcRenderer.invoke('open-path', targetPath) as Promise<string>,
   revealPath: (targetPath: string) => ipcRenderer.invoke('reveal-path', targetPath) as Promise<void>,
+  exportImage: (options: ImageExportOptions) => ipcRenderer.invoke('export-image', options) as Promise<ExportResult<{ path: string; width: number; height: number }>>,
+  exportPdf: (options: PdfExportOptions) => ipcRenderer.invoke('export-pdf', options) as Promise<ExportResult<{ path: string }>>,
 
   // Each listener registrar returns an unsubscribe fn so renderers can clean
   // up on unmount / effect re-run and avoid accumulating duplicate handlers.
