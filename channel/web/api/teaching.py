@@ -531,8 +531,98 @@ class TeachingGreetingHandler:
         return _ok(**teaching_greeting(store, refresh=refresh))
 
 
+class TeachingRenderHandler:
+    """POST /api/teaching/render; both input and output stay in this agent."""
+
+    @_endpoint
+    def POST(self):
+        from agent.teaching.render.render import render_draft, workspace_path
+
+        body = _body()
+        workspace = _get_workspace_root(agent_id=_request_agent_id(body))
+        draft = body.get("draft")
+        if draft is None:
+            path = workspace_path(workspace, body.get("draft_path"))
+            if not path.is_file():
+                raise KeyError(body.get("draft_path"))
+            draft = json.loads(path.read_text(encoding="utf-8"))
+        return _ok(**render_draft(
+            body.get("kind"), draft, out_name=body.get("out_name"),
+            formats=body.get("formats"), a4=body.get("a4", False), workspace=workspace,
+        ))
+
+
+class TeachingDraftHandler:
+    """GET/PUT /api/teaching/draft; save the editable source atomically."""
+
+    @_endpoint
+    def PUT(self):
+        from common.atomic_write import write_json_atomic
+        from agent.teaching.render.render import draft_location, validate_draft
+
+        body = _body()
+        workspace = _get_workspace_root(agent_id=_request_agent_id(body))
+        draft = validate_draft(body.get("kind"), body.get("draft"))
+        path, rel = draft_location(workspace, body.get("kind"), body.get("slug"))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        write_json_atomic(path, draft)
+        return _ok(path=rel)
+
+    @_endpoint
+    def GET(self):
+        from agent.teaching.render.render import draft_location
+
+        params = web.input(kind='', slug='', agent_id='')
+        workspace = _get_workspace_root(agent_id=_request_agent_id(params))
+        path, rel = draft_location(workspace, params.kind, params.slug)
+        if not path.is_file():
+            raise KeyError(rel)
+        return _ok(draft=json.loads(path.read_text(encoding="utf-8")), path=rel)
+
+
+class TeachingDraftsHandler:
+    """GET /api/teaching/drafts; newest source documents in this agent only."""
+
+    @_endpoint
+    def GET(self):
+        from datetime import datetime, timezone
+        from agent.teaching.render.render import KINDS, workspace_path
+
+        params = web.input(kind='', limit='10', agent_id='')
+        if params.kind not in KINDS:
+            raise ValueError('kind 请改为 deck/card/plan/advice')
+        try:
+            limit = int(params.limit)
+        except (ValueError, TypeError):
+            raise ValueError('limit 请填写 1–100 的整数')
+        if not 1 <= limit <= 100:
+            raise ValueError('limit 请填写 1–100 的整数')
+        workspace = _get_workspace_root(agent_id=_request_agent_id(params))
+        directory = workspace_path(workspace, f'artifacts/教学工具/{params.kind}')
+        items = []
+        for candidate in directory.glob('*.json'):
+            rel = candidate.relative_to(os.path.realpath(workspace)).as_posix()
+            try:
+                path = workspace_path(workspace, rel)
+                draft = json.loads(path.read_text(encoding='utf-8'))
+                meta = draft.get('meta', {})
+                if not isinstance(meta, dict):
+                    continue
+                stat = path.stat()
+            except (ValueError, OSError, AttributeError):
+                continue
+            items.append({'slug': candidate.stem, 'title': meta.get('title', candidate.stem),
+                          'when': datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat(),
+                          'path': rel, 'class_ids': meta.get('class_ids', [])})
+        items.sort(key=lambda item: item['when'], reverse=True)
+        return _ok(items=items[:limit])
+
+
 #: Splice into ``URLS``; the coordinator owns that wiring.
 TEACHING_URLS = (
+    ('/api/teaching/render', 'TeachingRenderHandler'),
+    ('/api/teaching/draft', 'TeachingDraftHandler'),
+    ('/api/teaching/drafts', 'TeachingDraftsHandler'),
     ('/api/teaching/classes', 'TeachingClassesHandler'),
     ('/api/teaching/students', 'TeachingStudentsHandler'),
     ('/api/teaching/students/([^/]+)', 'TeachingStudentHandler'),
@@ -553,6 +643,9 @@ TEACHING_URLS = (
 )
 
 __all__ = [
+    "TeachingRenderHandler",
+    "TeachingDraftHandler",
+    "TeachingDraftsHandler",
     "TeachingAnalysisHandler",
     "TeachingClassesHandler",
     "TeachingExamsHandler",

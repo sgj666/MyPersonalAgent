@@ -18,22 +18,23 @@ SKILLS_SLIDE = {
 
 def _spec(theme="lecture", slides=None):
     return {
-        "title": "Unit 3 My weekend plan",
-        "subtitle": "人教版 七年级上 · 第 2 课时",
+        "version": 1,
+        "meta": {"title": "Unit 3 My weekend plan", "subtitle": "人教版 七年级上 · 第 2 课时"},
         "theme": theme,
-        "slides": slides if slides is not None else [
+        "slides": [{"layout": "cover", "title": "Unit 3 My weekend plan"}] + [
+            {"layout": "bullets", **slide} for slide in (slides if slides is not None else [
             SKILLS_SLIDE,
             {"title": "活动：Pair work", "bullets": ["两人一组问答", "记录同伴的计划"]},
             {"title": "小结", "bullets": ["be going to + 动词原形"]},
-        ],
+        ])],
     }
 
 
 def _build(tmp_path, theme="lecture", slides=None, name="deck.pptx"):
     out = tmp_path / name
     returned = build_deck(_spec(theme, slides), str(out))
-    assert os.path.isabs(returned)
-    assert os.path.samefile(returned, str(out))
+    assert os.path.isabs(returned["path"])
+    assert os.path.samefile(returned["path"], str(out))
     return out
 
 
@@ -126,6 +127,11 @@ def test_missing_output_directory_is_created(tmp_path):
     pytest.param(["not", "a", "dict"], id="not-a-dict"),
 ])
 def test_invalid_specs_raise_value_error(tmp_path, spec):
+    if isinstance(spec, dict):
+        title = spec.pop("title", None)
+        spec.update(version=1, meta={"title": title})
+        if isinstance(spec.get("slides"), list):
+            spec["slides"] = [{"layout": "bullets", **slide} for slide in spec["slides"]]
     with pytest.raises(ValueError):
         build_deck(spec, str(tmp_path / "bad.pptx"))
     assert not (tmp_path / "bad.pptx").exists()
@@ -133,7 +139,7 @@ def test_invalid_specs_raise_value_error(tmp_path, spec):
 
 def test_rejects_too_many_slides(tmp_path):
     slides = [{"title": f"第 {i} 页", "bullets": ["要点"]} for i in range(MAX_SLIDES + 1)]
-    with pytest.raises(ValueError, match=str(MAX_SLIDES)):
+    with pytest.raises(ValueError, match="1–40"):
         build_deck(_spec(slides=slides), str(tmp_path / "long.pptx"))
 
 

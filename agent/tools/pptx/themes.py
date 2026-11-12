@@ -1,4 +1,4 @@
-"""Color palettes for the three deck themes.
+"""Color palettes for the five deck themes.
 
 Hex strings, not RGBColor, so the palette can be read (and tested) without
 python-pptx. Only title/body/accent change between themes; fonts never do —
@@ -26,4 +26,6 @@ THEMES: Dict[str, Theme] = {
     "activity": Theme("activity", title="14524B", body="2F403C", accent="D9752B"),
     # 复习: plum ink, magenta accent — distinct from the other two at a glance.
     "review": Theme("review", title="4A1E3C", body="3A3038", accent="B0416E"),
+    "warm": Theme("warm", title="593C28", body="655345", accent="B96336"),
+    "mint": Theme("mint", title="183F38", body="36594E", accent="278675"),
 }
