@@ -9,6 +9,7 @@ import { createTray, destroyTray, getTray } from './tray'
 import { initUpdater, checkForUpdates, startDownload, quitAndInstall, setUpdateLanguage, setUpdateFeedQuery } from './updater'
 import { setupThemeIPC, loadAppConfig } from './themes'
 import { setupHttpRelayIPC } from './http-relay'
+import { exportImage, exportPdf } from './export'
 import {
   setupAppIconIPC,
   applyCachedAppIcon,
@@ -655,6 +656,8 @@ function listLanAddresses(): string[] {
 }
 
 function setupIPC() {
+  ipcMain.handle('export-image', (_event, options) => exportImage(options))
+  ipcMain.handle('export-pdf', (_event, options) => exportPdf(options))
   // Await the port decision rather than reading the current guess: the renderer
   // usually asks before startBackend() has probed anything, and a wrong answer
   // here means it polls a port nothing will ever listen on.
