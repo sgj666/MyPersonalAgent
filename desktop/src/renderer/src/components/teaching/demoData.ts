@@ -109,7 +109,7 @@ export const DEMO_CARD: CardDraft = {
       { no: 4, type: 'read', stem: '阅读短文，回答 Tom 周六的计划。', lines: 3, answer: '' },
     ] },
   ],
-  footer: { score: true, parent_sign: true },
+  footer: { score: true },
 }
 
 export const DEMO_ACTIONS: AdviceAction[] = [

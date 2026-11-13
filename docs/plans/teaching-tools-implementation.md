@@ -81,7 +81,9 @@
 - 字体：`Calibri` + `等线`（拉丁 + 中文），不嵌字体；字号阶梯 32/24/20/16/14。
 - 主题只换配色与少量装饰（色块、圆角），不改版式骨架。
 
-## 3 契约：Card JSON（作业卡片单一源）
+## 3 契约：Card JSON（作业布置通知卡）
+
+学生看到的是「今晚做什么、多久、何时交」，不是练习卷：**没有作答横线、没有括号、没有姓名/得分/家长签字**。答案只作教师附录。
 
 ```jsonc
 {
@@ -89,24 +91,30 @@
   "meta": {
     "class_name": "七(3)班", "class_ids": ["c_xx"], "subject": "英语",
     "stage": "初中", "book": "人教新版", "unit": "Unit 3",
-    "title": "Unit 3 课后作业", "date": "2026-11-12", "due": "周四", "teacher": "李老师"
+    "title": "Unit 3 课后作业", "date": "2026-11-12", "due": "2026-11-13",
+    "teacher": "李老师"
   },
-  "summary": "今晚 20 分钟，重点是 be going to 的三种句型。",
+  "summary": "明天上课前交给课代表，订正用红笔。",   // 给学生的提醒，≤ 40 字；空则不渲染
   "sections": [
-    {"heading": "一、词汇巩固", "tier": "basic", "hint": "每题 2 分",
+    {"heading": "必做", "tier": "basic", "hint": "全班都做",
      "items": [
-       {"no": 1, "type": "fill", "stem": "看望祖父母 ______", "lines": 1, "answer": "visit grandparents"},
-       {"no": 2, "type": "choice", "stem": "— What are you going to do?", "options": ["A. ...", "B. ..."], "answer": "B"},
-       {"no": 3, "type": "short", "stem": "用 be going to 写两句话描述你的周末：", "lines": 3, "answer": ""},
-       {"no": 4, "type": "read", "stem": "短文……", "lines": 4, "answer": ""}
+       {"no": 1, "type": "task", "stem": "Unit 3 单词抄写 3 遍",
+        "requirement": "visit / picnic / cinema", "duration": 10},
+       {"no": 2, "type": "task", "stem": "单元测试试卷一张", "duration": 20}
      ]}
   ],
-  "footer": {"score": true, "parent_sign": true}
+  "footer": {"score": false}
 }
 ```
-规则：1–4 个 section；每 section ≤ 8 题；`tier` ∈ `basic` | `advanced` | `challenge`（与渲染器 `card_html.py` 的枚举一致，**不是** `plus`）；`type` ∈ fill|choice|short|read|match；答案只进答案版。渲染两种形态：`group`（1080×1440，群图）与 `a4`（A4 打印，`@page`）。
 
----
+规则（渲染器校验，违反即 `ValueError`，消息为中文并说明改法）：
+- `sections` 1–4 个；每个 section 的 `items` ≤ 8 条；`no` 全卡连续。
+- `tier` ∈ `basic` | `advanced` | `challenge`（界面显示 必做 / 提高 / 挑战）。
+- `type` ∈ `task`（默认，通知条目）| `fill` | `choice` | `short` | `read` | `match`（旧草稿兼容，渲染时一律按通知条目排，不带作答区）。
+- `stem` 必填（干什么，≤ 40 字）；`requirement` 可选 ≤ 80 字（抄哪些、订正到什么程度）。
+- `duration` 可选，1–180 整数分钟；卡头显示合计用时。
+- `answer` 可选，只进 `answer=True` 的「讲评要点」附录，学生卡永远不显示。
+- 两种形态：`group`（1080×1440 群图）、`a4`（A4 打印，`@page` 一页装下）。条目少时渲染器放大字号/行距填满页面，不留半页空白。
 
 ## 4 契约：HTTP 接口
 

@@ -141,7 +141,7 @@ export const emptyCard = (meta: Partial<CardDraft['meta']>): CardDraft => ({
   },
   summary: '',
   sections: [],
-  footer: { score: true, parent_sign: true },
+  footer: { score: true },
 })
 
 /** The knowledge folders the tools read from (folder names are data). */

@@ -8,10 +8,19 @@ LAYOUTS = ('cover', 'agenda', 'objectives', 'bullets', 'two-col', 'compare',
 MAX_SLIDES = 40
 MAX_BULLET_CHARS = 60
 
+# A card is a homework notice: each entry is a thing to do, so ``task`` is the
+# default type. The older question types stay accepted so an existing draft
+# still renders (its answer blanks are gone either way).
+CARD_ITEM_TYPES = ('task', 'fill', 'choice', 'short', 'read', 'match')
+CARD_DURATION_MIN, CARD_DURATION_MAX = 1, 180
+CARD_REQUIREMENT_MAX = 80
 
-def text(value, label, required=False):
+
+def text(value, label, required=False, limit=None):
     if not isinstance(value, str) or (required and not value.strip()):
         raise ValueError(f'{label}请填写{"非空" if required else ""}文字')
+    if limit is not None and len(value) > limit:
+        raise ValueError(f'{label}请控制在 {limit} 字以内，现在是 {len(value)} 字')
     return value
 
 
@@ -127,10 +136,17 @@ def validate_card(spec):
         if not isinstance(items, list) or len(items) > 8:
             raise ValueError(label + ' items 请改为列表，每个分区最多 8 题')
         for item in items:
-            if not isinstance(item, dict) or item.get('type') not in ('fill', 'choice', 'short', 'read', 'match'):
-                raise ValueError(label + ' 题型请改为 fill/choice/short/read/match')
+            if not isinstance(item, dict) or item.get('type') not in CARD_ITEM_TYPES:
+                raise ValueError(label + ' 类型请改为 task/fill/choice/short/read/match')
             text(item.get('stem'), label + ' stem', True)
             text(item.get('answer', ''), label + ' answer')
+            text(item.get('requirement', ''), label + ' requirement', limit=CARD_REQUIREMENT_MAX)
+            duration = item.get('duration')
+            if duration is not None:
+                if (not isinstance(duration, int) or isinstance(duration, bool)
+                        or not CARD_DURATION_MIN <= duration <= CARD_DURATION_MAX):
+                    raise ValueError(
+                        label + f' duration 请设为 {CARD_DURATION_MIN}–{CARD_DURATION_MAX} 的整数分钟')
             lines = item.get('lines', 1)
             if not isinstance(lines, int) or isinstance(lines, bool) or not 0 <= lines <= 20:
                 raise ValueError(label + ' lines 请设为 0–20 的整数')
@@ -139,5 +155,5 @@ def validate_card(spec):
                 raise ValueError(label + ' options 请改为文字列表')
     footer = spec.get('footer', {})
     if not isinstance(footer, dict) or any(not isinstance(v, bool) for v in footer.values()):
-        raise ValueError('footer 请改为 score/parent_sign 布尔值对象')
+        raise ValueError('footer 请改为布尔值对象（score 等）')
     return deepcopy(spec)

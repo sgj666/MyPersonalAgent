@@ -17,7 +17,6 @@ import { DEMO_CARD } from '../../components/teaching/demoData'
 import { revealInFolder, saveCardImage, saveCardPdf } from '../../lib/exportImage'
 import { errorText, todayISO } from '../../lib/teaching'
 import {
-  CARD_ITEM_TYPES,
   CARD_MAX_ITEMS_PER_SECTION,
   CARD_TIERS,
   extractJson,
@@ -26,7 +25,6 @@ import {
   slugify,
   type CardDraft,
   type CardItem,
-  type CardItemType,
   type CardTier,
 } from './drafts'
 import { CARD_KINDS, cardPrompt, emptyCard, TIER_HEADINGS, KB } from './prompts'
@@ -213,7 +211,7 @@ const CardTool: React.FC = () => {
   const startBlank = () => {
     const blank = emptyCard(meta())
     setCard(blank)
-    setTiers({ basic: [toRow({ no: 1, type: 'fill', stem: '', lines: 1, answer: '' })], advanced: [], challenge: [] })
+    setTiers({ basic: [toRow({ no: 1, type: 'task', stem: '', duration: 10, answer: '' })], advanced: [], challenge: [] })
   }
 
   const receive = (to: CardTier) => (fromGroup: string, fromIndex: number, toIndex: number) => {
@@ -336,41 +334,38 @@ const CardTool: React.FC = () => {
       emptyText={t('twt_tier_drop')}
       onAdd={
         tiers[tier].length < CARD_MAX_ITEMS_PER_SECTION
-          ? () => setTiers((prev) => ({ ...prev, [tier]: [...prev[tier], toRow({ no: 0, type: 'short', stem: '', lines: 2, answer: '' })] }))
+          ? () => setTiers((prev) => ({ ...prev, [tier]: [...prev[tier], toRow({ no: 0, type: 'task', stem: '', duration: 10, answer: '' })] }))
           : undefined
       }
       addLabel={t('twt_add_item')}
       renderRow={(row) => (
         <span className="twt-q-line">
-          <span className={`twt-q-type is-${row.type}`}>{t(`twt_qtype_${row.type}`)}</span>
           <span className="twt-q-stem">{row.stem || t('twt_untitled')}</span>
+          {row.duration ? <span className="twt-q-min">{tf('twt_minutes', { n: row.duration })}</span> : null}
         </span>
       )}
       renderDetail={(row, _i, update) => (
         <div className="twt-q-edit">
+          <textarea className="twb-textarea" rows={2} value={row.stem} placeholder={t('twt_task_ph')} onChange={(e) => update({ ...row, stem: e.target.value })} />
           <div className="twt-q-edit-row">
-            <select className="twb-select twt-input is-compact" value={row.type} onChange={(e) => update({ ...row, type: e.target.value as CardItemType })}>
-              {CARD_ITEM_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {t(`twt_qtype_${type}`)}
-                </option>
-              ))}
-            </select>
+            <input
+              className="twb-input twt-input"
+              value={row.requirement || ''}
+              placeholder={t('twt_requirement_ph')}
+              onChange={(e) => update({ ...row, requirement: e.target.value })}
+            />
             <label className="twt-inline">
-              <span>{t('twt_lines')}</span>
-              <input className="twb-input twt-input is-num" type="number" min={0} max={12} value={row.lines ?? 1} onChange={(e) => update({ ...row, lines: Number(e.target.value) || 0 })} />
+              <span>{t('twt_duration')}</span>
+              <input
+                className="twb-input twt-input is-num"
+                type="number"
+                min={1}
+                max={180}
+                value={row.duration ?? 10}
+                onChange={(e) => update({ ...row, duration: Number(e.target.value) || 1 })}
+              />
             </label>
           </div>
-          <textarea className="twb-textarea" rows={2} value={row.stem} placeholder={t('twt_stem_ph')} onChange={(e) => update({ ...row, stem: e.target.value })} />
-          {row.type === 'choice' && (
-            <textarea
-              className="twb-textarea"
-              rows={2}
-              value={(row.options || []).join('\n')}
-              placeholder={t('twt_options_ph')}
-              onChange={(e) => update({ ...row, options: e.target.value.split('\n') })}
-            />
-          )}
           <input className="twb-input twt-input" value={row.answer} placeholder={t('twt_answer_ph')} onChange={(e) => update({ ...row, answer: e.target.value })} />
         </div>
       )}

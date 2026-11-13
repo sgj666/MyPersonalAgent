@@ -88,13 +88,22 @@ export const NOTES_MAX = 200
 export const CARD_TIERS = ['basic', 'advanced', 'challenge'] as const
 export type CardTier = (typeof CARD_TIERS)[number]
 
-export const CARD_ITEM_TYPES = ['fill', 'choice', 'short', 'read', 'match'] as const
+/**
+ * A card is a homework notice: each entry is a thing to do, so `task` is the
+ * default. The older question types stay in the union because an existing
+ * draft may still carry them; the renderer draws every entry the same way.
+ */
+export const CARD_ITEM_TYPES = ['task', 'fill', 'choice', 'short', 'read', 'match'] as const
 export type CardItemType = (typeof CARD_ITEM_TYPES)[number]
 
 export interface CardItem {
   no: number
   type: CardItemType
   stem: string
+  /** What to copy, how to correct — one short line under the task. */
+  requirement?: string
+  /** Expected minutes; the card head sums these. */
+  duration?: number
   options?: string[]
   lines?: number
   answer: string
@@ -125,7 +134,7 @@ export interface CardDraft {
   meta: CardMeta
   summary: string
   sections: CardSection[]
-  footer: { score: boolean; parent_sign: boolean }
+  footer: { score: boolean }
 }
 
 /** The contract allows at most 4 sections of at most 8 items each. */
@@ -290,7 +299,7 @@ export function normalizeCard(raw: unknown): CardDraft | null {
     },
     summary: str(root.summary),
     sections,
-    footer: { score: footer.score !== false, parent_sign: footer.parent_sign !== false },
+    footer: { score: footer.score !== false },
   }
 }
 

@@ -215,11 +215,13 @@ def main() -> int:
             "meta": {"class_name": "七(3)班", "class_ids": [class_id], "subject": "英语",
                      "stage": "初中", "book": "人教新版", "unit": "Unit 3",
                      "title": "Unit 3 课后作业", "date": "2026-11-12", "due": "周四", "teacher": "甲老师"},
-            "summary": "今晚 20 分钟，重点是 be going to 的三种句型。",
-            "sections": [{"heading": "一、词汇巩固", "tier": "basic", "hint": "每题 2 分",
-                          "items": [{"no": 1, "type": "fill", "stem": "看望祖父母 ______",
-                                     "lines": 1, "answer": "visit grandparents"}]}],
-            "footer": {"score": True, "parent_sign": True},
+            "summary": "明天上课前交给课代表，订正用红笔。",
+            "sections": [{"heading": "必做", "tier": "basic", "hint": "全班都做",
+                          "items": [{"no": 1, "type": "task", "stem": "Unit 3 单词抄写 3 遍",
+                                     "requirement": "visit / picnic / cinema", "duration": 10},
+                                    {"no": 2, "type": "task", "stem": "单元测试试卷一张",
+                                     "duration": 20}]}],
+            "footer": {"score": False},
         }
         status, body = call("PUT", "/api/teaching/draft", {"kind": "card", "slug": "smoke-card", "draft": card},
                             headers=auth_a)
@@ -236,7 +238,14 @@ def main() -> int:
         card_html = card_path.read_text(encoding="utf-8") if card_path.is_file() else ""
         check("card html is self-contained", card_html.startswith("<!doctype html") and "http://" not in card_html
               and "https://" not in card_html, card_html[:120])
-        check("card keeps the parent line", "今晚 20 分钟" in card_html, card_html[:120])
+        # A notice, not a worksheet: tasks and minutes in, writing space and
+        # parent fields out.
+        check("card reads as a homework notice",
+              "Unit 3 单词抄写 3 遍" in card_html and "30" in card_html
+              and "预计用时" in card_html and "提醒" in card_html, card_html[:200])
+        check("card has no worksheet or parent fields",
+              "____" not in card_html and "家长" not in card_html
+              and "得分" not in card_html, card_html[:200])
 
         deck = {
             "version": 1, "theme": "lecture",
