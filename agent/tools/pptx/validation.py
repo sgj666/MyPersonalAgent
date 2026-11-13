@@ -12,6 +12,12 @@ MAX_BULLET_CHARS = 60
 # default type. The older question types stay accepted so an existing draft
 # still renders (its answer blanks are gone either way).
 CARD_ITEM_TYPES = ('task', 'fill', 'choice', 'short', 'read', 'match')
+
+# A deck page may be authored as SVG (ppt-master's Quick route) instead of the
+# geometry layouts. 1280×720 is ppt-master's ppt169 canvas; a different canvas
+# would break the exporter's single-canvas rule.
+SVG_CANVAS = 'viewBox="0 0 1280 720"'
+SVG_MAX_BYTES = 400_000
 CARD_DURATION_MIN, CARD_DURATION_MAX = 1, 180
 CARD_REQUIREMENT_MAX = 80
 
@@ -35,6 +41,27 @@ def bullets(value, label):
             raise ValueError(f'{label} 每条最多 60 字，当前 {len(item)} 字，请精简或拆条')
 
 
+def validate_svg_page(slide, label):
+    """One ppt-master page: an inline SVG or a workspace-relative svg_path."""
+    if slide.get('svg') is not None and slide.get('svg_path') is not None:
+        raise ValueError(label + ' 请只给 svg 或 svg_path 其中之一')
+    inline = slide.get('svg')
+    if inline is not None:
+        if not isinstance(inline, str):
+            raise ValueError(label + ' svg 请改为 SVG 文本')
+        if len(inline.encode('utf-8')) > SVG_MAX_BYTES:
+            raise ValueError(label + ' svg 太大，请把图片放到 workspace 并用 svg_path 引用')
+        if not inline.lstrip().startswith('<svg'):
+            raise ValueError(label + ' svg 请以 <svg 开头')
+        if SVG_CANVAS not in inline.replace("'", '"'):
+            raise ValueError(label + ' svg 请使用 1280×720 画布（' + SVG_CANVAS + '）')
+    else:
+        path = slide.get('svg_path')
+        if not isinstance(path, str) or not path.strip():
+            raise ValueError(label + ' svg_path 请填写 workspace 内的相对路径')
+    text(slide.get('notes', ''), label + ' notes')
+
+
 def validate_deck(spec):
     if not isinstance(spec, dict):
         raise ValueError('课件请改为 JSON 对象')
@@ -53,7 +80,14 @@ def validate_deck(spec):
         raise ValueError('slides 请保留 1–40 页')
     for number, slide in enumerate(slides, 1):
         label = f'第 {number} 页'
-        if not isinstance(slide, dict) or slide.get('layout') not in LAYOUTS:
+        if not isinstance(slide, dict):
+            raise ValueError(f'{label} 请改为 JSON 对象')
+        # A page authored through ppt-master carries its own SVG; the geometry
+        # layouts below do not apply to it, so only the shared fields are read.
+        if slide.get('svg') is not None or slide.get('svg_path') is not None:
+            validate_svg_page(slide, label)
+            continue
+        if slide.get('layout') not in LAYOUTS:
             raise ValueError(f'{label} layout 请改为：' + ' / '.join(LAYOUTS))
         text(slide.get('title'), label + ' title', True)
         for key in ('subtitle', 'quote', 'notes'):

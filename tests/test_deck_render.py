@@ -231,3 +231,63 @@ def test_draft_listing_skips_bad_documents_and_external_symlinks(tmp_path):
     response = api_call('TeachingDraftsHandler', 'GET', tmp_path, kind='deck', limit='10')
     assert response['status'] == 'success'
     assert [item['slug'] for item in response['items']] == ['valid']
+
+
+# --- ppt-master pages (SVG authored, exported as native DrawingML) ----------
+
+SVG_PAGE = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" lang="zh-CN">'
+            '<rect width="1280" height="720" fill="#fffaf4"/>'
+            '<text x="80" y="200" font-family="PingFang SC" font-size="56" fill="#2f2b36">'
+            'Unit 3 课后作业说明</text></svg>')
+
+
+def svg_deck():
+    return {'version': 1, 'meta': {'title': 'ppt-master 验证'},
+            'slides': [{'title': '封面', 'svg': SVG_PAGE, 'notes': '开场 30 秒'},
+                       {'title': '任务', 'svg': SVG_PAGE}]}
+
+
+def test_svg_pages_export_a_native_pptx(tmp_path):
+    from pptx import Presentation
+    from agent.teaching.render.deck_svg import available
+
+    if not available():
+        pytest.skip('ppt-master skill is not vendored')
+    result = render_draft('deck', svg_deck(), formats=('pptx',), workspace=tmp_path)
+    file = result['files'][0]
+    assert file['pages'] == 2 and file['size'] > 5_000
+    deck = Presentation(file['path'])
+    assert len(deck.slides) == 2
+    # Shapes, not a picture of a slide: the teacher can still edit the text.
+    types = {shape.shape_type for shape in deck.slides[0].shapes}
+    assert any(getattr(t, 'name', '') in ('TEXT_BOX', 'AUTO_SHAPE') for t in types)
+    assert deck.slides[0].has_notes_slide
+    assert '开场 30 秒' in deck.slides[0].notes_slide.notes_text_frame.text
+
+
+def test_svg_pages_preview_as_the_exported_deck(tmp_path):
+    result = render_draft('deck', svg_deck(), formats=('html',), workspace=tmp_path)
+    html = (tmp_path / result['files'][0]['rel']).read_text(encoding='utf-8')
+    assert html.count('class="slide"') == 2
+    assert 'Unit 3 课后作业说明' in html
+    assert 'http' not in html.replace('http://www.w3.org/2000/svg', '')
+
+
+def test_a_mixed_deck_is_rejected(tmp_path):
+    deck = svg_deck()
+    deck['slides'][1] = {'layout': 'bullets', 'title': '任务', 'bullets': ['抄写']}
+    with pytest.raises(ValueError, match='不能混用'):
+        render_draft('deck', deck, formats=('pptx',), workspace=tmp_path)
+
+
+def test_svg_page_validation():
+    from agent.tools.pptx.validation import validate_deck
+
+    with pytest.raises(ValueError, match='1280×720'):
+        validate_deck({'version': 1, 'meta': {'title': 't'},
+                       'slides': [{'svg': '<svg viewBox="0 0 100 100"></svg>'}]})
+    with pytest.raises(ValueError, match='以 <svg 开头'):
+        validate_deck({'version': 1, 'meta': {'title': 't'}, 'slides': [{'svg': ''}]})
+    with pytest.raises(ValueError, match='只给 svg 或 svg_path'):
+        validate_deck({'version': 1, 'meta': {'title': 't'},
+                       'slides': [{'svg': SVG_PAGE, 'svg_path': 'a.svg'}]})

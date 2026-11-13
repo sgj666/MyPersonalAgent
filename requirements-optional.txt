@@ -30,3 +30,9 @@ pdfminer.six
 # i18n: zh-Hant high-quality conversion
 # Built-in fallback provides basic conversion without this dependency
 opencc-python-reimplemented
+
+# ppt-master: PowerPoint-style Merge Shapes and text-as-contour operands in
+# authored SVG. Optional — the exporter runs without them, shapes fall back to
+# supported primitives when a contour needs these.
+skia-pathops>=0.9.2
+uharfbuzz>=0.50.0

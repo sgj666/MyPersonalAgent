@@ -22,6 +22,8 @@ regex>=2019.3.12
 # deck renderer (agent/tools/pptx) and the read tool's .pptx support: writes
 # real files without Office or a network call, so it cannot be optional.
 python-pptx>=0.6.21
+# ppt-master (skills/ppt-master) writes native PPTX charts/tables
+XlsxWriter>=3.0.0
 
 # wechatcom & wechatmp
 wechatpy

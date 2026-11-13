@@ -81,6 +81,22 @@
 - 字体：`Calibri` + `等线`（拉丁 + 中文），不嵌字体；字号阶梯 32/24/20/16/14。
 - 主题只换配色与少量装饰（色块、圆角），不改版式骨架。
 
+## 2.1 课件页 = ppt-master 的 SVG 页
+
+课件不再由固定版式（cover / bullets / …）拼出来，而是**每页一段 SVG**（1280×720），由内置的 `ppt-master` 技能导出成原生 DrawingML `.pptx`（`skills/ppt-master/scripts/svg_to_pptx.py --quick-generate`，MIT，vendored，运行时不改）。
+
+- 页面的 JSON 仍是 §2 的形状，只是每页改成 `{title, svg_path | svg, notes}`：
+  - `svg_path`：workspace 内相对路径，推荐 `artifacts/教学工具/deck/<slug>/svg_output/NN_name.svg`
+  - `svg`：内联 SVG（≤ 400KB），用于小页或测试
+- 一册**不许混用**布局页与 SVG 页（`svg_pages()` 会拒绝），一册只走一条管线。
+- 导出前必然先跑 `svg_quality_checker.py --quick-generate --canonical-authoring --stage final --json`（fingerprint 必须与页面一致），不过就不导出，错误信息带页号与修法。
+- 讲稿进 PowerPoint 备注；导出器按文件名匹配 `notes/NN_name.md`。
+- HTML 预览直接用同一段 SVG（`deck_html._render_svg_deck`），所以"预览 = 交付"。
+
+旧的几何渲染器（`agent/tools/pptx/scene.py` + 13 版式 + 5 主题）保留：没有 SVG 的旧草稿仍然走它。
+
+---
+
 ## 3 契约：Card JSON（作业布置通知卡）
 
 学生看到的是「今晚做什么、多久、何时交」，不是练习卷：**没有作答横线、没有括号、没有姓名/得分/家长签字**。答案只作教师附录。

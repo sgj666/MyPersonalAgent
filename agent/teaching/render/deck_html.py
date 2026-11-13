@@ -15,6 +15,10 @@ def _geometry(element):
 
 def render_deck_html(draft):
     """Return HTML, page count and warnings; images are embedded as data URLs."""
+    authored = [slide for slide in draft.get('slides') or []
+                if slide.get('svg') is not None or slide.get('svg_path') is not None]
+    if authored:
+        return _render_svg_deck(draft, authored)
     pages, theme, warnings = deck_scenes(draft)
     content = []
     for number, page in enumerate(pages, 1):
@@ -51,3 +55,32 @@ table{{border-collapse:collapse;table-layout:fixed}}th,td{{white-space:pre;overf
 @page{{size:1280px 720px;margin:0}}@media print{{body{{background:white}}.slide{{margin:0}}.slide:last-child{{break-after:auto}}}}'''
     html = f'<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>{escape(draft["meta"]["title"])}</title><style>{css}</style></head><body>{"".join(content)}</body></html>'
     return {'html': html, 'pages': len(pages), 'warnings': warnings}
+
+
+def _render_svg_deck(draft, slides):
+    """Preview for ppt-master pages: the SVG is the page, so it is the preview.
+
+    The same text the exporter turns into DrawingML shapes is what the teacher
+    sees here — no second renderer to drift from the delivered deck.
+    """
+    warnings = []
+    content = []
+    for number, slide in enumerate(slides, 1):
+        svg = slide.get('svg')
+        if svg is None:
+            path = Path(slide['svg_path'])
+            svg = path.read_text(encoding='utf-8') if path.is_file() else ''
+            if not svg:
+                warnings.append(f'第 {number} 页找不到 SVG：{slide["svg_path"]}')
+                svg = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720"><text x="60" y="360" font-size="28" fill="#c2673f">第 {number} 页 SVG 缺失</text></svg>'
+        title = escape(str(slide.get('title') or ''), quote=True)
+        content.append(f'<section class="slide" data-slide="{number}" aria-label="{title}">{svg}</section>')
+    css = ('*{box-sizing:border-box}body{margin:0;background:#e7eaf0;font-family:' + FONT + '}'
+           '.slide{position:relative;width:1280px;height:720px;background:white;overflow:hidden;'
+           'margin:0 auto 24px;break-after:page}.slide>svg{display:block;width:1280px;height:720px}'
+           '@page{size:1280px 720px;margin:0}'
+           '@media print{body{background:white}.slide{margin:0}.slide:last-child{break-after:auto}}')
+    html = ('<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>'
+            + escape(draft['meta']['title']) + '</title><style>' + css + '</style></head><body>'
+            + ''.join(content) + '</body></html>')
+    return {'html': html, 'pages': len(slides), 'warnings': warnings}

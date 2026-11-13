@@ -30,7 +30,7 @@ ALLOWED_FRONTMATTER_KEYS = {
 # drafts, the backend renders the .pptx / .html).
 REQUIRED_TEXT = {
     "lesson-plan": ["knowledge/教案/"],
-    "courseware-ppt": ["artifacts/教学工具/deck/", "layout", "notes"],
+    "courseware-ppt": ["artifacts/教学工具/deck/", "svg_output", "ppt-master", "viewBox"],
     "homework-card": ["artifacts/教学工具/card/", "advanced", "summary"],
     "homework-summary": ["weak_points", "summary"],
     "teaching-advice": ["facts", "actions"],
@@ -85,7 +85,10 @@ def test_instructions_are_chinese_and_keep_the_contract(name):
             "the backend's job, per docs/plans/teaching-tools-implementation.md"
         )
 
-    assert "http://" not in body and "https://" not in body, (
+    # The SVG namespace is the one http:// string a deck skill legitimately
+    # needs; every other URL would mean the deck reaches the network.
+    offline = body.replace("http://www.w3.org/2000/svg", "")
+    assert "http://" not in offline and "https://" not in offline, (
         f"{name} must stay offline: no network URLs"
     )
 
@@ -94,10 +97,11 @@ def test_courseware_ppt_documents_the_renderer_contract():
     with open(_skill_path("courseware-ppt"), encoding="utf-8") as handle:
         body = strip_frontmatter(handle.read())
 
-    # The renderer's hard limits are what the model has to respect when it
-    # writes a spec, so they belong in the skill, not only in an error message.
-    assert "40" in body
-    assert "200" in body
+    # The exporter's hard limits and the ppt-master route are what the model
+    # must respect, so they belong in the skill, not only in an error message.
+    assert "1280×720" in body or "1280x720" in body
+    assert "quick-generate" in body
+    assert "svg_quality_checker.py" in body
     for theme in ("lecture", "activity", "review"):
         assert theme in body
     assert ".pptx" in body

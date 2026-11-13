@@ -22,6 +22,34 @@ def workspace_path(workspace, relative):
     return path
 
 
+def svg_pages(draft, root):
+    """The ppt-master pages of a deck, or [] when it uses the geometry layouts.
+
+    A page counts as SVG-authored when it carries ``svg`` or ``svg_path``; a
+    mixed deck is rejected rather than half-rendered, because one deck must
+    come from one pipeline.
+    """
+    slides = draft.get('slides') or []
+    authored = [slide for slide in slides if slide.get('svg') is not None or slide.get('svg_path') is not None]
+    if not authored:
+        return []
+    if len(authored) != len(slides):
+        raise ValueError('课件不能混用布局页与 SVG 页：请把每一页都改成 svg 或 svg_path')
+    pages = []
+    for number, slide in enumerate(slides, 1):
+        svg = slide.get('svg')
+        if svg is None:
+            path = workspace_path(root, slide.get('svg_path'))
+            if path.suffix.lower() != '.svg':
+                raise ValueError(f'第 {number} 页 svg_path 请指向 .svg 文件')
+            if not path.is_file():
+                raise ValueError(f'第 {number} 页 svg_path 找不到文件：{slide.get("svg_path")}')
+            svg = path.read_text(encoding='utf-8')
+        name = f'{number:02d}_{slug_name(slide.get("title") or f"第{number}页")}.svg'
+        pages.append((name, svg, slide.get('notes', '')))
+    return pages
+
+
 def slug_name(value):
     if not isinstance(value, str) or not value.strip():
         raise ValueError('名称请填写非空文字')
@@ -91,8 +119,13 @@ def render_draft(kind, draft, out_name=None, formats=None, a4=False, workspace=N
         target = workspace_path(root, rel)
         target.parent.mkdir(parents=True, exist_ok=True)
         if fmt == 'pptx':
-            from agent.tools.pptx import build_deck
-            result = build_deck(draft, target)
+            pages = svg_pages(draft, root)
+            if pages:
+                from agent.teaching.render.deck_svg import build_pptx
+                result = build_pptx(pages, target)
+            else:
+                from agent.tools.pptx import build_deck
+                result = build_deck(draft, target)
         else:
             if kind == 'deck':
                 from agent.teaching.render.deck_html import render_deck_html
