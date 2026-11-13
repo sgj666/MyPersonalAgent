@@ -9,7 +9,7 @@ import CardPreview from '../../components/teaching/CardPreview'
 import DeliverBar, { type DeliverStatus } from '../../components/teaching/DeliverBar'
 import DraftOutline from '../../components/teaching/DraftOutline'
 import { filesUnder, knowledgeFiles } from '../../components/teaching/MaterialPicker'
-import { Skeleton, StartHint } from '../../components/teaching/states'
+import { Skeleton } from '../../components/teaching/states'
 import { DEMO_DECK } from '../../components/teaching/demoData'
 import { openImage, revealInFolder, saveCardImage } from '../../lib/exportImage'
 import { errorText } from '../../lib/teaching'
@@ -68,6 +68,16 @@ const CoursewareTool: React.FC = () => {
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewError, setPreviewError] = useState('')
   const previewSeq = useRef(0)
+
+  // ?demo=1 opens on a filled deck: the rail, the preview and the script pane
+  // all show real content instead of three placeholders.
+  useEffect(() => {
+    if (!source.demo) return
+    setDeck({ ...DEMO_DECK })
+    setStatus({ text: tf('twt_deck_ready', { n: DEMO_DECK.slides.length }), tone: 'ok' })
+    // Seed once per demo mount; later edits are the teacher's.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source.demo])
 
   const knowledge = useLoad(source.knowledge, EMPTY_KNOWLEDGE, `k${source.demo}`)
   const recentPlans = useLoad(() => source.recent('plan'), [], `p${source.demo}`)
@@ -321,16 +331,72 @@ const CoursewareTool: React.FC = () => {
       }
     >
       {!deck ? (
-        <div className="twt-card twt-full">
-          {skill.running ? (
+        skill.running ? (
+          <div className="twt-card twt-full">
             <div className="twt-deck-skel">
               <Skeleton lines={8} height={30} />
               <div className="twt-preview-skel is-wide" />
             </div>
-          ) : (
-            <StartHint icon={Presentation} text={t('twt_deck_start')} actionLabel={t('twt_gen_deck')} onAction={generate} />
-          )}
-        </div>
+          </div>
+        ) : (
+          /* A blank page with one button reads as an empty room. This states
+             the loop and shows the three shapes a deck is made of. */
+          <section className="twt-card twt-first">
+            <div className="twt-first-head">
+              <span className="twt-first-badge" aria-hidden="true">
+                <Presentation size={22} />
+              </span>
+              <div>
+                <h2>{t('twt_deck_first_title')}</h2>
+                <p>{t('twt_deck_first_desc')}</p>
+              </div>
+            </div>
+            <div className="twt-first-body">
+              <ol className="twt-first-steps">
+                {([1, 2, 3] as const).map((n) => (
+                  <li key={n}>
+                    <b>{n}</b>
+                    <div>
+                      <h3>{t(`twt_deck_first_s${n}`)}</h3>
+                      <p>{t(`twt_deck_first_s${n}_desc`)}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+              {/* Three slide shapes, drawn in CSS: cover / two columns / process. */}
+              <figure className="twt-first-mock" aria-label={t('twt_deck_mock_label')}>
+                <div className="twt-mock-slide is-cover">
+                  <span />
+                  <i />
+                  <i className="is-short" />
+                </div>
+                <div className="twt-mock-slide is-cols">
+                  <span />
+                  <div>
+                    <i />
+                    <i />
+                  </div>
+                </div>
+                <div className="twt-mock-slide is-steps">
+                  <span />
+                  <div>
+                    <b />
+                    <b />
+                    <b />
+                  </div>
+                </div>
+                <figcaption>{t('twt_deck_mock_caption')}</figcaption>
+              </figure>
+            </div>
+            <div className="twt-first-actions">
+              <button type="button" className="twb-btn twb-btn-primary" onClick={generate} disabled={!unit.trim()}>
+                <Sparkles size={15} />
+                <span>{t('twt_gen_deck')}</span>
+              </button>
+              <span className="twb-hint">{t('twt_deck_first_hint')}</span>
+            </div>
+          </section>
+        )
       ) : (
         <div className="twt-deck">
           <aside className="twt-card twt-rail" aria-label={t('twt_rail')}>

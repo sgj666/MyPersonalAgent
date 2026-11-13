@@ -95,21 +95,19 @@ export const DEMO_DECK: DeckDraft = {
 
 export const DEMO_CARD: CardDraft = {
   version: 1,
-  meta: { class_name: '七(3)班', class_ids: ['c3'], subject: '英语', stage: '初中', book: '人教新版', unit: 'Unit 3', title: 'Unit 3 课后作业', date: '2026-11-12', due: '周四', teacher: '李老师' },
-  summary: '今晚 20 分钟，重点是 be going to 的三种句型。',
+  meta: { class_name: '七(3)班', class_ids: ['c3'], subject: '英语', stage: '初中', book: '人教新版', unit: 'Unit 3', title: 'Unit 3 课后作业', date: '2026-11-12', due: '2026-11-13', teacher: '李老师' },
+  summary: '明天上课前交给课代表，订正用红笔。',
   sections: [
-    { heading: '一、基础巩固', tier: 'basic', hint: '每题 2 分', items: [
-      { no: 1, type: 'fill', stem: '看望祖父母 ______', lines: 1, answer: 'visit grandparents' },
-      { no: 2, type: 'choice', stem: '— What are you going to do?', options: ['A. I go swimming.', "B. I'm going to swim."], answer: 'B' },
+    { heading: '必做', tier: 'basic', hint: '全班都做', items: [
+      { no: 1, type: 'task', stem: 'Unit 3 单词抄写 3 遍', requirement: 'visit / picnic / cinema / see a film', duration: 10, answer: '' },
+      { no: 2, type: 'task', stem: '单元测试试卷一张', duration: 20, answer: '' },
+      { no: 3, type: 'task', stem: '试卷订正', requirement: '错题抄题重做，红笔标出错因', duration: 10, answer: '' },
     ] },
-    { heading: '二、能力提升', tier: 'advanced', items: [
-      { no: 3, type: 'short', stem: '用 be going to 写两句话描述你的周末：', lines: 3, answer: '' },
-    ] },
-    { heading: '三、拓展挑战', tier: 'challenge', items: [
-      { no: 4, type: 'read', stem: '阅读短文，回答 Tom 周六的计划。', lines: 3, answer: '' },
+    { heading: '选做', tier: 'challenge', hint: '有余力再做', items: [
+      { no: 4, type: 'task', stem: '用 be going to 写 3 句话介绍你的周末', requirement: '每句含时间状语', duration: 10, answer: '' },
     ] },
   ],
-  footer: { score: true },
+  footer: { score: false },
 }
 
 export const DEMO_ACTIONS: AdviceAction[] = [
@@ -156,8 +154,46 @@ export function demoDeckHtml(deck: DeckDraft): string {
 
 /** A stand-in 1080×1440 card preview. */
 export function demoCardHtml(card: CardDraft, answer: boolean): string {
-  const sections = card.sections
-    .map((sec) => `<h2><span class="tier ${sec.tier}">${esc(sec.heading)}</span></h2>${sec.items.map((item) => `<div class="q"><b>${item.no}.</b> ${esc(item.stem)}${(item.options || []).map((o) => `<div class="opt">${esc(o)}</div>`).join('')}${answer && item.answer ? `<div class="ans">答案：${esc(item.answer)}</div>` : '<div class="line"></div>'}</div>`).join('')}`)
+  const items = card.sections.flatMap((sec) => sec.items.map((item) => ({ ...item, tier: sec.tier, heading: sec.heading })))
+  const total = items.reduce((sum, item) => sum + (item.duration || 0), 0)
+  const rows = items
+    .map((item) => `<div class="task ${item.tier}"><span class="no">${item.no}</span><div class="what"><h2>${esc(item.stem)}</h2>${item.requirement ? `<p>${esc(item.requirement)}</p>` : ''}</div>${item.duration ? `<span class="chip">${item.duration} 分钟</span>` : ''}</div>`)
     .join('')
-  return `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0}body{width:1080px;height:1440px;box-sizing:border-box;padding:72px;background:#fffaf5;font-family:-apple-system,"PingFang SC",sans-serif;color:#3b3546;font-size:34px}header{background:#dcf3e6;border-radius:36px;padding:40px 48px;margin-bottom:36px}header h1{margin:0 0 8px;font-size:60px}header p{margin:0;color:#6e6579}.tier{font-size:30px;border-radius:30px;padding:8px 24px;background:#e1eee4}.advanced{background:#fff0d2}.challenge{background:#f4dfe8}.q{margin:18px 0 26px}.opt{margin-left:44px;color:#6e6579}.line{height:48px;border-bottom:2px solid #c9d8cf}.ans{color:#2f7a52;margin-top:8px}.sum{margin-top:30px;padding:24px 30px;border:2px dashed #c9bfb5;border-radius:24px}${answer ? '.wm{position:fixed;right:60px;top:60px;color:#c2673f;font-size:36px}' : ''}</style></head><body>${answer ? '<div class="wm">答案版</div>' : ''}<header><h1>${esc(card.meta.title || card.meta.unit)}</h1><p>${esc(card.meta.class_name)} · ${esc(card.meta.subject)} · 截止 ${esc(card.meta.due)}</p></header>${sections}<div class="sum">${esc(card.summary)}</div></body></html>`
+  const reminder = card.summary ? `<aside><b>提醒</b><span>${esc(card.summary)}</span></aside>` : ''
+  const review = answer
+    ? `<div class="review"><b>讲评要点 · 教师用，请勿发群</b>${items.filter((i) => i.answer).map((i) => `<p><span>${i.no}</span>${esc(i.answer)}</p>`).join('')}</div>`
+    : ''
+  return `<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0}
+body{width:1080px;height:1440px;box-sizing:border-box;padding:76px 72px 56px;background:#fffaf4;border-top:14px solid #52a277;
+font-family:-apple-system,"PingFang SC",sans-serif;color:#3d3846;display:flex;flex-direction:column}
+.eyebrow{display:inline-block;font-size:24px;font-weight:600;color:#458c66;background:#e3f6ec;border-radius:99px;padding:6px 18px}
+h1{font-size:64px;line-height:1.2;font-weight:800;color:#2f2b36;margin:20px 0 14px}
+.facts{font-size:24px;color:#6f6878}
+.total{position:absolute;right:72px;top:64px;width:178px;height:178px;border-radius:32px;background:#52a277;color:#fff;
+display:flex;flex-direction:column;align-items:center;justify-content:center}
+.total b{font-size:70px;line-height:1}.total small{font-size:22px}.total em{font-style:normal;font-size:19px;opacity:.85;margin-top:6px}
+main{margin-top:40px;border-top:2px solid #e6dfd6;padding-top:18px;flex:1}
+.task{display:flex;align-items:center;gap:18px;padding:26px 0;border-bottom:1px solid #ece5dc}
+.no{flex:none;width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+font-size:28px;font-weight:800;background:#e3f6ec;color:#458c66;align-self:flex-start}
+.task.advanced .no{background:#fff2cc;color:#94650f}.task.challenge .no{background:#ede6fe;color:#6a52b3}
+.what{flex:1;min-width:0}.what h2{font-size:34px;line-height:1.35;font-weight:700;color:#2f2b36;margin:0}
+.what p{font-size:25px;line-height:1.4;color:#7a7382;margin:6px 0 0}
+.chip{flex:none;font-size:24px;font-weight:600;color:#458c66;border:1px solid #bfe3cd;background:#f3fbf6;border-radius:99px;padding:6px 16px}
+aside{background:#e3f6ec;border:1px solid #c9ead6;border-radius:26px;padding:22px 28px;display:flex;gap:18px;font-size:25px}
+aside b{flex:none;color:#458c66;min-width:90px}
+.review{margin-top:16px;padding:16px 20px;border:1px dashed #cfc6bb;border-radius:18px;font-size:22px;color:#6f6878}
+.review b{display:block;color:#a24c55;margin-bottom:6px;font-size:20px}
+footer{display:flex;justify-content:space-between;align-items:center;margin-top:18px;font-size:22px;color:#8a8291}
+footer .sign{font-size:28px;font-weight:700;color:#4a4453}
+</style></head><body>
+<span class="eyebrow">${esc(card.meta.class_name)} · ${esc(card.meta.subject)} · ${esc(card.meta.unit)}</span>
+<h1>${esc(card.meta.title || card.meta.unit)}</h1>
+<div class="facts">${esc(card.meta.date)} 布置 · 截止 ${esc(card.meta.due)} · 共 ${items.length} 项</div>
+<div class="total"><b>${total}</b><small>分钟</small><em>预计用时</em></div>
+<main>${rows}</main>
+${reminder}${review}
+<footer><span>已完成 ☐</span><span class="sign">${esc(card.meta.teacher)}</span></footer>
+</body></html>`
 }

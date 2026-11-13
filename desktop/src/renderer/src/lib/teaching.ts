@@ -369,3 +369,20 @@ export function wholeText(value: number | null | undefined): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return '—'
   return Number(value.toFixed(2)).toString()
 }
+
+/**
+ * A draft's mtime, as the tool pages show it beside a recent file. The backend
+ * sends ISO-8601; anything unparseable is echoed rather than hidden.
+ */
+export function shortWhen(iso: string): string {
+  if (!iso) return ''
+  const at = new Date(iso)
+  if (Number.isNaN(at.getTime())) return iso
+  const now = new Date()
+  const sameYear = at.getFullYear() === now.getFullYear()
+  const date = at.toLocaleDateString(undefined, sameYear
+    ? { month: 'numeric', day: 'numeric' }
+    : { year: 'numeric', month: 'numeric', day: 'numeric' })
+  const time = at.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false })
+  return `${date} ${time}`
+}

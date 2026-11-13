@@ -94,6 +94,19 @@ const CardTool: React.FC = () => {
   const classes = useLoad(source.classes, [], `c${source.demo}`)
   const knowledge = useLoad(source.knowledge, EMPTY_KNOWLEDGE, `k${source.demo}`)
 
+  // ?demo=1 opens on a filled card, so the page shows what it produces instead
+  // of three empty panes (screenshots and visual review depend on this).
+  useEffect(() => {
+    if (!source.demo) return
+    setCard(DEMO_CARD)
+    setTiers(tiersOf(DEMO_CARD))
+    setClassIds(DEMO_CARD.meta.class_ids)
+    setUnit(DEMO_CARD.meta.unit)
+    setIntent(DEMO_CARD.meta.title)
+    // Seeding once per demo mount; the teacher's edits must win afterwards.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source.demo])
+
   // One class is the common case; preselect it so the main path skips a click.
   useEffect(() => {
     if (classes.data.length === 1 && !classIds.length) setClassIds([classes.data[0].id])
@@ -415,9 +428,10 @@ const CardTool: React.FC = () => {
             <div className="twt-evidence">
               <div className="twt-evidence-head">
                 <h3>{t('twt_evidence')}</h3>
-                <div className="twt-evidence-unit">
+                <label className="twt-evidence-unit" htmlFor="twt-card-unit">
+                  <span>{t('twt_unit')}</span>
                   <UnitPicker id="twt-card" value={unit} onChange={setUnit} choices={units} />
-                </div>
+                </label>
               </div>
               {classIds.length ? (
                 <FactsStrip

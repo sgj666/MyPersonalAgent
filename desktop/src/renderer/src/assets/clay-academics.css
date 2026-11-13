@@ -3594,3 +3594,209 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ---------- teaching tools: first run ---------- */
+/* A page that has produced nothing yet still has to look designed. The panel
+   states the loop and shows the shape of the output, so the first screen is a
+   starting point rather than an empty room. */
+.twt-first {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 26px 28px 24px;
+  max-width: 980px;
+}
+
+.twt-first-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.twt-first-head h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--twb-ink);
+}
+
+.twt-first-head p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.65;
+  font-weight: 600;
+  color: var(--twb-ink-2);
+}
+
+.twt-first-badge {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  color: var(--twb-accent-hover);
+  background: var(--twb-accent-soft);
+  border: 1px solid var(--twb-rim);
+  border-radius: 14px;
+}
+
+.twt-first-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(260px, .7fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.twt-first-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.twt-first-steps li {
+  display: flex;
+  gap: 10px;
+  padding: 13px 14px;
+  background: var(--twb-surface-2);
+  border: 1px solid var(--twb-rim);
+  border-radius: 14px;
+}
+
+.twt-first-steps b {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--twb-accent-ink);
+  background: var(--twb-accent);
+}
+
+.twt-first-steps h3 {
+  margin: 1px 0 4px;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--twb-ink);
+}
+
+.twt-first-steps p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--twb-ink-2);
+}
+
+.twt-first-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Three slide shapes in CSS: enough to show the rhythm of a deck. */
+.twt-first-mock {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* Capped so three 16:9 mocks plus the steps still fit a 900px window. */
+  max-width: 300px;
+  justify-self: end;
+}
+
+.twt-mock-slide {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--twb-rim);
+  border-radius: 12px;
+  background: var(--twb-surface);
+  box-shadow: var(--twb-shadow-sm);
+  overflow: hidden;
+  padding: 12px 14px;
+}
+
+.twt-mock-slide > span {
+  display: block;
+  height: 7px;
+  width: 46%;
+  border-radius: 99px;
+  background: var(--twb-accent);
+  margin-bottom: 8px;
+}
+
+.twt-mock-slide > i {
+  display: block;
+  height: 5px;
+  border-radius: 99px;
+  background: var(--twb-surface-3);
+  margin-bottom: 6px;
+}
+
+.twt-mock-slide > i.is-short {
+  width: 55%;
+}
+
+.twt-mock-slide.is-cols > div,
+.twt-mock-slide.is-steps > div {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.twt-mock-slide.is-cols > div {
+  grid-template-columns: 1fr 1fr;
+}
+
+.twt-mock-slide.is-cols i {
+  display: block;
+  height: 44px;
+  border-radius: 8px;
+  background: var(--twb-accent-soft);
+}
+
+.twt-mock-slide.is-steps > div {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.twt-mock-slide.is-steps b {
+  display: block;
+  height: 44px;
+  border-radius: 8px;
+  background: var(--twb-surface-2);
+  border: 1px dashed var(--twb-rim);
+}
+
+.twt-first-mock figcaption {
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--twb-ink-3);
+}
+
+@media (max-width: 1180px) {
+  .twt-first-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The unit field beside 依据 needs its own label, or it reads as a stray box. */
+.twt-evidence-unit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.twt-evidence-unit > span {
+  flex: none;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--twb-ink-3);
+}

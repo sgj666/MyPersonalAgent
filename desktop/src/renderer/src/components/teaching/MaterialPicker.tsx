@@ -88,6 +88,7 @@ export const UnitPicker: React.FC<{
 }> = ({ value, onChange, choices, id, placeholder }) => (
   <>
     <input
+      id={`${id}-unit`}
       className="twb-input twt-input"
       list={`${id}-units`}
       value={value}

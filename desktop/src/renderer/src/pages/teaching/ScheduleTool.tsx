@@ -1,7 +1,7 @@
 // 教学计划 — an editable week table checked against the timetable and the
 // progress already taught (design §3.5). The weeks are data: 写入教学进度
 // imports them with overwrite=false, so taught rows are never touched.
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { CalendarDays, CalendarPlus, Download, FoldVertical, Plus, Sparkles, Square, Upload } from 'lucide-react'
 import { t, tf } from '../../i18n'
 import type { TeachingWeek } from '../../api/client'
@@ -46,6 +46,14 @@ const ScheduleTool: React.FC = () => {
   const [term, setTerm] = useState('')
   const [book, setBook] = useState('')
   const [weeks, setWeeks] = useState(DEFAULT_WEEKS)
+  // ?demo=1 opens on a filled term table; an empty grid cannot show what the
+  // reconcile column and the write-back button are for.
+  useEffect(() => {
+    if (!source.demo) return
+    setRows(toRows(DEMO_WEEKS))
+    setStatus({ text: tf('twt_weeks_ready', { n: DEMO_WEEKS.length }), tone: 'ok' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source.demo])
   const [startWeek, setStartWeek] = useState(1)
   const [perWeek, setPerWeek] = useState(DEFAULT_PERIODS)
   const [scope, setScope] = useState('')

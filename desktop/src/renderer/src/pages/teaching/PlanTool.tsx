@@ -12,7 +12,7 @@ import { filesUnder, knowledgeFiles, MaterialList, unitChoices, type MaterialGro
 import { Skeleton, StartHint } from '../../components/teaching/states'
 import { DEMO_OUTLINE, DEMO_PLAN_MD } from '../../components/teaching/demoData'
 import { UnitPicker } from '../../components/teaching/MaterialPicker'
-import { errorText } from '../../lib/teaching'
+import { errorText, shortWhen } from '../../lib/teaching'
 import { newId, parseOutline, slugify, type OutlineRow } from './drafts'
 import { LESSON_TYPES, planDraftPrompt, planOutlinePrompt, STAGES, type PlanParams, KB } from './prompts'
 import { useTeachingSource } from './source'
@@ -80,7 +80,7 @@ const PlanTool: React.FC = () => {
         label: t('twt_mat_plans'),
         items: [
           ...kb(filesUnder(files, KB.plans)),
-          ...recentPlans.data.map((r) => ({ path: r.rel, title: r.title, note: r.when })),
+          ...recentPlans.data.map((r) => ({ path: r.rel, title: r.title, note: shortWhen(r.when) })),
         ],
       },
       {
@@ -88,7 +88,7 @@ const PlanTool: React.FC = () => {
         label: t('twt_mat_feedback'),
         items: [
           ...kb(filesUnder(files, KB.feedback)),
-          ...recentCards.data.map((r) => ({ path: r.rel, title: r.title, note: r.when })),
+          ...recentCards.data.map((r) => ({ path: r.rel, title: r.title, note: shortWhen(r.when) })),
         ],
       },
     ]

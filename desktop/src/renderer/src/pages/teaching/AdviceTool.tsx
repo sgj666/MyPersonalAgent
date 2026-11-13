@@ -31,6 +31,15 @@ const AdviceTool: React.FC = () => {
   const [focus, setFocus] = useState(ADVICE_FOCUS[0])
   const [range, setRange] = useState(ADVICE_RANGES[0])
   const [actions, setActions] = useState<AdviceAction[]>([])
+  // ?demo=1 opens with the actions already generated: the point of this page is
+  // the fact → action shape, which an empty state cannot show.
+  useEffect(() => {
+    if (!source.demo) return
+    setActions(DEMO_ACTIONS)
+    setStatus({ text: tf('twt_actions_ready', { n: DEMO_ACTIONS.length }), tone: 'ok' })
+    // Seed once per demo mount; a generated set replaces it afterwards.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source.demo])
   const [adopted, setAdopted] = useState<Set<string>>(new Set())
   const [adopting, setAdopting] = useState('')
   const [question, setQuestion] = useState('')
