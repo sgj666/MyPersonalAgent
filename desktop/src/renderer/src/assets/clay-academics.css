@@ -562,6 +562,21 @@
   color: var(--twb-ink);
   cursor: pointer;
   font: inherit;
+  transition:
+    background-color 0.14s var(--twb-ease),
+    border-color 0.14s var(--twb-ease);
+}
+
+/* An empty cell stays quiet — the ＋ only arrives on hover, so the week is not
+   a field of plus signs. */
+.twb-tt-cell:not(.is-filled) {
+  border: 1px dashed var(--twb-line);
+  background: transparent;
+}
+
+.twb-tt-cell:not(.is-filled):hover {
+  border-color: var(--twb-accent);
+  background: var(--twb-accent-soft);
 }
 
 .twb-tt-cell:hover {
@@ -585,10 +600,18 @@
   background: var(--twb-accent-soft);
 }
 
+/* 停课 is a loss of a lesson, not a swap: a deeper red than the warm "changed"
+   tint, and the class name is struck through so the state reads without colour. */
 .twb-tt-cell.is-cancelled {
-  background: var(--twb-urgent-soft);
-  border-color: var(--twb-urgent);
-  color: var(--twb-urgent);
+  background: #ffe3d6;
+  border-color: #b8431c;
+  color: #a33a12;
+}
+
+.twb-tt-cell.is-cancelled b {
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+  text-decoration-color: rgba(163, 58, 18, 0.55);
 }
 
 .twb-tt-cell b {
@@ -616,14 +639,149 @@
 }
 
 .twb-tt-cell.is-cancelled em {
-  color: var(--twb-urgent);
+  color: #a33a12;
 }
 
 .twb-tt-add {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--twb-ink-3);
-  opacity: 0.55;
+  opacity: 0;
+  transition: opacity 0.12s var(--twb-ease);
+}
+
+.twb-tt-cell:hover .twb-tt-add,
+.twb-tt-cell:focus-visible .twb-tt-add {
+  opacity: 0.7;
+}
+
+/* No hover on touch screens: keep a faint hint that the cell is tappable. */
+@media (hover: none) {
+  .twb-tt-add {
+    opacity: 0.4;
+  }
+}
+
+/* ---------- timetable: one colour per class ---------- */
+/* data-tone cycles with the class order (CLASS_TONES in TimetablePage), so a
+   class reads the same in the grid and in its chip in the stats row. */
+:is(.twb-tt-cell, .twb-tt-chip)[data-tone='0'] {
+  --tt-soft: #e6f6ec;
+  --tt-accent: #2f7d55;
+}
+
+:is(.twb-tt-cell, .twb-tt-chip)[data-tone='1'] {
+  --tt-soft: #ffe9d8;
+  --tt-accent: #b05c2f;
+}
+
+:is(.twb-tt-cell, .twb-tt-chip)[data-tone='2'] {
+  --tt-soft: #ece6fd;
+  --tt-accent: #6b53b8;
+}
+
+:is(.twb-tt-cell, .twb-tt-chip)[data-tone='3'] {
+  --tt-soft: #e2eefb;
+  --tt-accent: #2f6f9e;
+}
+
+:is(.twb-tt-cell, .twb-tt-chip)[data-tone='4'] {
+  --tt-soft: #fdf2cd;
+  --tt-accent: #97731a;
+}
+
+:is(.twb-tt-cell, .twb-tt-chip)[data-tone='5'] {
+  --tt-soft: #fde3ea;
+  --tt-accent: #b04b6b;
+}
+
+:is(.twb-tt-cell, .twb-tt-chip)[data-tone='6'] {
+  --tt-soft: #dcf3f1;
+  --tt-accent: #227f79;
+}
+
+:is(.twb-tt-cell, .twb-tt-chip)[data-tone='7'] {
+  --tt-soft: #eef0d7;
+  --tt-accent: #6c7a2b;
+}
+
+.dark :is(.twb-tt-cell, .twb-tt-chip)[data-tone='0'] {
+  --tt-soft: #1c3a2a;
+  --tt-accent: #7fd8a8;
+}
+
+.dark :is(.twb-tt-cell, .twb-tt-chip)[data-tone='1'] {
+  --tt-soft: #3a2620;
+  --tt-accent: #f0a97a;
+}
+
+.dark :is(.twb-tt-cell, .twb-tt-chip)[data-tone='2'] {
+  --tt-soft: #262238;
+  --tt-accent: #b7a4f5;
+}
+
+.dark :is(.twb-tt-cell, .twb-tt-chip)[data-tone='3'] {
+  --tt-soft: #17252f;
+  --tt-accent: #86bfe8;
+}
+
+.dark :is(.twb-tt-cell, .twb-tt-chip)[data-tone='4'] {
+  --tt-soft: #332c16;
+  --tt-accent: #e6c96b;
+}
+
+.dark :is(.twb-tt-cell, .twb-tt-chip)[data-tone='5'] {
+  --tt-soft: #38202a;
+  --tt-accent: #f0a0b8;
+}
+
+.dark :is(.twb-tt-cell, .twb-tt-chip)[data-tone='6'] {
+  --tt-soft: #14322f;
+  --tt-accent: #7fd6cf;
+}
+
+.dark :is(.twb-tt-cell, .twb-tt-chip)[data-tone='7'] {
+  --tt-soft: #2b2e1c;
+  --tt-accent: #c2cf7a;
+}
+
+.twb-tt-chip[data-tone] {
+  background: var(--tt-soft);
+  border-color: color-mix(in srgb, var(--tt-accent) 30%, transparent);
+}
+
+.twb-tt-tone-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--tt-accent);
+}
+
+/* A filled cell is a small card in its class's colour: soft wash, coloured
+   spine, coloured class name. A one-off change keeps the theme colours so it
+   still stands out. */
+.twb-tt-cell.is-filled[data-tone]:not(.is-override):not(.is-cancelled) {
+  background: var(--tt-soft);
+  border-color: color-mix(in srgb, var(--tt-accent) 34%, transparent);
+  box-shadow: inset 3px 0 0 var(--tt-accent), var(--twb-shadow-sm);
+}
+
+.twb-tt-cell.is-filled[data-tone]:not(.is-override):not(.is-cancelled) b {
+  color: var(--tt-accent);
+}
+
+/* The column of the day being looked at. */
+.twb-tt thead th.is-today {
+  background: var(--twb-accent-soft);
+  border-color: var(--twb-accent);
+  color: var(--twb-accent-hover);
+  box-shadow: inset 0 -2px 0 var(--twb-accent);
+}
+
+.twb-tt thead th.is-today .twb-tt-th-date {
+  color: var(--twb-accent-hover);
+  font-weight: 800;
 }
 
 .twb-tt-stats {
@@ -1243,6 +1401,11 @@
   opacity: 0.6;
 }
 
+/* A lesson hidden by 只看我的课 keeps a marker, unlike a truly empty cell. */
+.twb-tt-cell.is-others .twb-tt-add {
+  opacity: 0.5;
+}
+
 .twb-tt-cell.is-others b {
   font-weight: 600;
 }
@@ -1295,6 +1458,12 @@
   #twb-timetable .twb-tt-cell,
   #twb-timetable .twb-page-head {
     box-shadow: none;
+  }
+
+  /* The class colours are information: keep them on paper too. */
+  #twb-timetable .twb-tt {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 }
 

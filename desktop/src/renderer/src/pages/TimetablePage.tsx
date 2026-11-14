@@ -37,6 +37,10 @@ const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${Math.r
 
 const kindLabel = (kind: TimetableKind) => t(`tw_kind_${kind}`)
 
+// Colours cycle with the class order, so a class keeps its colour across
+// renders and matches its chip in the stats row (data-tone in the CSS).
+const CLASS_TONES = 8
+
 /**
  * One cell's editor. In fixed mode it changes the recurring slot; with a date
  * chosen it writes a one-off override (a swap or a cancellation) and leaves the
@@ -345,6 +349,12 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
 
   const classById = useMemo(() => new Map(classes.map((item) => [item.id, item])), [classes])
   const classOf = (id: string) => classById.get(id)
+  const toneById = useMemo(() => {
+    const map = new Map<string, number>()
+    classes.forEach((item, i) => map.set(item.id, i % CLASS_TONES))
+    return map
+  }, [classes])
+  const toneOf = (id: string) => toneById.get(id) ?? 0
 
   const slotAt = (weekday: number, period: number) =>
     table.slots.find((slot) => slot.weekday === weekday && slot.period === period)
@@ -519,7 +529,8 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                       const row = stats.byClass.get(item.id) || ({} as Record<TimetableKind, number>)
                       const total = TIMETABLE_KINDS.reduce((sum, kind) => sum + (row[kind] || 0), 0)
                       return (
-                        <span key={item.id} className="twb-tt-chip">
+                        <span key={item.id} className="twb-tt-chip" data-tone={toneOf(item.id)}>
+                          <i className="twb-tt-tone-dot" aria-hidden="true" />
                           <b>{item.name}</b>
                           <em>{tf('tw_tt_weekly', { n: total })}</em>
                           {TIMETABLE_KINDS.filter((kind) => row[kind]).map((kind) => (
@@ -538,12 +549,21 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                       <thead>
                         <tr>
                           <th className="twb-tt-corner">{t('tw_tt_period')}</th>
-                          {columns.map((weekday) => (
-                            <th key={weekday}>
-                              {t(weekdayLabel(weekday))}
-                              {date && <small className="twb-tt-th-date"> {weekDate(weekday).slice(5)}</small>}
-                            </th>
-                          ))}
+                          {columns.map((weekday) => {
+                            const dayDate = weekDate(weekday)
+                            const isToday = Boolean(dayDate) && dayDate === todayIso()
+                            return (
+                              <th key={weekday} className={isToday ? 'is-today' : undefined}>
+                                {t(weekdayLabel(weekday))}
+                                {dayDate && (
+                                  <small className="twb-tt-th-date">
+                                    {' '}
+                                    {isToday ? t('tw_tt_today') : dayDate.slice(5)}
+                                  </small>
+                                )}
+                              </th>
+                            )
+                          })}
                         </tr>
                       </thead>
                       <tbody>
@@ -561,6 +581,9 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                               const cellDate = weekDate(weekday)
                               const override = cellDate ? overrideAt(cellDate, period.index, table) : undefined
                               const shownClass = classOf(override?.class_id || slot?.class_id || '')
+                              // The cell wears the class's colour; an override
+                              // keeps the theme colours so a change stands out.
+                              const tone = shownClass && !override ? toneOf(shownClass.id) : undefined
                               // §7.1: a slot without the field is the teacher's own.
                               const mine = slot?.mine !== false
                               // The filter hides other teachers' lessons rather
@@ -580,12 +603,11 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                                 <td key={weekday}>
                                   <button
                                     type="button"
+                                    data-tone={tone}
                                     className={`twb-tt-cell${slot || override ? ' is-filled' : ''}${
                                       override?.state === 'cancelled' ? ' is-cancelled' : ''
                                     }${override ? ' is-override' : ''}${
                                       slot && !mine ? ' is-others' : ''
-                                    }${
-                                      date && weekdayOf(date) !== weekday ? ' is-locked' : ''
                                     }`}
                                     onClick={() => {
                                       // Without a class there is nothing to put in
