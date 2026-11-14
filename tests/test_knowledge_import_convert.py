@@ -119,7 +119,7 @@ def test_pdf_textbook_is_imported_as_markdown(tmp_path):
     source = md.parent / "Unit-01.pdf"
     assert source.exists() and source.stat().st_size == len(pdf)
     content = md.read_text(encoding="utf-8")
-    assert content.startswith("<!-- source-pdf: Unit-01.pdf -->")
+    assert content.startswith("<!-- source: Unit-01.pdf -->")
     assert "*第 1 页*" in content
     assert "Unit 1 My new school" in content
     assert "This unit talks about the first day." in content
@@ -202,7 +202,11 @@ def test_docx_textbook_keeps_headings_paragraphs_and_tables(tmp_path):
     assert result["queued"] == 1
     assert _wait_for_import(svc)["status"] == "done"
     md = tmp_path / "knowledge" / "教材" / "Unit-01.md"
-    assert md.read_text(encoding="utf-8") == (
+    # The Word original is kept too, so the reader can open it.
+    assert (md.parent / "Unit-01.docx").exists()
+    text = md.read_text(encoding="utf-8")
+    assert text.startswith("<!-- source: Unit-01.docx -->")
+    assert text.split("-->", 1)[1].lstrip() == (
         "## Unit 1 My new school\n"
         "\n"
         "This unit talks about the first day.\n"

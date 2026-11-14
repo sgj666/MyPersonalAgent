@@ -33,6 +33,7 @@ import KnowledgeGraph from '../components/KnowledgeGraph'
 import { DocActions, DocEditor, DocNotice, DocView } from '../components/DocEditor'
 import { createDocEditorStore } from '../store/docEditorStore'
 import { askConfirm } from '../store/confirmStore'
+import { openImage } from '../lib/exportImage'
 import AgentScopeSelect from '../components/AgentScopeSelect'
 import Tooltip from '../components/Tooltip'
 import { useAgentStore, selectMultiAgent } from '../store/agentStore'
@@ -317,10 +318,13 @@ const KnowledgePage: React.FC<KnowledgePageProps> = ({ baseUrl }) => {
   // A document converted from a PDF carries its original beside it. The real
   // pages are what the teacher recognises; the markdown stays as the text
   // layer for search and the agent.
-  const sourcePdf = useMemo(() => {
-    const match = /^<!--\s*source-pdf:\s*([^\s>]+)\s*-->/.exec(content || '')
-    if (!match || !doc?.dir) return ''
-    return `${doc.dir}/${match[1]}`
+  // The original a conversion came from: a PDF renders in the window, a Word
+  // file opens in its own application (the window cannot draw one).
+  const source = useMemo(() => {
+    const match = /^<!--\s*source(?:-pdf)?:\s*([^\s>]+)\s*-->/.exec(content || '')
+    if (!match || !doc?.dir) return null
+    const name = match[1]
+    return { path: `${doc.dir}/${name}`, isPdf: name.toLowerCase().endsWith('.pdf') }
   }, [content, doc?.dir])
   const [showSource, setShowSource] = useState(true)
 
@@ -1049,7 +1053,17 @@ const KnowledgePage: React.FC<KnowledgePageProps> = ({ baseUrl }) => {
                   </h3>
                   {/* index.md is where the page opens, so the reason its Edit
                       button is missing has to be on screen, not implied. */}
-                  {sourcePdf && (
+                  {source && !source.isPdf && (
+                    <button
+                      type="button"
+                      className="twb-btn twb-btn-sm"
+                      onClick={() => void openImage(source.path)}
+                    >
+                      <FileText size={13} />
+                      <span>{t('knowledge_open_source')}</span>
+                    </button>
+                  )}
+                  {source?.isPdf && (
                     <div className="clay-tabs flex items-center gap-1 bg-inset-2 rounded-btn p-0.5">
                       {[true, false].map((isSource) => (
                         <button
@@ -1084,11 +1098,11 @@ const KnowledgePage: React.FC<KnowledgePageProps> = ({ baseUrl }) => {
                   <div className="flex-1 min-h-0 overflow-hidden">
                     <DocEditor key={doc.path} store={knowledgeEditor} textareaRef={editorRef} />
                   </div>
-                ) : sourcePdf && showSource ? (
+                ) : source?.isPdf && showSource ? (
                   <iframe
-                    key={sourcePdf}
+                    key={source.path}
                     title={docTitle}
-                    src={apiClient.getServeFileUrl(sourcePdf)}
+                    src={apiClient.getServeFileUrl(source.path)}
                     className="flex-1 w-full border-0 bg-surface-2"
                   />
                 ) : (

@@ -175,6 +175,7 @@ const translations: Record<string, Record<string, string>> = {
     // knowledge
     knowledge_title: '知识库',
     knowledge_desc: '浏览和探索你的知识库',
+    knowledge_open_source: '打开原文',
     knowledge_tab_source: '原文',
     knowledge_tab_text: '文字版',
     knowledge_tab_docs: '文档',
@@ -2122,6 +2123,7 @@ const translations: Record<string, Record<string, string>> = {
     // knowledge
     knowledge_title: 'Knowledge Base',
     knowledge_desc: 'Browse and explore your knowledge base',
+    knowledge_open_source: 'Open original',
     knowledge_tab_source: 'Original',
     knowledge_tab_text: 'Text',
     knowledge_tab_docs: 'Documents',

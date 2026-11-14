@@ -499,8 +499,8 @@ class KnowledgeService:
                            else bytes(content_bytes))
                     content = convert_to_markdown(
                         filename, raw, assets=self._figure_writer(destination))
-                    if suffix == ".pdf":
-                        content = self._keep_source_pdf(destination, raw, content)
+                    if suffix in (".pdf", ".docx"):
+                        content = self._keep_source(destination, raw, content, suffix)
                 if len(content.encode("utf-8")) > self.MAX_IMPORT_FILE_SIZE:
                     raise ValueError("file too large")
                 destination.parent.mkdir(parents=True, exist_ok=True)
@@ -580,8 +580,9 @@ class KnowledgeService:
             destination = service._resolve_path(rel_path, kind="document")[1]
             content = convert_to_markdown(
                 filename, raw, assets=service._figure_writer(destination))
-            if filename.lower().endswith(".pdf"):
-                content = service._keep_source_pdf(destination, raw, content)
+            if filename.lower().endswith((".pdf", ".docx")):
+                suffix = ".pdf" if filename.lower().endswith(".pdf") else ".docx"
+                content = service._keep_source(destination, raw, content, suffix)
             if len(content.encode("utf-8")) > self.MAX_IMPORT_FILE_SIZE:
                 raise ValueError("转换后的文档超过单文件上限")
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -606,18 +607,21 @@ class KnowledgeService:
             jobs = sorted(self._import_jobs.values(), key=lambda j: j["started"], reverse=True)
             return {"jobs": [dict(job) for job in jobs[:20]]}
 
-    #: Marker a converted PDF carries so the reader can offer the original page.
-    SOURCE_MARKER = "<!-- source-pdf: {name} -->"
+    #: Marker a converted document carries so the reader can offer the original.
+    SOURCE_MARKER = "<!-- source: {name} -->"
 
-    def _keep_source_pdf(self, destination: Path, raw: bytes, content: str) -> str:
-        """Store the PDF next to its markdown and point the reader at it.
+    def _keep_source(self, destination: Path, raw: bytes, content: str, suffix: str) -> str:
+        """Store the imported original next to its markdown.
 
         Text extraction cannot reproduce a textbook's layout, so the reader
-        shows the original pages and keeps the markdown as the searchable,
-        agent-readable layer. The PDF is not a knowledge document (the tree only
-        lists .md), it is the document's source.
+        offers the original file and keeps the markdown as the searchable,
+        agent-readable layer. The original is not a knowledge document (the tree
+        only lists .md), it is the document's source.
+
+        A PDF can be rendered inside the window; a Word file cannot, so the
+        reader falls back to opening it in the system application.
         """
-        source = destination.with_suffix(".pdf")
+        source = destination.with_suffix(suffix)
         source.write_bytes(raw)
         marker = self.SOURCE_MARKER.format(name=source.name)
         return marker + "\n\n" + content
