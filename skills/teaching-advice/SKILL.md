@@ -1,6 +1,6 @@
 ---
 name: teaching-advice
-description: 读班级学情事实（/api/teaching/facts 的 facts/stats），只做判断与行动，输出 {facts, actions[]} JSON，每条 action 能直接变成看板任务。Use when the teacher asks 怎么上这节课/学情分析与对策/教学改进意见, or opens the 教学建议 page with class + unit + focus + facts.
+description: 读班级学情事实（页面随提示词给出 facts/stats；对话里则读 workspace 的 teaching/*.json 自行计算），只做判断与行动，输出 {facts, actions[]} JSON，每条 action 能直接变成看板任务。Use when the teacher asks 怎么上这节课/学情分析与对策/教学改进意见, or opens the 教学建议 page with class + unit + focus + facts.
 ---
 
 # 教学建议（吃事实）
@@ -19,7 +19,24 @@ description: 读班级学情事实（/api/teaching/facts 的 facts/stats），�
 ```
 
 - `focus`：课堂参与 / 分层 / 作业 / 进度等，决定 actions 优先排哪类。
-- `facts` 为空或缺失：先请页面调用 `/api/teaching/facts`；仍为空就只给通用的 3 条，并在每条 `expected` 写「待有数据后复核」。
+- `facts` 为空或缺失时，**不要**去调 `/api/teaching/facts`，也**不要**说「服务不可用」——你在对话里拿不到这个接口的地址和令牌。改成自己从 workspace 的数据文件算：
+
+```bash
+cd ~/cow && python3 -c "
+import json, os
+load = lambda n, d: json.load(open(f'teaching/{n}.json', encoding='utf-8')) if os.path.exists(f'teaching/{n}.json') else d
+classes = load('classes', {}).get('classes', [])
+progress = load('progress', {}).get('items', [])
+homework = load('homework', {})
+scores = load('scores', {})
+print('班级', [c['name'] for c in classes])
+print('进度条数', len(progress), '| 计划/已授', sum(i.get('planned_periods', 0) for i in progress), sum(i.get('taught_periods', 0) for i in progress))
+print('作业次数', len(homework.get('items', [])), '| 考试次数', len(scores.get('exams', [])))
+"
+```
+
+  - 两个以上数据源为空（没有 progress / homework / scores）时，直说：**「目前还没有教学进度/作业/成绩数据，以下 3 条是通用建议」**，并把每条 `expected` 写成「待有数据后复核」。
+  - 有数据时按第 2 节的 `facts` key 自己算：`progress_gap` = Σ计划 − Σ已授；`homework_missing` = 近期未交人数（按学生去重）；`exam_weak` = 按题 key 的得分率升序取最低 1–3 项。算法与口径写进 `detail`。
 - 可补读 `knowledge/班级与学情/`、`knowledge/教研/`，引用时写出路径。
 
 ## 2 输出

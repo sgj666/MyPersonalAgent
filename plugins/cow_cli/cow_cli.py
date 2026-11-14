@@ -156,7 +156,14 @@ class CowCliPlugin(Plugin):
         kind = result[0]
 
         if kind == "passthrough":
-            # Not a command and not a near-typo: let the agent handle it.
+            # `/name args` where `name` is an installed skill runs that skill:
+            # the message is rewritten into an instruction that names it, and
+            # the agent carries on. A skill has no `/skill <name>` command of
+            # its own, so this is the only way to invoke one by name.
+            expanded = self._expand_skill_slash(token, user_args, e_context)
+            if expanded:
+                logger.info(f"[CowCli] slash skill: {token}")
+                e_context["context"].content = expanded
             return
 
         if kind == "run":
@@ -212,6 +219,30 @@ class CowCliPlugin(Plugin):
             return cmd, args
 
         return None
+
+    def _expand_skill_slash(self, token: str, args: str, e_context):
+        """`/my-skill rest` -> the instruction the agent should receive.
+
+        Returns None when the token is not an enabled skill of this Agent,
+        which leaves ordinary slash text (and typos) untouched.
+        """
+        name = (token or "").strip()
+        if not name or name in KNOWN_COMMANDS:
+            return None
+        session_id = self._get_session_id(e_context)
+        agent = self._get_agent(session_id)
+        manager = getattr(agent, "skill_manager", None) if agent else None
+        if not manager:
+            return None
+        skills = getattr(manager, "skills", None) or {}
+        config = getattr(manager, "skills_config", None) or {}
+        if name not in skills:
+            return None
+        if not config.get(name, {}).get("enabled", True):
+            return None
+        head = _t(f"请使用技能「{name}」完成：", f"Use the skill \"{name}\" to:")
+        rest = args.strip()
+        return f"{head}\n{rest}" if rest else head
 
     @staticmethod
     def _suggest_command(cmd: str) -> str:
