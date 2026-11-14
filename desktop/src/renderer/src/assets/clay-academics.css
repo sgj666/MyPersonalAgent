@@ -3800,3 +3800,11 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
   font-weight: 700;
   color: var(--twb-ink-3);
 }
+
+/* Day mode draws one column: the date beside the weekday name makes it clear
+   which day the ＋ writes to. */
+.twb-tt-th-date {
+  font-weight: 600;
+  color: var(--twb-ink-3);
+  margin-left: 6px;
+}

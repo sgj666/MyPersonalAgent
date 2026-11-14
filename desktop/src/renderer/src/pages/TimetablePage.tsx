@@ -419,6 +419,12 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
   }, [table.slots, mineOnly])
 
   const weekend = date !== '' && (weekdayOf(date) === 0 || weekdayOf(date) === 6)
+  // A dated view edits ONE day. Showing all five columns on a date whose
+  // weekday has no column (Saturday, Sunday) left every cell locked, so the
+  // ＋ looked broken: nothing happened anywhere. Day mode therefore renders
+  // only the column for `date`, and that column is always editable.
+  const dayColumn = date ? (weekdayOf(date) === 0 ? 7 : weekdayOf(date)) : 0
+  const columns = date ? [dayColumn] : WEEKDAYS
 
   return (
     <div id="twb-timetable" className="flex-1 flex flex-col min-h-0">
@@ -520,8 +526,11 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                       <thead>
                         <tr>
                           <th className="twb-tt-corner">{t('tw_tt_period')}</th>
-                          {WEEKDAYS.map((weekday) => (
-                            <th key={weekday}>{t(weekdayLabel(weekday))}</th>
+                          {columns.map((weekday) => (
+                            <th key={weekday}>
+                              {t(weekdayLabel(weekday))}
+                              {date && <small className="twb-tt-th-date"> {date.slice(5)}</small>}
+                            </th>
                           ))}
                         </tr>
                       </thead>
@@ -535,7 +544,7 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                                 {period.end ? `–${period.end}` : ''}
                               </small>
                             </th>
-                            {WEEKDAYS.map((weekday) => {
+                            {columns.map((weekday) => {
                               const slot = slotAt(weekday, period.index)
                               const override = date && weekdayOf(date) === weekday ? overrideAt(period.index) : undefined
                               const shownClass = classOf(override?.class_id || slot?.class_id || '')
@@ -569,8 +578,15 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                                       // A dated edit belongs to that date's own
                                       // weekday column; recording it from another
                                       // column would save a row nobody can see.
-                                      if (date && weekdayOf(date) !== weekday) {
+                                      if (date && dayColumn !== weekday) {
                                         setStatus(t('tw_tt_wrong_day'))
+                                        return
+                                      }
+                                      // Without a class there is nothing to put in
+                                      // the cell: say so instead of opening a
+                                      // dialog whose class list is empty.
+                                      if (!classes.length) {
+                                        setStatus(t('tw_tt_need_classes'))
                                         return
                                       }
                                       setCell({ weekday, period })
