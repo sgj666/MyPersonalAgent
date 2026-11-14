@@ -8,6 +8,7 @@ import {
   TIMETABLE_KINDS,
   WEEKDAYS,
   errorText,
+  isoDate,
   todayISO,
   weekdayLabel,
   weekdayOf,
@@ -308,7 +309,9 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   })
-  const [cell, setCell] = useState<{ weekday: number; period: TimetablePeriod } | null>(null)
+  // `date` is the cell's own day (empty in the fixed week, so the dialog
+  // edits the recurring slot); it is not the page's date field.
+  const [cell, setCell] = useState<{ weekday: number; period: TimetablePeriod; date: string } | null>(null)
   const [periodsOpen, setPeriodsOpen] = useState(false)
   // Toolbar filter (§7.4): show only the teacher's own lessons.
   const [mineOnly, setMineOnly] = useState(false)
@@ -345,8 +348,8 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
 
   const slotAt = (weekday: number, period: number) =>
     table.slots.find((slot) => slot.weekday === weekday && slot.period === period)
-  const overrideAt = (period: number) =>
-    date ? table.overrides.find((item) => item.date === date && item.period === period) : undefined
+  const overrideAt = (onDate: string, period: number, source: TeachingTimetable) =>
+    onDate ? source.overrides.find((item) => item.date === onDate && item.period === period) : undefined
 
   const save = async (next: TeachingTimetable, message: string) => {
     if (saving.current) return
@@ -392,9 +395,10 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
     )
   }
 
-  const saveOverride = (period: number, override: TimetableOverride | null) => {
+  const saveOverride = (onDate: string, period: number, override: TimetableOverride | null) => {
     setCell(null)
-    const rest = table.overrides.filter((item) => !(item.date === date && item.period === period))
+    if (!onDate) return
+    const rest = table.overrides.filter((item) => !(item.date === onDate && item.period === period))
     void save(
       { ...table, overrides: override ? [...rest, override] : rest },
       override?.state === 'cancelled'
@@ -419,12 +423,20 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
   }, [table.slots, mineOnly])
 
   const weekend = date !== '' && (weekdayOf(date) === 0 || weekdayOf(date) === 6)
-  // A dated view edits ONE day. Showing all five columns on a date whose
-  // weekday has no column (Saturday, Sunday) left every cell locked, so the
-  // ＋ looked broken: nothing happened anywhere. Day mode therefore renders
-  // only the column for `date`, and that column is always editable.
-  const dayColumn = date ? (weekdayOf(date) === 0 ? 7 : weekdayOf(date)) : 0
-  const columns = date ? [dayColumn] : WEEKDAYS
+  // The grid always shows the whole week: a timetable that hides four days is
+  // not a timetable. `date` picks WHICH week, and each column carries that
+  // week's date, so a cell click edits the right day whatever the weekday of
+  // the chosen date (a Saturday anchor still shows Mon–Fri of that week).
+  const columns = WEEKDAYS
+  const weekDate = (weekday: number): string => {
+    if (!date) return ''
+    const jsDow = weekdayOf(date) // 0 = Sunday, 1 = Monday …
+    const monday = new Date(date)
+    monday.setDate(monday.getDate() - ((jsDow === 0 ? 7 : jsDow) - 1))
+    const target = new Date(monday)
+    target.setDate(monday.getDate() + (weekday - 1))
+    return isoDate(target)
+  }
 
   return (
     <div id="twb-timetable" className="flex-1 flex flex-col min-h-0">
@@ -529,7 +541,7 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                           {columns.map((weekday) => (
                             <th key={weekday}>
                               {t(weekdayLabel(weekday))}
-                              {date && <small className="twb-tt-th-date"> {date.slice(5)}</small>}
+                              {date && <small className="twb-tt-th-date"> {weekDate(weekday).slice(5)}</small>}
                             </th>
                           ))}
                         </tr>
@@ -546,7 +558,8 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                             </th>
                             {columns.map((weekday) => {
                               const slot = slotAt(weekday, period.index)
-                              const override = date && weekdayOf(date) === weekday ? overrideAt(period.index) : undefined
+                              const cellDate = weekDate(weekday)
+                              const override = cellDate ? overrideAt(cellDate, period.index, table) : undefined
                               const shownClass = classOf(override?.class_id || slot?.class_id || '')
                               // §7.1: a slot without the field is the teacher's own.
                               const mine = slot?.mine !== false
@@ -575,13 +588,6 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                                       date && weekdayOf(date) !== weekday ? ' is-locked' : ''
                                     }`}
                                     onClick={() => {
-                                      // A dated edit belongs to that date's own
-                                      // weekday column; recording it from another
-                                      // column would save a row nobody can see.
-                                      if (date && dayColumn !== weekday) {
-                                        setStatus(t('tw_tt_wrong_day'))
-                                        return
-                                      }
                                       // Without a class there is nothing to put in
                                       // the cell: say so instead of opening a
                                       // dialog whose class list is empty.
@@ -589,7 +595,7 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                                         setStatus(t('tw_tt_need_classes'))
                                         return
                                       }
-                                      setCell({ weekday, period })
+                                      setCell({ weekday, period, date: cellDate })
                                     }}
                                   >
                                     {slot && mine && override?.state !== 'cancelled' && (
@@ -641,13 +647,13 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
         <CellDialog
           weekday={cell.weekday}
           period={cell.period}
-          date={date}
+          date={cell.date || ''}
           slot={slotAt(cell.weekday, cell.period.index)}
-          override={date && weekdayOf(date) === cell.weekday ? overrideAt(cell.period.index) : undefined}
+          override={overrideAt(cell.date || '', cell.period.index, table)}
           classes={classes}
           onClose={() => setCell(null)}
           onSaveSlot={(slot) => saveSlot(cell.weekday, cell.period.index, slot)}
-          onSaveOverride={(override) => saveOverride(cell.period.index, override)}
+          onSaveOverride={(override) => saveOverride(cell.date || '', cell.period.index, override)}
         />
       )}
 
