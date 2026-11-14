@@ -769,6 +769,29 @@ const KnowledgePage: React.FC<KnowledgePageProps> = ({ baseUrl }) => {
             </button>
           </div>
         </div>
+        {status && (
+          <p
+            className={`px-6 pb-2 text-xs ${status.error ? 'text-danger' : 'text-content-tertiary'}`}
+            role="status"
+          >
+            {status.text}
+          </p>
+        )}
+        {/* An empty library still needs the dialogs: the header's 新建 menu
+            sets this state, and without it every item looked dead. */}
+        {dialog && (
+          <KnowledgeDialog
+            state={dialog}
+            categories={categories}
+            onClose={() => setDialog(null)}
+            onCreateCategory={createCategory}
+            onPickDocCategory={(category) => setDialog({ kind: 'document', category })}
+            onCreateDocument={createDocument}
+            onImport={importDocuments}
+            onRenameCategory={renameCategory}
+            onMoveDocument={moveDocument}
+          />
+        )}
       </div>
     )
   }
