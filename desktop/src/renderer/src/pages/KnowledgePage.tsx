@@ -50,8 +50,10 @@ const KNOWLEDGE_IMPORT_MAX_FILE_SIZE = 100 * 1024 * 1024
 const KNOWLEDGE_IMPORT_MAX_TOTAL_SIZE = 500 * 1024 * 1024
 const KNOWLEDGE_DOC_MAX_CONTENT_SIZE = 10 * 1024 * 1024
 // Viewing: past this many characters the page renders a slice and says so.
-const KNOWLEDGE_VIEW_MAX_CHARS = 400_000
-const KNOWLEDGE_VIEW_CHARS = 200_000
+// A page gallery (one image reference per page) is cheap to render, so the
+// cap is generous; it exists to stop a 12MB text blob from locking the window.
+const KNOWLEDGE_VIEW_MAX_CHARS = 1_200_000
+const KNOWLEDGE_VIEW_CHARS = 800_000
 
 // Pages the Agent maintains: index.md is regenerated from the tree and log.md
 // is its own journal. The backend refuses both; this is only so the viewer can

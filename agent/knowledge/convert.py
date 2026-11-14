@@ -46,7 +46,7 @@ def convert_to_markdown(filename: str, data: bytes, assets=None) -> str:
     if suffix in PDF_SUFFIXES:
         return _pdf_to_markdown(data, assets)
     if suffix in DOCX_SUFFIXES:
-        return _docx_to_markdown(data)
+        return _docx_to_markdown(data, assets, filename)
     raise ValueError(f"unsupported file type: {suffix or filename}")
 
 
@@ -463,7 +463,7 @@ def _join_wrapped(lines) -> str:
 # ----------------------------------------------------------------------
 # docx
 # ----------------------------------------------------------------------
-def _docx_to_markdown(data: bytes) -> str:
+def _docx_to_markdown(data: bytes, assets=None, filename: str = "") -> str:
     try:
         from docx import Document
         from docx.oxml.ns import qn
@@ -495,14 +495,38 @@ def _docx_to_markdown(data: bytes) -> str:
         level = _heading_level(Paragraph(element, document))
         blocks.append(f"{'#' * level} {text}" if level else text)
     blocks = _merge_glyph_blocks(blocks)
-    return ("\n\n".join(blocks) + "\n") if blocks else ""
+    text = "\n\n".join(blocks) + "\n" if blocks else ""
+
+    # A Word file exported from a PDF by WPS keeps the page artwork as images
+    # and every word in separate text boxes, so neither half is a page on its
+    # own: the image has no text, the text has no layout. The text is what the
+    # reader and the agent need; the original is offered beside it.
+    return text
+
+
+def _docx_blocks(element, qn):
+    """(kind, element) for paragraphs and tables anywhere in the document.
+
+    Text boxes, content controls and frames are containers that hold real body
+    paragraphs; a converted PDF puts everything in them.
+    """
+    for child in element.iterchildren():
+        if child.tag == qn("w:p"):
+            yield "paragraph", child
+            # The paragraph's own text lives in its runs, but a converted PDF
+            # hides the real paragraphs one level deeper (a drawing's text box).
+            yield from _docx_blocks(child, qn)
+        elif child.tag == qn("w:tbl"):
+            yield "table", child
+        else:
+            yield from _docx_blocks(child, qn)
 
 
 def _merge_glyph_blocks(blocks):
     """Join a run of one-character paragraphs into one line.
 
-    A layout-tool Word file (a converted PDF) gives every glyph its own text
-    box, so a cover title arrives as 义 / 务 / 教 / 育 stacked vertically.
+    A layout-tool Word file gives every glyph its own text box, so a cover title
+    arrives as 义 / 务 / 教 / 育 stacked vertically.
     """
     out, run = [], []
     for block in blocks:
@@ -517,25 +541,6 @@ def _merge_glyph_blocks(blocks):
     if run:
         out.append("".join(run) if len(run) > 1 else run[0])
     return out
-
-
-def _docx_blocks(element, qn):
-    """(kind, element) for paragraphs and tables anywhere in the document.
-
-    Text boxes, content controls and frames are all containers that hold real
-    body paragraphs; a converted PDF puts *everything* in them.
-    """
-    for child in element.iterchildren():
-        if child.tag == qn("w:p"):
-            yield "paragraph", child
-            # The paragraph's own text lives in its runs, but a converted PDF
-            # hides the real paragraphs one level deeper (a drawing's text box),
-            # so the paragraph is also searched for nested containers.
-            yield from _docx_blocks(child, qn)
-        elif child.tag == qn("w:tbl"):
-            yield "table", child
-        else:
-            yield from _docx_blocks(child, qn)
 
 
 def _heading_level(paragraph) -> int:
