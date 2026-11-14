@@ -497,7 +497,8 @@ class KnowledgeService:
                 else:
                     raw = (content_bytes.encode("utf-8") if isinstance(content_bytes, str)
                            else bytes(content_bytes))
-                    content = convert_to_markdown(filename, raw)
+                    content = convert_to_markdown(
+                        filename, raw, assets=self._figure_writer(destination))
                 if len(content.encode("utf-8")) > self.MAX_IMPORT_FILE_SIZE:
                     raise ValueError("file too large")
                 destination.parent.mkdir(parents=True, exist_ok=True)
@@ -572,12 +573,13 @@ class KnowledgeService:
         if job is not None:
             job["status"] = "converting"
         try:
-            content = convert_to_markdown(filename, raw)
-            if len(content.encode("utf-8")) > self.MAX_IMPORT_FILE_SIZE:
-                raise ValueError("转换后的文档超过单文件上限")
             # A fresh service per job: the worker is not the request thread.
             service = type(self)(root)
             destination = service._resolve_path(rel_path, kind="document")[1]
+            content = convert_to_markdown(
+                filename, raw, assets=service._figure_writer(destination))
+            if len(content.encode("utf-8")) > self.MAX_IMPORT_FILE_SIZE:
+                raise ValueError("转换后的文档超过单文件上限")
             destination.parent.mkdir(parents=True, exist_ok=True)
             write_text_atomic(destination, content, newline="")
             service.rebuild_index_md()
@@ -599,6 +601,26 @@ class KnowledgeService:
         with self._import_jobs_lock:
             jobs = sorted(self._import_jobs.values(), key=lambda j: j["started"], reverse=True)
             return {"jobs": [dict(job) for job in jobs[:20]]}
+
+    def _figure_writer(self, destination: Path):
+        """Save embedded figures beside the document and return their links.
+
+        The directory is dot-prefixed so ``_scan_dir`` (which skips dot names)
+        does not list it as a category, while the markdown can still reference
+        ``.<stem>.assets/page-1-1.png`` relatively.
+        """
+        stem = destination.stem
+        folder = destination.parent / f".{stem}.assets"
+        counter = {"n": 0}
+
+        def save(data: bytes, suffix: str) -> str:
+            folder.mkdir(parents=True, exist_ok=True)
+            counter["n"] += 1
+            name = f"figure-{counter['n']}{suffix}"
+            (folder / name).write_bytes(data)
+            return f".{stem}.assets/{name}"
+
+        return save
 
     def create_category(self, path: str) -> dict:
         rel_path, full_path = self._resolve_path(path, kind="category")
