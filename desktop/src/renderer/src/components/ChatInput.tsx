@@ -10,12 +10,13 @@ import {
   Folder,
   Mic
 } from 'lucide-react'
-import { t, tf } from '../i18n'
+import { t } from '../i18n'
 import { product } from '@product'
 import type { Attachment, WorkspaceEntry, AgentBadge } from '../types'
 import AgentAvatar from './AgentAvatar'
 import { chatDraft } from '../store/draftStore'
 import apiClient from '../api/client'
+import { expandSkillSlash, loadSlashSkills } from '../lib/slashSkill'
 import { PaperPlaneIcon } from './icons'
 import { WORKSPACE_DRAG_TYPE } from './FileTree'
 import { iconFor, colorFor } from '../lib/fileKind'
@@ -48,7 +49,9 @@ interface SlashCommand {
 }
 
 interface ChatInputProps {
-  onSend: (message: string, attachments: Attachment[]) => void
+  // `display` is what the transcript shows when it differs from what the
+  // agent receives (a slash command that expands into a skill instruction).
+  onSend: (message: string, attachments: Attachment[], display?: string) => void
   onNewChat: () => void
   onStop: () => void
   onClearContext: () => void
@@ -89,7 +92,6 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
   // Installed skills, listed under the commands. `/` used to show only the
   // built-in commands, so a teacher with ten skills saw none of them here.
   const [skills, setSkills] = useState<{ name: string; desc: string }[]>([])
-  const skillsLoaded = useRef(false)
   const [slashIndex, setSlashIndex] = useState(0)
   // `@` picker: Agent mentions (group chats only) come first, then workspace
   // files. Agents are matched locally against the session roster; files are
@@ -312,15 +314,13 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
             skill.desc.toLowerCase().includes(q)
           )
         })
-        .filter((skill) => skill.name !== 'ppt-master') // a sub-skill, not a command
-        .slice(0, 8)
         .map((skill) => ({
           cmd: `/${skill.name}`,
           // The menu row is one line: a full skill description would push the
           // command list off screen.
           desc: skill.desc.length > 42 ? `${skill.desc.slice(0, 42)}…` : skill.desc,
           action: 'insert' as const,
-          insert: tf('slash_use_skill', { name: skill.name }),
+          insert: `/${skill.name} `,
         }))
     : []
   const filtered = slashCommands.filter((c) => c.cmd.startsWith(slashQuery))
@@ -374,27 +374,14 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
   })
 
   useEffect(() => {
-    if (!slashOpen || skillsLoaded.current) return
-    skillsLoaded.current = true
-    apiClient
-      .getSkills()
-      .then((list) =>
-        setSkills(
-          list
-            .filter((skill) => skill.enabled)
-            .map((skill) => ({
-              name: skill.name,
-              desc: (skill.display_description || skill.description || '').trim(),
-            }))
-        )
-      )
-      .catch(() => {
-        // A skill list that cannot be read is not worth an error banner: the
-        // command list still works.
-        skillsLoaded.current = false
-      })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slashOpen])
+    let alive = true
+    void loadSlashSkills().then((list) => {
+      if (alive) setSkills(list)
+    })
+    return () => {
+      alive = false
+    }
+  }, [])
 
   const runSlash = (c: SlashCommand) => {
     setSlashOpen(false)
@@ -435,16 +422,20 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
     }
   }
 
+  // A slash command that names an installed skill runs it: the agent gets an
+  // instruction that names the skill, while the transcript keeps what the
+  // teacher typed (`/teaching-advice 看看七(3)班`).
   const handleSubmit = useCallback(() => {
     const trimmed = text.trim()
     if (!trimmed && attachments.length === 0) return
     if (isStreaming) return
-    onSend(trimmed, attachments)
+    const expanded = expandSkillSlash(trimmed, skills)
+    onSend(expanded || trimmed, attachments, expanded ? trimmed : undefined)
     setText('')
     setAttachments([])
     setSlashOpen(false)
     resetHeight()
-  }, [text, attachments, isStreaming, onSend])
+  }, [text, attachments, isStreaming, onSend, skills])
 
   // The picker shows agents (group chats) then files; either being non-empty
   // keeps it open. `mentionCount` is the combined length for keyboard nav.

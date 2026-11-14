@@ -12,6 +12,7 @@ import ChatTimeline from './ChatTimeline'
 import apiClient from '../api/client'
 import { useChatStore } from '../store/chatStore'
 import { sessionOwner, useSessionStore } from '../store/sessionStore'
+import { expandSkillSlash, loadSlashSkills } from '../lib/slashSkill'
 import { getLang, t } from '../i18n'
 
 export interface EmbeddedChatProps {
@@ -189,12 +190,16 @@ const EmbeddedChat: React.FC<EmbeddedChatProps> = ({ sessionId, className, compo
     if (el && stickToBottomRef.current) el.scrollTop = el.scrollHeight
   }, [])
 
+  // Same contract as the chat page: `/skill-name …` expands into an
+  // instruction for the agent, and the transcript keeps what was typed.
   const sendDraft = useCallback(async () => {
     const text = draft.trim()
     if (!text || isStreaming) return
     setDraft('')
     stickToBottomRef.current = true
-    await send(sessionId, text, [])
+    const skills = text.startsWith('/') ? await loadSlashSkills() : []
+    const expanded = expandSkillSlash(text, skills)
+    await send(sessionId, expanded || text, [], expanded ? text : undefined)
   }, [draft, isStreaming, send, sessionId])
 
   // Only Enter sends; Escape and Shift+Enter leave the draft untouched.
