@@ -48,6 +48,9 @@ const KNOWLEDGE_IMPORT_MAX_FILES = 100
 const KNOWLEDGE_IMPORT_MAX_FILE_SIZE = 100 * 1024 * 1024
 const KNOWLEDGE_IMPORT_MAX_TOTAL_SIZE = 500 * 1024 * 1024
 const KNOWLEDGE_DOC_MAX_CONTENT_SIZE = 10 * 1024 * 1024
+// Viewing: past this many characters the page renders a slice and says so.
+const KNOWLEDGE_VIEW_MAX_CHARS = 400_000
+const KNOWLEDGE_VIEW_CHARS = 200_000
 
 // Pages the Agent maintains: index.md is regenerated from the tree and log.md
 // is its own journal. The backend refuses both; this is only so the viewer can
@@ -964,11 +967,27 @@ const KnowledgePage: React.FC<KnowledgePageProps> = ({ baseUrl }) => {
                           <Loader2 size={16} className="animate-spin mr-2" />
                         </div>
                       ) : (
-                        <Markdown
-                          content={stripDuplicateH1(content, docTitle)}
-                          onInternalLink={openInternalLink}
-                          imageBaseDir={doc.dir}
-                        />
+                        <>
+                          {/* A converted textbook can be tens of megabytes of
+                              markdown; rendering all of it locks the window.
+                              The first slice is what a teacher reads anyway. */}
+                          {content.length > KNOWLEDGE_VIEW_MAX_CHARS && (
+                            <p className="mb-4 rounded-btn bg-surface-2 px-3 py-2 text-xs text-content-tertiary">
+                              {tf('knowledge_doc_truncated', {
+                                shown: Math.round(KNOWLEDGE_VIEW_CHARS / 1000),
+                                total: Math.round(content.length / 1000),
+                              })}
+                            </p>
+                          )}
+                          <Markdown
+                            content={stripDuplicateH1(
+                              content.slice(0, KNOWLEDGE_VIEW_CHARS),
+                              docTitle
+                            )}
+                            onInternalLink={openInternalLink}
+                            imageBaseDir={doc.dir}
+                          />
+                        </>
                       )}
                     </div>
                   </DocView>

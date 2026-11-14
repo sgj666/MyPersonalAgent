@@ -61,6 +61,12 @@ def _index_rel_path(file_path: Path, roots: Sequence[Tuple[Path, str]]) -> Optio
 
 
 class MemoryManager:
+    # One textbook PDF can convert to tens of megabytes of markdown. Indexing
+    # all of it means tens of thousands of chunks (and one giant FTS row), which
+    # wedges the reindex that the whole app waits on. The first couple of
+    # megabytes hold the searchable content; the file on disk keeps everything.
+    INDEX_TEXT_MAX_CHARS = 2_000_000
+
     """
     Memory manager with hybrid search capabilities
     
@@ -447,10 +453,16 @@ class MemoryManager:
                 continue
             # Markdown files (memory + knowledge) get structure-aware chunking;
             # anything else (rare) falls back to the plain char splitter.
+            indexable = content[:self.INDEX_TEXT_MAX_CHARS]
+            if len(content) > len(indexable):
+                logger.info(
+                    f"[MemoryManager] {rel_path}: indexing the first "
+                    f"{len(indexable)} characters of {len(content)}"
+                )
             if file_path.suffix.lower() == '.md':
-                chunks = self.chunker.chunk_markdown(content)
+                chunks = self.chunker.chunk_markdown(indexable)
             else:
-                chunks = self.chunker.chunk_text(content)
+                chunks = self.chunker.chunk_text(indexable)
             if not chunks and previous_hash is None:
                 continue
             pending.append({
