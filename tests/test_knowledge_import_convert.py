@@ -329,3 +329,47 @@ def test_a_glyph_per_box_pdf_reads_as_one_line():
     content = convert_to_markdown("book.pdf", pdf)
     assert "My school" in content
     assert "M y s c h o o l" not in content
+
+
+def _two_column_pdf(left, right):
+    """One page with two text blocks side by side (a spread), same baseline."""
+    parts = ["BT", "/F1 12 Tf"]
+    y = 720
+    for index in range(max(len(left), len(right))):
+        if index < len(left):
+            parts.append(f"1 0 0 1 72 {y} Tm ({_escape_pdf_text(left[index])}) Tj")
+        if index < len(right):
+            parts.append(f"1 0 0 1 340 {y} Tm ({_escape_pdf_text(right[index])}) Tj")
+        y -= 16
+    parts.append("ET")
+    stream = ("\n".join(parts) + "\n").encode("latin-1")
+    objects = {
+        1: b"<< /Type /Catalog /Pages 2 0 R >>",
+        2: b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        3: b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
+        4: f"<< /Length {len(stream)} >>\nstream\n".encode("ascii") + stream + b"\nendstream",
+        5: b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+    }
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = {}
+    for number in sorted(objects):
+        offsets[number] = len(out)
+        out += f"{number} 0 obj\n".encode("ascii") + objects[number] + b"\nendobj\n"
+    xref = len(out)
+    out += f"xref\n0 {len(objects) + 1}\n".encode("ascii") + b"0000000000 65535 f \n"
+    for number in sorted(objects):
+        out += f"{offsets[number]:010d} 00000 n \n".encode("ascii")
+    out += (f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n").encode("ascii")
+    return bytes(out)
+
+
+def test_a_two_column_page_is_read_column_by_column():
+    """A spread read across the gutter glues two pages together."""
+    pytest.importorskip("pdfminer.high_level")
+    pdf = _two_column_pdf(
+        ["SECTION A", "What should we do?", "1a Match the pictures."],
+        ["UNIT 2", "1b Listen to four conversations.", "1c Listen again."],
+    )
+    content = convert_to_markdown("book.pdf", pdf)
+    assert content.index("SECTION A") < content.index("1a Match") < content.index("UNIT 2")
+    assert "SECTION AUNIT 2" not in content.replace(" ", "")

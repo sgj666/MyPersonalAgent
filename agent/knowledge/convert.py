@@ -6,6 +6,7 @@ document. The PDF and Word parsers are optional dependencies and are imported
 lazily, so the module itself imports with neither installed.
 """
 
+import hashlib
 import io
 import os
 import re
@@ -66,10 +67,10 @@ def _text_to_markdown(data) -> str:
 def _pdf_to_markdown(data: bytes, assets=None) -> str:
     extract_pages, laparams, _text_container = _load_pdfminer()
 
-    pages, figures = [], []
+    pages, figures, seen_figures = [], [], set()
     for page in extract_pages(io.BytesIO(data), laparams=laparams()):
         pages.append(_page_lines(page))
-        figures.append(_page_images(page, assets) if assets else [])
+        figures.append(_page_images(page, assets, seen_figures) if assets else [])
 
     repeated = _repeated_margin_lines(pages)
 
@@ -143,7 +144,7 @@ def _page_lines(page) -> list:
             if text:
                 rows.append((centre, height, text, cluster[0][0], cluster[-1][1]))
 
-    rows.sort(key=lambda item: -item[0])
+    rows = _reading_order(rows)
     if not rows:
         return []
     # A line break is a paragraph break only when the vertical gap is clearly
@@ -245,6 +246,31 @@ def _join_fragments(row, height: float) -> str:
     return text.strip()
 
 
+def _reading_order(rows):
+    """Top-to-bottom, but column by column when the page is laid out in columns.
+
+    A textbook scan is usually a two-page spread: reading across the gutter
+    interleaves the two pages, which is how "SECTION A" ended up glued to a
+    sentence from the other page.
+    """
+    if len(rows) < 6:
+        return sorted(rows, key=lambda item: -item[0])
+    x0s = [row[3] for row in rows]
+    x1s = [row[4] for row in rows]
+    left, right = min(x0s), max(x1s)
+    if right - left < 1:
+        return sorted(rows, key=lambda item: -item[0])
+    middle = (left + right) / 2
+    crossing = [row for row in rows if row[3] < middle < row[4]]
+    if len(crossing) > len(rows) * 0.3:
+        return sorted(rows, key=lambda item: -item[0])
+    # Two columns: everything that lives on one side of the gutter, in order.
+    left_column = [row for row in rows if (row[3] + row[4]) / 2 < middle]
+    right_column = [row for row in rows if (row[3] + row[4]) / 2 >= middle]
+    return (sorted(left_column, key=lambda item: -item[0])
+            + sorted(right_column, key=lambda item: -item[0]))
+
+
 def _merge_vertical_runs(lines) -> list:
     """Join a column of single CJK glyphs into one line.
 
@@ -277,7 +303,7 @@ _IMAGE_MAGIC = ((b"\x89PNG\r\n\x1a\n", ".png"), (b"\xff\xd8\xff", ".jpg"),
                 (b"GIF8", ".gif"))
 
 
-def _page_images(page, assets) -> list:
+def _page_images(page, assets, seen=None) -> list:
     """Save the figures embedded in one page; return their relative paths.
 
     A PDF stores figures as image XObjects with no file format of their own:
@@ -285,6 +311,7 @@ def _page_images(page, assets) -> list:
     re-encoded as PNG. Undecodable objects are skipped, never fatal.
     """
     paths = []
+    seen = seen if seen is not None else set()
     for image in _iter_images(page):
         width, height = getattr(image, "srcsize", (0, 0))
         # Bullets, rules and spacer art are a few pixels across; a figure is not.
@@ -296,6 +323,10 @@ def _page_images(page, assets) -> list:
         data, suffix = saved
         if len(data) < 96:
             continue
+        digest = hashlib.md5(data).hexdigest()
+        if digest in seen:  # the same art embedded once per page
+            continue
+        seen.add(digest)
         try:
             paths.append(assets(data, suffix))
         except Exception:  # noqa: BLE001 - one bad figure must not kill the import
