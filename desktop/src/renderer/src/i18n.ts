@@ -189,6 +189,7 @@ const translations: Record<string, Record<string, string>> = {
     knowledge_doc_readonly: 'index.md 和 log.md 由 Agent 自动维护，不可编辑',
     // knowledge management
     knowledge_new: '新建',
+    knowledge_new_subcategory: '新建子分类',
     knowledge_new_category: '新建分类',
     knowledge_new_document: '新建文档',
     knowledge_import_documents: '导入文档',
@@ -2129,6 +2130,7 @@ const translations: Record<string, Record<string, string>> = {
     knowledge_doc_readonly: 'index.md and log.md are maintained by the Agent and cannot be edited',
     // knowledge management
     knowledge_new: 'New',
+    knowledge_new_subcategory: 'New sub-category',
     knowledge_new_category: 'New category',
     knowledge_new_document: 'New document',
     knowledge_import_documents: 'Import documents',

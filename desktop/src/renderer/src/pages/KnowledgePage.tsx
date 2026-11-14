@@ -168,6 +168,8 @@ function validateImportFiles(files: File[]): string {
 interface DialogState {
   kind: 'category' | 'doc-pick-category' | 'document' | 'import' | 'rename-category' | 'move-document'
   category?: string
+  /** Creates a nested category under this one (the row's ＋). */
+  parent?: string
   files?: File[]
   /** The category being renamed, or the document being moved. */
   path?: string
@@ -701,6 +703,7 @@ const KnowledgePage: React.FC<KnowledgePageProps> = ({ baseUrl }) => {
     deleteDocument,
     renameCategory: startRenameCategory,
     deleteCategory,
+    createSubCategory: (path) => setDialog({ kind: 'category', parent: path }),
   }
 
   const totalPages = data?.stats?.pages ?? 0
@@ -1119,7 +1122,11 @@ const KnowledgeDialog: React.FC<{
   onMoveDocument,
 }) => {
   const choices = state.kind === 'move-document' ? moveTargets(categories, state.path || '') : categories
-  const [categoryInput, setCategoryInput] = useState(state.kind === 'rename-category' ? state.path || '' : '')
+  const [categoryInput, setCategoryInput] = useState(() => {
+    if (state.kind === 'rename-category') return state.path || ''
+    if (state.kind === 'category' && state.parent) return `${state.parent}/`
+    return ''
+  })
   const [selected, setSelected] = useState(choices[0] || '')
   const [filename, setFilename] = useState('')
   const [contentInput, setContentInput] = useState('')
@@ -1206,7 +1213,11 @@ const KnowledgeDialog: React.FC<{
         className="clay-modal w-full max-w-lg bg-surface border border-default rounded-xl shadow-xl p-5"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <h3 className="text-base font-semibold text-content mb-1">{titleMap[state.kind]}</h3>
+        <h3 className="text-base font-semibold text-content mb-1">
+          {state.kind === 'category' && state.parent
+            ? t('knowledge_new_subcategory')
+            : titleMap[state.kind]}
+        </h3>
 
         {state.kind === 'category' && (
           <>
@@ -1408,6 +1419,8 @@ interface TreeActions {
   deleteDocument: (path: string) => void
   renameCategory: (path: string) => void
   deleteCategory: (path: string) => void
+  /** Create a category inside an existing one, named right on the row. */
+  createSubCategory: (path: string) => void
 }
 
 // Revealed on row hover. A span rather than a button: the row it sits in is
@@ -1509,6 +1522,11 @@ const DirNode: React.FC<{
           {matchCount}
         </span>
         <span className="ml-auto -my-1 hidden group-hover:flex items-center gap-0.5 flex-shrink-0">
+          <RowAction
+            icon={FolderPlus}
+            label={t('knowledge_new_subcategory')}
+            onClick={() => actions.createSubCategory(dirPath)}
+          />
           <RowAction icon={Pencil} label={t('knowledge_rename')} onClick={() => actions.renameCategory(dirPath)} />
           <RowAction
             icon={Trash2}
