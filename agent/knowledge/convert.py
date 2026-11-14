@@ -18,7 +18,7 @@ DOCX_SUFFIXES = {".docx"}
 
 SCANNED_PDF_ERROR = "PDF 没有可提取的文字层（可能是扫描件）；请先 OCR 或改用可复制文本的 PDF"
 
-_PAGE_MARKER = "<!-- page {number} -->"
+_PAGE_MARKER = "---\n\n*第 {number} 页*"
 # Characters after which a line break is a wrap, not a word gap.
 _CJK_RE = re.compile(r"[\u2e80-\u9fff\uf900-\ufaff\uff00-\uffef]")
 # python-docx reports the built-in style as "Heading 1"; a document authored in
@@ -341,6 +341,14 @@ def _save_image(image):
         return None
     filters = stream.attrs.get("Filter")
     filters = filters if isinstance(filters, list) else [filters] if filters else []
+    # An image with a soft mask, an inverted /Decode array, an ICC profile or an
+    # indexed palette is not the bytes it claims: re-encoding those produced the
+    # negative-looking strips a teacher saw in the text view. The original page
+    # (shown beside it) has the real figure, so these are simply skipped.
+    if any(key in stream.attrs for key in ("SMask", "Mask", "Decode", "Indexed")):
+        return None
+    if "ICCBased" in str(stream.attrs.get("ColorSpace")):
+        return None
     try:
         data = stream.get_data()
     except Exception:  # noqa: BLE001 - a broken XObject is skipped

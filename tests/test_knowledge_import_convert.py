@@ -120,7 +120,7 @@ def test_pdf_textbook_is_imported_as_markdown(tmp_path):
     assert source.exists() and source.stat().st_size == len(pdf)
     content = md.read_text(encoding="utf-8")
     assert content.startswith("<!-- source-pdf: Unit-01.pdf -->")
-    assert "<!-- page 1 -->" in content
+    assert "*第 1 页*" in content
     assert "Unit 1 My new school" in content
     assert "This unit talks about the first day." in content
 
@@ -144,8 +144,8 @@ def test_page_marker_is_only_written_for_pages_with_text():
 
     content = convert_to_markdown("Unit-01.pdf", pdf)
 
-    assert "<!-- page 1 -->" not in content
-    assert "<!-- page 2 -->" in content
+    assert "*第 1 页*" not in content
+    assert "*第 2 页*" in content
 
 
 def test_repeated_page_headers_and_footers_are_dropped():
@@ -160,7 +160,7 @@ def test_repeated_page_headers_and_footers_are_dropped():
     assert "English Grade 7" not in content
     assert "page footer" not in content
     assert "body line 1" in content and "body line 3" in content
-    assert "<!-- page 2 -->" in content
+    assert "*第 2 页*" in content
 
 
 def test_scanned_pdf_without_a_text_layer_is_rejected(tmp_path):
