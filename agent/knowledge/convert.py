@@ -479,18 +479,63 @@ def _docx_to_markdown(data: bytes) -> str:
 
     document = Document(io.BytesIO(data))
     blocks = []
-    for element in document.element.body.iterchildren():
-        if element.tag == qn("w:p"):
-            text = _docx_paragraph_text(element, document).strip()
-            if not text:
-                continue
-            level = _heading_level(Paragraph(element, document))
-            blocks.append(f"{'#' * level} {text}" if level else text)
-        elif element.tag == qn("w:tbl"):
+    # A Word file produced by "PDF → Word" keeps every line inside a text box
+    # (``w:txbxContent``), so walking only the body's direct children returned an
+    # empty document. The walk descends into every container, in document order,
+    # and stops at a paragraph or a table.
+    for kind, element in _docx_blocks(document.element.body, qn):
+        if kind == "table":
             table = _table_to_markdown(Table(element, document))
             if table:
                 blocks.append(table)
+            continue
+        text = _docx_paragraph_text(element, document).strip()
+        if not text:
+            continue
+        level = _heading_level(Paragraph(element, document))
+        blocks.append(f"{'#' * level} {text}" if level else text)
+    blocks = _merge_glyph_blocks(blocks)
     return ("\n\n".join(blocks) + "\n") if blocks else ""
+
+
+def _merge_glyph_blocks(blocks):
+    """Join a run of one-character paragraphs into one line.
+
+    A layout-tool Word file (a converted PDF) gives every glyph its own text
+    box, so a cover title arrives as 义 / 务 / 教 / 育 stacked vertically.
+    """
+    out, run = [], []
+    for block in blocks:
+        single = len(block) == 1 and _CJK_RE.match(block)
+        if single:
+            run.append(block)
+            continue
+        if run:
+            out.append("".join(run) if len(run) > 1 else run[0])
+            run = []
+        out.append(block)
+    if run:
+        out.append("".join(run) if len(run) > 1 else run[0])
+    return out
+
+
+def _docx_blocks(element, qn):
+    """(kind, element) for paragraphs and tables anywhere in the document.
+
+    Text boxes, content controls and frames are all containers that hold real
+    body paragraphs; a converted PDF puts *everything* in them.
+    """
+    for child in element.iterchildren():
+        if child.tag == qn("w:p"):
+            yield "paragraph", child
+            # The paragraph's own text lives in its runs, but a converted PDF
+            # hides the real paragraphs one level deeper (a drawing's text box),
+            # so the paragraph is also searched for nested containers.
+            yield from _docx_blocks(child, qn)
+        elif child.tag == qn("w:tbl"):
+            yield "table", child
+        else:
+            yield from _docx_blocks(child, qn)
 
 
 def _heading_level(paragraph) -> int:

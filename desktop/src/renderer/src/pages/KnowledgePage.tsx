@@ -328,6 +328,13 @@ const KnowledgePage: React.FC<KnowledgePageProps> = ({ baseUrl }) => {
   }, [content, doc?.dir])
   const [showSource, setShowSource] = useState(true)
 
+  // The marker is metadata, not content: it tells the reader where the original
+  // lives and must not be shown as text.
+  const bodyText = useMemo(
+    () => (content || '').replace(/^<!--\s*source(?:-pdf)?:[^>]*-->\s*/, ''),
+    [content]
+  )
+
   useEffect(() => {
     setShowSource(true)
   }, [activePath])
@@ -1117,17 +1124,17 @@ const KnowledgePage: React.FC<KnowledgePageProps> = ({ baseUrl }) => {
                           {/* A converted textbook can be tens of megabytes of
                               markdown; rendering all of it locks the window.
                               The first slice is what a teacher reads anyway. */}
-                          {content.length > KNOWLEDGE_VIEW_MAX_CHARS && (
+                          {bodyText.length > KNOWLEDGE_VIEW_MAX_CHARS && (
                             <p className="mb-4 rounded-btn bg-surface-2 px-3 py-2 text-xs text-content-tertiary">
                               {tf('knowledge_doc_truncated', {
                                 shown: Math.round(KNOWLEDGE_VIEW_CHARS / 1000),
-                                total: Math.round(content.length / 1000),
+                                total: Math.round(bodyText.length / 1000),
                               })}
                             </p>
                           )}
                           <Markdown
                             content={stripDuplicateH1(
-                              content.slice(0, KNOWLEDGE_VIEW_CHARS),
+                              bodyText.slice(0, KNOWLEDGE_VIEW_CHARS),
                               docTitle
                             )}
                             onInternalLink={openInternalLink}
