@@ -86,6 +86,20 @@ def _service(tmp_path):
     return KnowledgeService(str(tmp_path), FakeMemoryManager())
 
 
+
+def _wait_for_import(svc, timeout=10.0):
+    """PDF/Word imports convert in the background now; wait for the job."""
+    import time
+
+    end = time.time() + timeout
+    while time.time() < end:
+        jobs = svc.import_jobs()["jobs"]
+        if jobs and jobs[0]["status"] in ("done", "failed", "skipped"):
+            return jobs[0]
+        time.sleep(0.05)
+    raise AssertionError("import job did not finish")
+
+
 def test_pdf_textbook_is_imported_as_markdown(tmp_path):
     pytest.importorskip("pdfminer.high_level")
     svc = _service(tmp_path)
@@ -93,8 +107,11 @@ def test_pdf_textbook_is_imported_as_markdown(tmp_path):
 
     result = svc.import_documents("教材", [{"filename": "Unit-01.pdf", "content": pdf}])
 
-    assert result["imported"] == 1
-    assert result["failed"] == 0
+    # Queued, not converted on the request thread.
+    assert result["queued"] == 1
+    assert result["results"][0]["status"] == "queued"
+    job = _wait_for_import(svc)
+    assert job["status"] == "done", job
     assert result["results"][0]["path"] == "教材/Unit-01.md"
     md = tmp_path / "knowledge" / "教材" / "Unit-01.md"
     assert not (md.parent / "Unit-01.pdf").exists()
@@ -153,10 +170,12 @@ def test_scanned_pdf_without_a_text_layer_is_rejected(tmp_path):
 
     svc = _service(tmp_path)
     result = svc.import_documents("教材", [{"filename": "scan.pdf", "content": scanned}])
-    assert result["imported"] == 0
-    assert result["failed"] == 1
-    assert "扫描件" in result["results"][0]["reason"]
-    assert not list((tmp_path / "knowledge" / "教材").iterdir())
+    # Queued; the failure lands on the job, and no file is written.
+    assert result["queued"] == 1
+    job = _wait_for_import(svc)
+    assert job["status"] == "failed"
+    assert "扫描件" in job["reason"]
+    assert not list((tmp_path / "knowledge" / "教材").glob('*.md'))
 
 
 def test_docx_textbook_keeps_headings_paragraphs_and_tables(tmp_path):
@@ -176,7 +195,8 @@ def test_docx_textbook_keeps_headings_paragraphs_and_tables(tmp_path):
 
     result = svc.import_documents("教材", [{"filename": "Unit-01.docx", "content": buffer.getvalue()}])
 
-    assert result["imported"] == 1
+    assert result["queued"] == 1
+    assert _wait_for_import(svc)["status"] == "done"
     md = tmp_path / "knowledge" / "教材" / "Unit-01.md"
     assert md.read_text(encoding="utf-8") == (
         "## Unit 1 My new school\n"

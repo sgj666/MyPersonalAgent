@@ -139,6 +139,17 @@ function categoryPaths(dirs: KnowledgeDir[], parent = ''): string[] {
   return paths
 }
 
+/** One background import (PDF/Word conversion) as the backend reports it. */
+interface KnowledgeImportJob {
+  id: string
+  filename: string
+  path: string
+  status: 'queued' | 'converting' | 'done' | 'failed' | 'skipped'
+  reason?: string
+  started: number
+  finished?: number
+}
+
 // Validate a batch of files chosen for import. Returns an error message or ''.
 function validateImportFiles(files: File[]): string {
   if (!files.length) return t('knowledge_import_choose_files')
@@ -493,6 +504,73 @@ const KnowledgePage: React.FC<KnowledgePageProps> = ({ baseUrl }) => {
     [refresh, showStatus, viewingAgentId]
   )
 
+  // Files still converting in the background (PDF/Word). The page polls the
+  // job list and refreshes the tree whenever one lands.
+  const [jobs, setJobs] = useState<KnowledgeImportJob[]>([])
+  const jobsRef = useRef<KnowledgeImportJob[]>([])
+  const trackJobsRef = useRef<((expected: number) => void) | null>(null)
+
+  // Pick up conversions that are already running when the page opens: an
+  // import started in another tab (or before a reload) still shows progress.
+  useEffect(() => {
+    let alive = true
+    apiClient
+      .knowledgeAction({ action: 'import_jobs', payload: {} })
+      .then((res) => {
+        if (!alive) return
+        const list = ((res.payload as { jobs?: KnowledgeImportJob[] } | undefined)?.jobs || [])
+        if (list.some((j) => j.status === 'queued' || j.status === 'converting')) {
+          jobsRef.current = list
+          setJobs(list)
+          trackJobsRef.current?.(list.length)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const trackJobs = useCallback((expected: number) => {
+    const started = Date.now()
+    let ticks = 0
+    const poll = async () => {
+      ticks += 1
+      try {
+        const res = await apiClient.knowledgeAction({ action: 'import_jobs', payload: {} })
+        const list = ((res.payload as { jobs?: KnowledgeImportJob[] } | undefined)?.jobs || [])
+        jobsRef.current = list
+        setJobs(list)
+        const running = list.some((j) => j.status === 'queued' || j.status === 'converting')
+        if (!running && list.length) {
+          const failed = list.filter((j) => j.status === 'failed')
+          showStatus(
+            failed.length
+              ? tf('knowledge_import_job_failed', {
+                  name: failed[0].filename,
+                  reason: failed[0].reason || '',
+                })
+              : tf('knowledge_import_job_done', { n: list.filter((j) => j.status === 'done').length }),
+            failed.length > 0
+          )
+          await refresh()
+          return
+        }
+      } catch {
+        // A poll that fails once must not spin forever.
+      }
+      // Give up after ~5 minutes; the file is still converting, the tree just
+      // stops refreshing itself.
+      if (Date.now() - started < 300_000 && ticks < 200) window.setTimeout(poll, 1500)
+      else setJobs([])
+    }
+    window.setTimeout(poll, 1200)
+    return []
+  }, [refresh, showStatus])
+
+  trackJobsRef.current = trackJobs
+
   const importDocuments = useCallback(
     async (files: File[], targetCategory: string): Promise<boolean> => {
       const err = validateImportFiles(files)
@@ -500,7 +578,9 @@ const KnowledgePage: React.FC<KnowledgePageProps> = ({ baseUrl }) => {
         showStatus(err, true)
         return false
       }
-      const supported = files.filter((f) => /\.(md|txt)$/i.test(f.name || ''))
+      // PDF and Word are converted on the backend; they are accepted here and
+      // answer as "queued" while the conversion runs.
+      const supported = files.filter((f) => /\.(md|txt|pdf|docx)$/i.test(f.name || ''))
       if (!supported.length) {
         showStatus(t('knowledge_import_choose_files'), true)
         return false
@@ -514,15 +594,23 @@ const KnowledgePage: React.FC<KnowledgePageProps> = ({ baseUrl }) => {
           return false
         }
         const p = res.payload
+        const queued = p?.queued ?? 0
         showStatus(
-          tf('knowledge_import_result', {
-            imported: p?.imported ?? 0,
-            skipped: p?.skipped ?? 0,
-            failed: p?.failed ?? 0,
-          })
+          queued
+            ? tf('knowledge_import_queued', {
+                queued,
+                done: p?.imported ?? 0,
+                failed: p?.failed ?? 0,
+              })
+            : tf('knowledge_import_result', {
+                imported: p?.imported ?? 0,
+                skipped: p?.skipped ?? 0,
+                failed: p?.failed ?? 0,
+              })
         )
         const first = (p?.results || []).find((r) => r.status === 'imported')
         await refresh(first?.path)
+        if (queued) setJobs(trackJobs(queued))
         return true
       } catch {
         showStatus(t('knowledge_import_failed'), true)
@@ -792,6 +880,7 @@ const KnowledgePage: React.FC<KnowledgePageProps> = ({ baseUrl }) => {
             {status.text}
           </p>
         )}
+        <ImportJobs jobs={jobs} />
         {/* An empty library still needs the dialogs: the header's 新建 menu
             sets this state, and without it every item looked dead. */}
         {dialog && (
@@ -859,6 +948,7 @@ const KnowledgePage: React.FC<KnowledgePageProps> = ({ baseUrl }) => {
             onImport={() => fileInputRef.current?.click()}
           />
         </div>
+        <ImportJobs jobs={jobs} />
         <input
           ref={fileInputRef}
           type="file"
@@ -1028,6 +1118,25 @@ const KnowledgePage: React.FC<KnowledgePageProps> = ({ baseUrl }) => {
           onMoveDocument={moveDocument}
         />
       )}
+    </div>
+  )
+}
+
+/** Background imports in flight: one line per file, above the split view. */
+const ImportJobs: React.FC<{ jobs: KnowledgeImportJob[] }> = ({ jobs }) => {
+  const active = jobs.filter((j) => j.status === 'queued' || j.status === 'converting')
+  if (!active.length) return null
+  return (
+    <div className="mx-6 mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-content-tertiary" role="status">
+      <span className="inline-flex items-center gap-1.5 font-medium text-content-secondary">
+        <Loader2 size={12} className="animate-spin" />
+        {tf('knowledge_import_running', { n: active.length })}
+      </span>
+      {active.map((job) => (
+        <span key={job.id} className="truncate max-w-[220px]" title={job.filename}>
+          {job.filename}
+        </span>
+      ))}
     </div>
   )
 }

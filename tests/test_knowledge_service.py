@@ -421,7 +421,10 @@ def test_import_documents_skip_overwrite_and_failures(tmp_path):
         ],
     })
     assert overwritten["payload"]["imported"] == 1
-    assert overwritten["payload"]["failed"] == 1
+    # A malformed PDF is queued, not converted inline; its failure lands on the
+    # job, so the batch itself reports no failure.
+    assert overwritten["payload"]["failed"] == 0
+    assert overwritten["payload"]["queued"] == 1
     assert existing.read_text(encoding="utf-8") == "new"
     assert manager.storage.deleted == ["knowledge/notes/a.md"]
     assert manager.synced == 1

@@ -16,6 +16,8 @@ import re
 import asyncio
 import shutil
 import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Dict, Optional, Iterable
 from urllib.parse import quote, unquote
@@ -49,6 +51,14 @@ class KnowledgeService:
     # the batch cap stays the second gate.
     MAX_IMPORT_FILE_SIZE = 100 * 1024 * 1024
     MAX_IMPORT_TOTAL_SIZE = 500 * 1024 * 1024
+
+    # Import jobs for the slow formats (PDF/Word). Conversion is CPU-bound and
+    # can take minutes for a textbook, so the request that imported it must not
+    # wait: the file is queued here, converted by one worker, and the page reads
+    # `import_jobs` for progress.
+    _import_jobs: Dict[str, dict] = {}
+    _import_jobs_lock = threading.Lock()
+    _import_worker = None
 
     # One reindex queue per knowledge root, shared by every instance in the
     # process. Two requests must not sync the same index at once, and a burst
@@ -443,7 +453,7 @@ class KnowledgeService:
             raise ValueError(f"too many files: max {self.MAX_IMPORT_FILES}")
         results = []
         old_paths = []
-        imported = skipped = failed = 0
+        imported = skipped = failed = queued = 0
         total_size = 0
 
         for item in files:
@@ -468,9 +478,21 @@ class KnowledgeService:
                 old_exists = destination.exists()
                 if content_bytes is None:
                     raise ValueError("document content is required")
+                suffix = os.path.splitext(filename or "")[1].lower()
+                if suffix in (".pdf", ".docx"):
+                    # Parsing a textbook takes minutes: hand it to the worker and
+                    # answer now, so the page can show "converting".
+                    raw = (content_bytes.encode("utf-8") if isinstance(content_bytes, str)
+                           else bytes(content_bytes))
+                    job = self._queue_import(filename, target_category, raw,
+                                             conflict_strategy)
+                    results.append({"filename": filename, "path": job["path"],
+                                    "status": "queued", "job": job["id"]})
+                    queued += 1
+                    continue
                 # A textbook PDF or Word file becomes markdown here; text types
                 # keep the exact bytes they were uploaded with.
-                if os.path.splitext(filename or "")[1].lower() in (".md", ".txt"):
+                if suffix in (".md", ".txt"):
                     content = self._decode_document_content(content_bytes)
                 else:
                     raw = (content_bytes.encode("utf-8") if isinstance(content_bytes, str)
@@ -495,7 +517,88 @@ class KnowledgeService:
             # Keep index.md in sync before reindexing so it is indexed too.
             self.rebuild_index_md()
             self._reindex(old_paths, force=True)
-        return {"results": results, "imported": imported, "skipped": skipped, "failed": failed}
+        return {"results": results, "imported": imported, "skipped": skipped,
+                "failed": failed, "queued": queued}
+
+    # -- slow imports (PDF / Word) ------------------------------------------
+
+    SLOW_IMPORT_SUFFIXES = (".pdf", ".docx")
+
+    def _queue_import(self, filename: str, target_category: str, raw: bytes,
+                      conflict_strategy: str) -> dict:
+        """Register a conversion job and hand it to the single worker."""
+        import uuid
+
+        rel_path, destination, mode = self._resolve_import_destination(
+            target_category, filename, conflict_strategy)
+        job_id = uuid.uuid4().hex[:12]
+        job = {
+            "id": job_id,
+            "filename": filename or "",
+            "path": rel_path,
+            "status": "skipped" if mode == "skip" else "queued",
+            "reason": "target_exists" if mode == "skip" else "",
+            "started": time.time(),
+            "finished": 0.0,
+        }
+        with self._import_jobs_lock:
+            self._import_jobs[job_id] = job
+            # Keep the registry from growing across a long session.
+            if len(self._import_jobs) > 50:
+                for stale in sorted(self._import_jobs.values(), key=lambda j: j["started"])[:10]:
+                    if stale["status"] in ("done", "failed", "skipped"):
+                        self._import_jobs.pop(stale["id"], None)
+        if job["status"] != "queued":
+            return job
+
+        worker = type(self)._ensure_import_worker()
+        worker.submit(self._convert_import, job_id, self.workspace_root, filename, raw, rel_path)
+        return job
+
+    @classmethod
+    def _ensure_import_worker(cls):
+        if cls._import_worker is None:
+            with cls._import_jobs_lock:
+                if cls._import_worker is None:
+                    # One worker: conversion is CPU-bound and serialising keeps
+                    # two textbook imports from fighting over the machine.
+                    cls._import_worker = ThreadPoolExecutor(
+                        max_workers=1, thread_name_prefix="kb-import")
+        return cls._import_worker
+
+    def _convert_import(self, job_id: str, root: str, filename: str, raw: bytes,
+                        rel_path: str) -> None:
+        job = self._job(job_id)
+        if job is not None:
+            job["status"] = "converting"
+        try:
+            content = convert_to_markdown(filename, raw)
+            if len(content.encode("utf-8")) > self.MAX_IMPORT_FILE_SIZE:
+                raise ValueError("转换后的文档超过单文件上限")
+            # A fresh service per job: the worker is not the request thread.
+            service = type(self)(root)
+            destination = service._resolve_path(rel_path, kind="document")[1]
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            write_text_atomic(destination, content, newline="")
+            service.rebuild_index_md()
+            service._reindex([rel_path], force=True)
+            if job is not None:
+                job.update(status="done", finished=time.time(),
+                           size=destination.stat().st_size)
+        except Exception as exc:  # noqa: BLE001 - reported to the page
+            logger.warning(f"[Knowledge] background import of {filename} failed: {exc}")
+            if job is not None:
+                job.update(status="failed", reason=str(exc), finished=time.time())
+
+    def _job(self, job_id: str):
+        with self._import_jobs_lock:
+            return self._import_jobs.get(job_id)
+
+    def import_jobs(self) -> dict:
+        """Progress for the imports this process is still converting."""
+        with self._import_jobs_lock:
+            jobs = sorted(self._import_jobs.values(), key=lambda j: j["started"], reverse=True)
+            return {"jobs": [dict(job) for job in jobs[:20]]}
 
     def create_category(self, path: str) -> dict:
         rel_path, full_path = self._resolve_path(path, kind="category")
@@ -883,6 +986,10 @@ class KnowledgeService:
             elif action == "update_document":
                 result = self.update_document(payload.get("path"), payload.get("content"),
                                               payload.get("expected_mtime"))
+            elif action == "import_jobs":
+                return {"action": action, "code": 200, "message": "success",
+                        "payload": self.import_jobs()}
+
             elif action == "import_documents":
                 result = self.import_documents(
                     payload.get("target_category"),

@@ -1236,11 +1236,13 @@ export type KnowledgeAction = { agent_id?: string } & (
   | { action: 'delete_category'; payload: { path: string; confirm?: boolean } }
   | { action: 'delete_documents'; payload: { paths: string[] } }
   | { action: 'move_documents'; payload: { paths: string[]; target_category: string } }
+  // Background conversions (PDF/Word) started by an import.
+  | { action: 'import_jobs'; payload?: Record<string, never> }
 )
 
 // Result row from a bulk import (one per uploaded file).
 export interface KnowledgeImportResult {
-  status: 'imported' | 'skipped' | 'failed'
+  status: 'imported' | 'skipped' | 'failed' | 'queued'
   path?: string
   name?: string
   message?: string
@@ -1250,6 +1252,8 @@ export interface KnowledgeImportPayload {
   imported: number
   skipped: number
   failed: number
+  /** PDF/Word files handed to the background converter. */
+  queued?: number
   results: KnowledgeImportResult[]
 }
 
