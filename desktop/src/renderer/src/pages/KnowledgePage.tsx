@@ -314,6 +314,20 @@ const KnowledgePage: React.FC<KnowledgePageProps> = ({ baseUrl }) => {
   // that rewrote the H1 retitles the header as soon as the tree is re-read.
   const docTitle = doc ? (data ? findTitle(data, doc.path) : doc.title) : ''
 
+  // A document converted from a PDF carries its original beside it. The real
+  // pages are what the teacher recognises; the markdown stays as the text
+  // layer for search and the agent.
+  const sourcePdf = useMemo(() => {
+    const match = /^<!--\s*source-pdf:\s*([^\s>]+)\s*-->/.exec(content || '')
+    if (!match || !doc?.dir) return ''
+    return `${doc.dir}/${match[1]}`
+  }, [content, doc?.dir])
+  const [showSource, setShowSource] = useState(true)
+
+  useEffect(() => {
+    setShowSource(true)
+  }, [activePath])
+
   const [graph, setGraph] = useState<KnowledgeGraphData | null>(null)
   const [graphLoading, setGraphLoading] = useState(false)
 
@@ -1035,8 +1049,26 @@ const KnowledgePage: React.FC<KnowledgePageProps> = ({ baseUrl }) => {
                   </h3>
                   {/* index.md is where the page opens, so the reason its Edit
                       button is missing has to be on screen, not implied. */}
+                  {sourcePdf && (
+                    <div className="clay-tabs flex items-center gap-1 bg-inset-2 rounded-btn p-0.5">
+                      {[true, false].map((isSource) => (
+                        <button
+                          key={String(isSource)}
+                          type="button"
+                          onClick={() => setShowSource(isSource)}
+                          className={`px-2 py-0.5 rounded-btn text-xs font-medium cursor-pointer transition-colors ${
+                            showSource === isSource
+                              ? 'bg-surface text-content shadow-sm'
+                              : 'text-content-tertiary hover:text-content'
+                          }`}
+                        >
+                          {t(isSource ? 'knowledge_tab_source' : 'knowledge_tab_text')}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <span
-                    className={`text-xs text-content-tertiary truncate max-w-[45%] ${
+                    className={`text-xs text-content-tertiary truncate max-w-[35%] ${
                       readonly ? '' : 'font-mono'
                     }`}
                     title={readonly || activePath || ''}
@@ -1052,6 +1084,13 @@ const KnowledgePage: React.FC<KnowledgePageProps> = ({ baseUrl }) => {
                   <div className="flex-1 min-h-0 overflow-hidden">
                     <DocEditor key={doc.path} store={knowledgeEditor} textareaRef={editorRef} />
                   </div>
+                ) : sourcePdf && showSource ? (
+                  <iframe
+                    key={sourcePdf}
+                    title={docTitle}
+                    src={apiClient.getServeFileUrl(sourcePdf)}
+                    className="flex-1 w-full border-0 bg-surface-2"
+                  />
                 ) : (
                   <DocView store={knowledgeEditor}>
                     <div className="max-w-3xl mx-auto px-6 py-6">

@@ -499,6 +499,8 @@ class KnowledgeService:
                            else bytes(content_bytes))
                     content = convert_to_markdown(
                         filename, raw, assets=self._figure_writer(destination))
+                    if suffix == ".pdf":
+                        content = self._keep_source_pdf(destination, raw, content)
                 if len(content.encode("utf-8")) > self.MAX_IMPORT_FILE_SIZE:
                     raise ValueError("file too large")
                 destination.parent.mkdir(parents=True, exist_ok=True)
@@ -578,6 +580,8 @@ class KnowledgeService:
             destination = service._resolve_path(rel_path, kind="document")[1]
             content = convert_to_markdown(
                 filename, raw, assets=service._figure_writer(destination))
+            if filename.lower().endswith(".pdf"):
+                content = service._keep_source_pdf(destination, raw, content)
             if len(content.encode("utf-8")) > self.MAX_IMPORT_FILE_SIZE:
                 raise ValueError("转换后的文档超过单文件上限")
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -601,6 +605,22 @@ class KnowledgeService:
         with self._import_jobs_lock:
             jobs = sorted(self._import_jobs.values(), key=lambda j: j["started"], reverse=True)
             return {"jobs": [dict(job) for job in jobs[:20]]}
+
+    #: Marker a converted PDF carries so the reader can offer the original page.
+    SOURCE_MARKER = "<!-- source-pdf: {name} -->"
+
+    def _keep_source_pdf(self, destination: Path, raw: bytes, content: str) -> str:
+        """Store the PDF next to its markdown and point the reader at it.
+
+        Text extraction cannot reproduce a textbook's layout, so the reader
+        shows the original pages and keeps the markdown as the searchable,
+        agent-readable layer. The PDF is not a knowledge document (the tree only
+        lists .md), it is the document's source.
+        """
+        source = destination.with_suffix(".pdf")
+        source.write_bytes(raw)
+        marker = self.SOURCE_MARKER.format(name=source.name)
+        return marker + "\n\n" + content
 
     def _figure_writer(self, destination: Path):
         """Save embedded figures beside the document and return their links.

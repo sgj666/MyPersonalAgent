@@ -114,9 +114,13 @@ def test_pdf_textbook_is_imported_as_markdown(tmp_path):
     assert job["status"] == "done", job
     assert result["results"][0]["path"] == "教材/Unit-01.md"
     md = tmp_path / "knowledge" / "教材" / "Unit-01.md"
-    assert not (md.parent / "Unit-01.pdf").exists()
+    # The original PDF is kept beside the markdown: the reader shows the real
+    # pages, the markdown is the searchable layer.
+    source = md.parent / "Unit-01.pdf"
+    assert source.exists() and source.stat().st_size == len(pdf)
     content = md.read_text(encoding="utf-8")
-    assert content.startswith("<!-- page 1 -->")
+    assert content.startswith("<!-- source-pdf: Unit-01.pdf -->")
+    assert "<!-- page 1 -->" in content
     assert "Unit 1 My new school" in content
     assert "This unit talks about the first day." in content
 
