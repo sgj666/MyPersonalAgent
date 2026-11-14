@@ -45,8 +45,10 @@ class KnowledgeService:
 
     # Import with no target lands here, so an empty knowledge base is not a trap.
     DEFAULT_IMPORT_CATEGORY = "未分类"
-    MAX_IMPORT_FILE_SIZE = 10 * 1024 * 1024
-    MAX_IMPORT_TOTAL_SIZE = 200 * 1024 * 1024
+    # A textbook PDF is routinely 50–80MB, so one imported file may be large;
+    # the batch cap stays the second gate.
+    MAX_IMPORT_FILE_SIZE = 100 * 1024 * 1024
+    MAX_IMPORT_TOTAL_SIZE = 500 * 1024 * 1024
 
     # One reindex queue per knowledge root, shared by every instance in the
     # process. Two requests must not sync the same index at once, and a burst

@@ -44,8 +44,10 @@ interface KnowledgePageProps {
 type Tab = 'docs' | 'graph'
 
 const KNOWLEDGE_IMPORT_MAX_FILES = 100
-const KNOWLEDGE_IMPORT_MAX_FILE_SIZE = 10 * 1024 * 1024
-const KNOWLEDGE_IMPORT_MAX_TOTAL_SIZE = 200 * 1024 * 1024
+// An imported file may be a whole textbook PDF; typed content stays small.
+const KNOWLEDGE_IMPORT_MAX_FILE_SIZE = 100 * 1024 * 1024
+const KNOWLEDGE_IMPORT_MAX_TOTAL_SIZE = 500 * 1024 * 1024
+const KNOWLEDGE_DOC_MAX_CONTENT_SIZE = 10 * 1024 * 1024
 
 // Pages the Agent maintains: index.md is regenerated from the tree and log.md
 // is its own journal. The backend refuses both; this is only so the viewer can
@@ -144,10 +146,17 @@ function validateImportFiles(files: File[]): string {
   for (const file of files) {
     total += file.size || 0
     if ((file.size || 0) > KNOWLEDGE_IMPORT_MAX_FILE_SIZE) {
-      return tf('knowledge_import_file_too_large', { name: file.name })
+      return tf('knowledge_import_file_too_large', {
+        name: file.name,
+        max: KNOWLEDGE_IMPORT_MAX_FILE_SIZE / 1024 / 1024,
+      })
     }
   }
-  if (total > KNOWLEDGE_IMPORT_MAX_TOTAL_SIZE) return t('knowledge_import_total_too_large')
+  if (total > KNOWLEDGE_IMPORT_MAX_TOTAL_SIZE) {
+    return tf('knowledge_import_total_too_large', {
+      max: KNOWLEDGE_IMPORT_MAX_TOTAL_SIZE / 1024 / 1024,
+    })
+  }
   return ''
 }
 
@@ -1121,7 +1130,7 @@ const KnowledgeDialog: React.FC<{
       if (!name) return setError(t('knowledge_doc_filename_required'))
       if (/\.[^.]+$/i.test(name) && !/\.md$/i.test(name)) return setError(t('knowledge_doc_must_md'))
       if (!contentInput.trim()) return setError(t('knowledge_doc_content_required'))
-      if (new Blob([contentInput]).size > KNOWLEDGE_IMPORT_MAX_FILE_SIZE) {
+      if (new Blob([contentInput]).size > KNOWLEDGE_DOC_MAX_CONTENT_SIZE) {
         return setError(t('knowledge_doc_content_too_large'))
       }
       const safeName = name.endsWith('.md') ? name : `${name}.md`
