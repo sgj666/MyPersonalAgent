@@ -226,3 +226,106 @@ def test_missing_pdf_parser_names_the_install_command(monkeypatch):
 
     with pytest.raises(ImportError, match="pip install pdfminer.six"):
         convert_to_markdown("book.pdf", _pdf_bytes([["text"]]))
+
+
+def _pdf_with_image(page_text):
+    """One page with a text line and a 40×40 RGB XObject (a textbook figure)."""
+    width = height = 40
+    raw = bytes(b for y in range(height) for x in range(width)
+                for b in (x * 6 % 256, y * 6 % 256, 128))
+    objects = {
+        1: b"<< /Type /Catalog /Pages 2 0 R >>",
+        2: b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        3: (b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+            b"/Resources << /Font << /F1 5 0 R >> /XObject << /Im1 6 0 R >> >> "
+            b"/Contents 4 0 R >>"),
+        4: (lambda stream: (f"<< /Length {len(stream)} >>\nstream\n".encode("ascii")
+                            + stream + b"\nendstream"))(_image_page_content(page_text)),
+        5: b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+        6: (f"<< /Type /XObject /Subtype /Image /Width {width} /Height {height} "
+            f"/ColorSpace /DeviceRGB /BitsPerComponent 8 /Length {len(raw)} >>\nstream\n").encode("ascii")
+           + raw + b"\nendstream",
+    }
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = {}
+    for number in sorted(objects):
+        offsets[number] = len(out)
+        out += f"{number} 0 obj\n".encode("ascii") + objects[number] + b"\nendobj\n"
+    xref = len(out)
+    out += f"xref\n0 {len(objects) + 1}\n".encode("ascii")
+    out += b"0000000000 65535 f \n"
+    for number in sorted(objects):
+        out += f"{offsets[number]:010d} 00000 n \n".encode("ascii")
+    out += (f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n").encode("ascii")
+    return bytes(out)
+
+
+def _image_page_content(page_text):
+    return (b"BT /F1 12 Tf 72 720 Td (" + page_text.encode("latin-1") + b") Tj ET\n"
+            b"q 120 0 0 120 72 560 cm /Im1 Do Q")
+
+
+def test_pdf_figures_are_saved_beside_the_document(tmp_path):
+    pytest.importorskip("pdfminer.high_level")
+    svc = _service(tmp_path)
+    pdf = _pdf_with_image("Unit 1 My new school")
+
+    result = svc.import_documents("教材", [{"filename": "Unit-01.pdf", "content": pdf}])
+    assert result["queued"] == 1
+    assert _wait_for_import(svc)["status"] == "done"
+
+    md = tmp_path / "knowledge" / "教材" / "Unit-01.md"
+    content = md.read_text(encoding="utf-8")
+    assert "Unit 1 My new school" in content
+    # The figure is referenced relatively and the files exist beside the doc.
+    assert "![第 1 页 图 1](.Unit-01.assets/figure-1.png)" in content
+    figures = list((tmp_path / "knowledge" / "教材" / ".Unit-01.assets").glob("figure-*.png"))
+    assert figures and figures[0].stat().st_size > 100
+    # The hidden folder is not a category in the tree.
+    tree = svc.list_tree()
+    assert all(not item["dir"].endswith(".assets") for item in tree["tree"])
+
+
+def _glyph_per_box_pdf(chars, step=7):
+    """A page that sets every CJK glyph as its own text box (what a textbook
+    exported from a layout tool looks like), one glyph after another."""
+    parts = ["BT", "/F1 12 Tf"]
+    x = 72
+    for char in chars:
+        parts.append(f"1 0 0 1 {x} 720 Tm ({_escape_pdf_text(char)}) Tj")
+        x += step * (2 if char == " " else 1)
+    parts.append("ET")
+    stream = ("\n".join(parts) + "\n").encode("latin-1")
+    objects = {
+        1: b"<< /Type /Catalog /Pages 2 0 R >>",
+        2: b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        3: b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
+        4: f"<< /Length {len(stream)} >>\nstream\n".encode("ascii") + stream + b"\nendstream",
+        5: b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+    }
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = {}
+    for number in sorted(objects):
+        offsets[number] = len(out)
+        out += f"{number} 0 obj\n".encode("ascii") + objects[number] + b"\nendobj\n"
+    xref = len(out)
+    out += f"xref\n0 {len(objects) + 1}\n".encode("ascii") + b"0000000000 65535 f \n"
+    for number in sorted(objects):
+        out += f"{offsets[number]:010d} 00000 n \n".encode("ascii")
+    out += (f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n").encode("ascii")
+    return bytes(out)
+
+
+def test_a_glyph_per_box_pdf_reads_as_one_line():
+    """Regression: the first version split on newlines, so a textbook exported
+    glyph-by-glyph imported as one character per line and looked garbled.
+
+    The fixture uses latin glyphs (a WinAnsi fixture cannot carry CJK); the
+    merge it exercises is the same one that turns 义 务 教 育 back into
+    义务教育.
+    """
+    pytest.importorskip("pdfminer.high_level")
+    pdf = _glyph_per_box_pdf("My school")
+    content = convert_to_markdown("book.pdf", pdf)
+    assert "My school" in content
+    assert "M y s c h o o l" not in content

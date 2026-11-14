@@ -29,9 +29,13 @@ _MARGIN_ZONE = 2
 _REPEAT_RATIO = 0.6
 
 
-def convert_to_markdown(filename: str, data: bytes) -> str:
+def convert_to_markdown(filename: str, data: bytes, assets=None) -> str:
     """Return markdown for an uploaded textbook page set.
 
+    :param assets: optional ``save(bytes, suffix) -> relative_path`` callback.
+        A textbook's figures live inside the PDF; with a callback the converter
+        writes them beside the document and references them from the markdown,
+        so a page of pictures is not silently dropped.
     :raises ValueError: unsupported suffix, unreadable PDF (no text layer)
     :raises ImportError: the optional parser for that suffix is not installed
     """
@@ -39,7 +43,7 @@ def convert_to_markdown(filename: str, data: bytes) -> str:
     if suffix in TEXT_SUFFIXES:
         return _text_to_markdown(data)
     if suffix in PDF_SUFFIXES:
-        return _pdf_to_markdown(data)
+        return _pdf_to_markdown(data, assets)
     if suffix in DOCX_SUFFIXES:
         return _docx_to_markdown(data)
     raise ValueError(f"unsupported file type: {suffix or filename}")
@@ -59,21 +63,29 @@ def _text_to_markdown(data) -> str:
 # ----------------------------------------------------------------------
 # pdf
 # ----------------------------------------------------------------------
-def _pdf_to_markdown(data: bytes) -> str:
-    extract_pages, laparams, text_container = _load_pdfminer()
+def _pdf_to_markdown(data: bytes, assets=None) -> str:
+    extract_pages, laparams, _text_container = _load_pdfminer()
 
-    pages = [_page_lines(page, text_container)
-             for page in extract_pages(io.BytesIO(data), laparams=laparams())]
+    pages, figures = [], []
+    for page in extract_pages(io.BytesIO(data), laparams=laparams()):
+        pages.append(_page_lines(page))
+        figures.append(_page_images(page, assets) if assets else [])
+
     repeated = _repeated_margin_lines(pages)
 
     blocks = []
     for number, lines in enumerate(pages, start=1):
         paragraphs = _paragraphs(_strip_margins(lines, repeated))
-        if not paragraphs:
-            # A cover or an image-only page keeps its number out of the file.
+        images = figures[number - 1]
+        if not paragraphs and not images:
+            # A blank page keeps its number out of the file.
             continue
         blocks.append(_PAGE_MARKER.format(number=number))
         blocks.extend(paragraphs)
+        # A textbook page is often a picture and a caption; without this the
+        # reader saw an empty page and called the import "garbled".
+        for index, path in enumerate(images, start=1):
+            blocks.append(f"![第 {number} 页 图 {index}]({path})")
     if not blocks:
         raise ValueError(SCANNED_PDF_ERROR)
     return "\n\n".join(blocks) + "\n"
@@ -92,22 +104,263 @@ def _load_pdfminer():
     return extract_pages, LAParams, LTTextContainer
 
 
-def _page_lines(page, text_container) -> list:
-    """Split one analysed page into stripped lines, top to bottom.
+def _page_lines(page) -> list:
+    """Split one analysed page into readable lines, top to bottom.
 
-    pdfminer has already ordered the text boxes, so the page order is kept
-    instead of re-sorting — a re-sort would interleave the columns of a
-    two-column page. Each text box ends with an empty line: pdfminer groups
-    lines into a box by vertical proximity, so a box boundary is the closest
-    thing a PDF has to a paragraph break.
+    pdfminer's own line objects are used (not ``get_text()``) because textbook
+    PDFs set every glyph as its own text box: splitting that text on newlines
+    produced one character per line, which is what "the import is garbled"
+    looked like. Fragments sharing a baseline are therefore joined in x order,
+    and a vertical run of single glyphs (a CJK title set downwards) is joined
+    into one line.
     """
-    lines = []
-    for element in page:
-        if not isinstance(element, text_container):
+    fragments = []
+    for box, element in enumerate(page):
+        # The pdfminer text box is the closest thing a PDF has to a paragraph:
+        # its boundaries break paragraphs, its interior lines are wrapped text.
+        fragments.extend(_text_fragments(element, box))
+
+    # Group by baseline (top to bottom), then split each row into clusters that
+    # are close enough to be one line: a two-column page puts two unrelated
+    # lines on the same baseline.
+    rows, used = [], set()
+    for index, (x0, _x1, y0, y1, text, box) in enumerate(fragments):
+        if index in used:
             continue
-        lines.extend(line.strip() for line in element.get_text().splitlines())
-        lines.append("")
-    return lines
+        used.add(index)
+        height = max(y1 - y0, 1.0)
+        centre = (y0 + y1) / 2
+        row = [(x0, _x1, text)]
+        for other, (ox0, ox1, oy0, oy1, otext, obox) in enumerate(fragments):
+            if other in used:
+                continue
+            if abs(((oy0 + oy1) / 2) - centre) <= height * 0.5:
+                used.add(other)
+                row.append((ox0, ox1, otext))
+        row.sort()
+        for cluster in _clusters(row, height):
+            text = _join_fragments(cluster, height)
+            if text:
+                rows.append((centre, height, text, cluster[0][0], cluster[-1][1]))
+
+    rows.sort(key=lambda item: -item[0])
+    if not rows:
+        return []
+    # A line break is a paragraph break only when the vertical gap is clearly
+    # bigger than the leading. Wrapped lines (normal leading) stay together and
+    # join into one sentence; over-splitting is the safe direction, because a
+    # reader can merge two paragraphs but cannot split a mangled one.
+    lines = []
+    previous = None
+    for centre, height, text, _x0, _x1 in rows:
+        if previous is not None:
+            prev_centre, prev_height = previous
+            if prev_centre - centre > max(prev_height, 1.0) * 1.4:
+                lines.append("")
+        lines.append(text)
+        previous = (centre, height)
+    return _merge_vertical_runs(lines)
+
+
+def _clusters(row, height: float):
+    """Split one baseline into runs that are visually one line."""
+    cluster = []
+    last_x1 = None
+    for item in row:
+        if last_x1 is not None and item[0] - last_x1 > height * 2.5:
+            yield cluster
+            cluster = []
+        cluster.append(item)
+        last_x1 = item[1]
+    if cluster:
+        yield cluster
+
+
+def _text_fragments(element, box: int = 0):
+    """(x0, x1, y0, y1, text) for every non-empty line inside a container.
+
+    Recursion stops at the line: a line is the unit a PDF means to be read as
+    one run of text, and descending into its individual glyphs is what turned
+    "body line" into "b o d y".
+    """
+    try:
+        from pdfminer.layout import LTTextLine
+    except ImportError:  # pragma: no cover - pdfminer is a hard dependency here
+        LTTextLine = ()  # type: ignore[assignment]
+
+    if LTTextLine and isinstance(element, LTTextLine):
+        # Rebuild the line from its glyphs. pdfminer's own ``get_text()`` puts a
+        # space between glyphs it saw as separately positioned, which is exactly
+        # the "one character per line" damage; the glyph positions are truthful.
+        glyphs = []
+        for child in element:
+            text = getattr(child, "get_text", lambda: "")()
+            if not text:
+                continue
+            # LTAnno carries the auto-inserted spaces pdfminer guessed; they
+            # are the guess we are replacing, so they are skipped.
+            if not hasattr(child, "x0"):
+                continue
+            if not text.strip():
+                text = " "
+            glyphs.append((child.x0, child.x1, child.y0, child.y1, text, box))
+        return glyphs
+
+    out = []
+    for child in getattr(element, "__iter__", lambda: [])():
+        out.extend(_text_fragments(child, box))
+    if out:
+        return out
+    # A glyph that pdfminer kept outside any line.
+    text = (getattr(element, "get_text", lambda: "")() or "").strip()
+    if text and hasattr(element, "x0") and hasattr(element, "x1"):
+        return [(element.x0, element.x1, element.y0, element.y1, text, box)]
+    return out
+
+
+def _join_fragments(row, height: float) -> str:
+    """Concatenate fragments on one baseline, spacing only real word gaps.
+
+    A glyph-per-box PDF yields ``["义", "务", "教"]``; joining them with spaces
+    would spell the title out letter by letter, so a space is only put where the
+    x gap between two fragments is wide enough to be a word break.
+    """
+    text, prev_x1 = "", None
+    for x0, x1, part in row:
+        stripped = part.strip()
+        if not stripped:
+            if text and not text.endswith(" "):
+                text += " "
+            continue
+        if text and prev_x1 is not None and not text.endswith(" "):
+            # A word break the PDF expressed by position instead of a space
+            # glyph: wide enough to be one (a real inter-glyph gap is ~0).
+            gap = x0 - prev_x1
+            if gap > max(height * 0.28, 1.2) and not (
+                _CJK_RE.match(text[-1]) or _CJK_RE.match(stripped[0])
+            ):
+                text += " "
+        text += stripped
+        prev_x1 = x1
+    return text.strip()
+
+
+def _merge_vertical_runs(lines) -> list:
+    """Join a column of single CJK glyphs into one line.
+
+    A cover title set top-to-bottom arrives as ``义``, ``务``, ``教`` … one per
+    line; keeping that order inside one line is what a reader expects.
+    """
+    out, run = [], []
+    for line in lines:
+        stripped = line.strip()
+        is_glyph = len(stripped) == 1 and _CJK_RE.match(stripped)
+        if is_glyph:
+            run.append(stripped)
+            continue
+        if len(run) > 1:
+            out.append("".join(run))
+            out.append("")
+        elif run:
+            out.extend(run)
+            out.append("")
+        run = []
+        out.append(line)
+    if len(run) > 1:
+        out.append("".join(run))
+    elif run:
+        out.extend(run)
+    return out
+
+
+_IMAGE_MAGIC = ((b"\x89PNG\r\n\x1a\n", ".png"), (b"\xff\xd8\xff", ".jpg"),
+                (b"GIF8", ".gif"))
+
+
+def _page_images(page, assets) -> list:
+    """Save the figures embedded in one page; return their relative paths.
+
+    A PDF stores figures as image XObjects with no file format of their own:
+    JPEG ones come out as JPEG bytes, everything else is raw samples that are
+    re-encoded as PNG. Undecodable objects are skipped, never fatal.
+    """
+    paths = []
+    for image in _iter_images(page):
+        width, height = getattr(image, "srcsize", (0, 0))
+        # Bullets, rules and spacer art are a few pixels across; a figure is not.
+        if width * height < 512:
+            continue
+        saved = _save_image(image)
+        if not saved:
+            continue
+        data, suffix = saved
+        if len(data) < 96:
+            continue
+        try:
+            paths.append(assets(data, suffix))
+        except Exception:  # noqa: BLE001 - one bad figure must not kill the import
+            continue
+    return paths
+
+
+def _save_image(image):
+    """(bytes, suffix) for one XObject, or None when it cannot be decoded."""
+    stream = getattr(image, "stream", None)
+    if stream is None or getattr(image, "imagemask", False):
+        return None
+    filters = stream.attrs.get("Filter")
+    filters = filters if isinstance(filters, list) else [filters] if filters else []
+    try:
+        data = stream.get_data()
+    except Exception:  # noqa: BLE001 - a broken XObject is skipped
+        return None
+    if not data:
+        return None
+    for magic, suffix in _IMAGE_MAGIC:
+        if data.startswith(magic):
+            return data, suffix
+    if any(str(name).endswith("DCTDecode") for name in filters):
+        return data, ".jpg"
+    return _raw_samples_to_png(image, stream, data)
+
+
+def _raw_samples_to_png(image, stream, data):
+    width, height = getattr(image, "srcsize", (0, 0))
+    if not width or not height:
+        return None
+    bits = stream.attrs.get("BitsPerComponent", 8)
+    # pdfminer hands back a PSLiteral (``/'DeviceRGB'``) or a list for
+    # ICCBased colour spaces; only the named device spaces map to a PIL mode.
+    colorspace = stream.attrs.get("ColorSpace")
+    name = getattr(colorspace, "name", None)
+    if not name:
+        pieces = colorspace if isinstance(colorspace, list) else [colorspace]
+        name = next((str(piece).lstrip("/'") for piece in pieces
+                     if str(piece).lstrip("/'").startswith("Device")), "")
+    mode = {"DeviceRGB": "RGB", "DeviceGray": "L", "DeviceCMYK": "CMYK"}.get(name or "")
+    if not mode or bits != 8:
+        return None
+    try:
+        from PIL import Image
+
+        picture = Image.frombytes(mode, (int(width), int(height)), data)
+        if mode == "CMYK":
+            picture = picture.convert("RGB")
+        buffer = io.BytesIO()
+        picture.save(buffer, format="PNG")
+        return buffer.getvalue(), ".png"
+    except Exception:  # noqa: BLE001 - PIL missing or unexpected sample layout
+        return None
+
+
+def _iter_images(element):
+    from pdfminer.layout import LTImage
+
+    if isinstance(element, LTImage):
+        yield element
+        return
+    for child in getattr(element, "__iter__", lambda: [])():
+        yield from _iter_images(child)
 
 
 def _repeated_margin_lines(pages) -> set:
