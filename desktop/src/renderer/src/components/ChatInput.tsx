@@ -10,7 +10,7 @@ import {
   Folder,
   Mic
 } from 'lucide-react'
-import { t } from '../i18n'
+import { t, tf } from '../i18n'
 import { product } from '@product'
 import type { Attachment, WorkspaceEntry, AgentBadge } from '../types'
 import AgentAvatar from './AgentAvatar'
@@ -39,9 +39,12 @@ const micSupported =
 interface SlashCommand {
   cmd: string
   desc: string
-  // 'new'/'clear' run a local action; 'send' (default) is a completion that
-  // gets sent to the backend as a normal message (handled by command plugins).
-  action?: 'new' | 'clear'
+  // 'new'/'clear' run a local action; 'insert' writes a template into the
+  // input (an installed skill); 'send' (default) is a completion that gets sent
+  // to the backend as a normal message (handled by command plugins).
+  action?: 'new' | 'clear' | 'insert'
+  /** For 'insert': what lands in the input. */
+  insert?: string
 }
 
 interface ChatInputProps {
@@ -83,6 +86,10 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
   const wasStreamingRef = useRef(isStreaming)
   const [dragOver, setDragOver] = useState(false)
   const [slashOpen, setSlashOpen] = useState(false)
+  // Installed skills, listed under the commands. `/` used to show only the
+  // built-in commands, so a teacher with ten skills saw none of them here.
+  const [skills, setSkills] = useState<{ name: string; desc: string }[]>([])
+  const skillsLoaded = useRef(false)
   const [slashIndex, setSlashIndex] = useState(0)
   // `@` picker: Agent mentions (group chats only) come first, then workspace
   // files. Agents are matched locally against the session roster; files are
@@ -290,7 +297,34 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
     { cmd: '/logs', desc: t('slash_logs') },
     { cmd: '/version', desc: t('slash_version') },
   ]
-  const filtered = slashCommands.filter((c) => c.cmd.startsWith(text.trim().toLowerCase()))
+  // Typing `/` lists the built-in commands and, below them, every enabled
+  // skill. Picking a skill writes a prompt that names it, which is how the
+  // agent selects one (there is no `/skill <name>` on the backend).
+  const slashQuery = text.trim().toLowerCase()
+  const skillItems: SlashCommand[] = slashOpen
+    ? skills
+        .filter((skill) => {
+          if (!slashQuery.startsWith('/')) return false
+          const q = slashQuery.slice(1)
+          if (!q) return true
+          return (
+            skill.name.toLowerCase().includes(q) ||
+            skill.desc.toLowerCase().includes(q)
+          )
+        })
+        .filter((skill) => skill.name !== 'ppt-master') // a sub-skill, not a command
+        .slice(0, 8)
+        .map((skill) => ({
+          cmd: `/${skill.name}`,
+          // The menu row is one line: a full skill description would push the
+          // command list off screen.
+          desc: skill.desc.length > 42 ? `${skill.desc.slice(0, 42)}…` : skill.desc,
+          action: 'insert' as const,
+          insert: tf('slash_use_skill', { name: skill.name }),
+        }))
+    : []
+  const filtered = slashCommands.filter((c) => c.cmd.startsWith(slashQuery))
+  const menu = [...filtered, ...skillItems]
 
   // Resize the textarea to fit its content (single line = 42px, capped at
   // 180px). Keep overflow hidden until we hit the cap, so an empty/short input
@@ -339,6 +373,29 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
     })
   })
 
+  useEffect(() => {
+    if (!slashOpen || skillsLoaded.current) return
+    skillsLoaded.current = true
+    apiClient
+      .getSkills()
+      .then((list) =>
+        setSkills(
+          list
+            .filter((skill) => skill.enabled)
+            .map((skill) => ({
+              name: skill.name,
+              desc: (skill.display_description || skill.description || '').trim(),
+            }))
+        )
+      )
+      .catch(() => {
+        // A skill list that cannot be read is not worth an error banner: the
+        // command list still works.
+        skillsLoaded.current = false
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slashOpen])
+
   const runSlash = (c: SlashCommand) => {
     setSlashOpen(false)
     if (c.action === 'new') {
@@ -351,6 +408,18 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
       setText('')
       resetHeight()
       onClearContext()
+      return
+    }
+    if (c.action === 'insert') {
+      setText(c.insert || '')
+      requestAnimationFrame(() => {
+        const el = textareaRef.current
+        if (el) {
+          el.focus()
+          autoSize(el)
+          el.setSelectionRange((c.insert || '').length, (c.insert || '').length)
+        }
+      })
       return
     }
     // Completion command. If it expects an argument (trailing space), keep it
@@ -474,20 +543,20 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
       }
     }
     // Slash menu navigation
-    if (slashOpen && filtered.length > 0) {
+    if (slashOpen && menu.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault()
-        setSlashIndex((i) => (i + 1) % filtered.length)
+        setSlashIndex((i) => (i + 1) % menu.length)
         return
       }
       if (e.key === 'ArrowUp') {
         e.preventDefault()
-        setSlashIndex((i) => (i - 1 + filtered.length) % filtered.length)
+        setSlashIndex((i) => (i - 1 + menu.length) % menu.length)
         return
       }
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()
-        runSlash(filtered[slashIndex])
+        runSlash(menu[slashIndex])
         return
       }
       if (e.key === 'Escape') {
@@ -624,8 +693,8 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
 
   // keep slash index in range
   useEffect(() => {
-    if (slashIndex >= filtered.length) setSlashIndex(0)
-  }, [filtered.length, slashIndex])
+    if (slashIndex >= menu.length) setSlashIndex(0)
+  }, [menu.length, slashIndex])
 
   // Accept drops anywhere in the window rather than only over the input box:
   // users aim at the conversation area, and a drop that no element handles makes
@@ -716,11 +785,13 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
         )}
 
         {/* Slash command menu */}
-        {slashOpen && filtered.length > 0 && (
+        {slashOpen && menu.length > 0 && (
           <div className="absolute bottom-full left-0 right-0 mb-1.5 max-h-80 overflow-y-auto rounded-xl border border-default bg-elevated shadow-xl z-30 p-1.5">
-            <div className="px-2.5 pt-1 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-content-tertiary">
-              {t('slash_menu_title')}
-            </div>
+            {filtered.length > 0 && (
+              <div className="px-2.5 pt-1 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-content-tertiary">
+                {t('slash_menu_title')}
+              </div>
+            )}
             {filtered.map((c, i) => (
               <button
                 key={c.cmd}
@@ -740,6 +811,33 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
                 <span className="text-xs text-content-tertiary whitespace-nowrap truncate">{c.desc}</span>
               </button>
             ))}
+            {skillItems.length > 0 && (
+              <div className="px-2.5 pt-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-content-tertiary">
+                {t('slash_skills_title')}
+              </div>
+            )}
+            {skillItems.map((c, k) => {
+              const i = filtered.length + k
+              return (
+                <button
+                  key={`skill:${c.cmd}`}
+                  onMouseEnter={() => setSlashIndex(i)}
+                  onClick={() => runSlash(c)}
+                  className={`w-full flex items-center justify-between gap-3 px-2.5 py-2 rounded-lg text-left cursor-pointer transition-colors ${
+                    i === slashIndex ? 'bg-accent-soft' : 'hover:bg-surface-2'
+                  }`}
+                >
+                  <span
+                    className={`text-[13px] font-medium font-mono whitespace-nowrap ${
+                      i === slashIndex ? 'text-accent' : 'text-content-secondary'
+                    }`}
+                  >
+                    {c.cmd}
+                  </span>
+                  <span className="text-xs text-content-tertiary whitespace-nowrap truncate">{c.desc}</span>
+                </button>
+              )
+            })}
           </div>
         )}
 

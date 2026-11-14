@@ -43,14 +43,21 @@ html:not(.dark) .clay-legacy {
 }
 
 /* ---------- page head: the timetable/scores banner ---------- */
+/* The header is NOT a card. The teacher pages (班级 / 课表 / 教学工具) open on
+   the cream canvas with a bare title block, so a framed header here read as a
+   second, different product. Card-less, same type scale, same gutter. */
 html:not(.dark) .clay-legacy .clay-head {
-  background: var(--cl-paper);
-  border: 1px solid var(--cl-rim);
-  border-radius: var(--cl-radius);
-  box-shadow: var(--cl-shadow);
-  padding: 18px 22px;
-  margin: 18px 20px 16px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  margin: 22px 28px 6px;
   gap: 16px;
+}
+
+html:not(.dark) .clay-legacy .clay-head-title {
+  font-size: 26px;
+  letter-spacing: -0.01em;
 }
 
 html:not(.dark) .clay-legacy .clay-head-title {
@@ -106,7 +113,7 @@ html:not(.dark) .clay-legacy .rounded-card.border.bg-accent-soft {
 }
 
 html:not(.dark) .clay-legacy .clay-split {
-  margin: 0 20px 20px;
+  margin: 0 28px 28px;
   overflow: hidden;
 }
 
@@ -325,6 +332,20 @@ html:not(.dark) .clay-legacy .clay-empty {
   color: var(--cl-ink-3);
   padding: 32px 24px;
   margin: 20px;
+}
+
+/* The icon that sits on top of an empty state gets the teacher pages' soft
+   green badge, so the same element reads the same on both families of page. */
+html:not(.dark) .clay-legacy .clay-empty > svg:first-child,
+html:not(.dark) .clay-legacy .clay-empty > *:first-child > svg {
+  box-sizing: content-box;
+  padding: 14px;
+  width: 26px;
+  height: 26px;
+  color: var(--cl-accent-hover);
+  background: var(--cl-accent-soft);
+  border: 1px solid var(--cl-rim);
+  border-radius: 16px;
 }
 
 html:not(.dark) .clay-legacy .clay-card .clay-empty,
@@ -636,4 +657,12 @@ html:not(.dark) .clay-legacy .art-preview-name {
 
 html:not(.dark) .clay-legacy .art-preview-path {
   color: var(--cl-ink-3);
+}
+
+/* An empty state is a card, not the page. Stretching it to the viewport made
+   one huge blank panel; the teacher pages open a first-run panel that ends
+   where its content ends, and this now does the same. */
+html:not(.dark) .clay-legacy .clay-empty.flex-1 {
+  flex: 0 0 auto;
+  min-height: 420px;
 }

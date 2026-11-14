@@ -1666,6 +1666,8 @@ const translations: Record<string, Record<string, string>> = {
     tw_an_empty: '录完分并保存后，再回来查看分析。',
     tw_an_refresh: '重新计算',
     // slash command descriptions
+    slash_skills_title: '技能',
+    slash_use_skill: '请使用技能「{name}」完成：',
     slash_menu_title: '命令',
     slash_new: '新建对话',
     slash_clear: '清除对话上下文',
@@ -3611,6 +3613,8 @@ const translations: Record<string, Record<string, string>> = {
     tw_an_empty: 'Save some scores, then come back for the analysis.',
     tw_an_refresh: 'Recalculate',
     // slash command descriptions
+    slash_skills_title: 'Skills',
+    slash_use_skill: 'Use the skill “{name}” to:',
     slash_menu_title: 'Commands',
     slash_new: 'New chat',
     slash_clear: 'Clear conversation context',
