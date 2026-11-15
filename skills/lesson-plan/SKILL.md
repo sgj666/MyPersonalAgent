@@ -7,6 +7,12 @@ description: 两段式生成中文教案：先出 7 行大纲（outline），教
 
 把结构化入参和依据材料压成一节可执行的课。分两段：先大纲，教师确认后再全文。**不要一次给全文。**
 
+## 0 模板
+
+入参里有 `template_path`（教师从知识库挑的模板）就**先 read 它**，按它的章节顺序、标题措辞、表格样式来写；它明显不适用于这节课时说明理由再退回默认结构。
+
+入参没有 `template_path`（空字符串）就**按本文的默认结构生成，不要再反问教师要不要模板**。
+
 ## 1 入参
 
 ```json
@@ -16,6 +22,7 @@ description: 两段式生成中文教案：先出 7 行大纲（outline），教
   "unit": "Unit 3 My weekend plan", "lesson_type": "新授", "hours": "第 1 课时 / 共 6 课时",
   "material_paths": ["knowledge/教材/人教PEP六上-U3.md", "knowledge/课标/英语课标-二级.md",
                      "knowledge/教案/小学-英语-Unit 2-新授.md", "knowledge/作业反馈/六2-U2.md"],
+  "template_path": "",
   "class_name": "六(2)班",
   "outline": []
 }
