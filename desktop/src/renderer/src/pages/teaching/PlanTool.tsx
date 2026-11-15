@@ -64,6 +64,13 @@ const PlanTool: React.FC = () => {
 
   const files = useMemo(() => knowledgeFiles(knowledge.data), [knowledge.data])
   const units = useMemo(() => unitChoices(files, KB.textbook), [files])
+  // A template the teacher already keeps in the knowledge base; empty means the
+  // skill's own structure (the default, no question asked).
+  const [templatePath, setTemplatePath] = useState('')
+  const templates = useMemo(
+    () => files.filter((entry) => entry.path.toLowerCase().endsWith('.md')),
+    [files]
+  )
 
   const groups: MaterialGroup[] = useMemo(() => {
     const kb = (entries: { path: string; title: string }[]) =>
@@ -94,7 +101,11 @@ const PlanTool: React.FC = () => {
     ]
   }, [files, recentPlans.data, recentCards.data, meta.unit])
 
-  const planParams = (): PlanParams => ({ ...meta, material_paths: Array.from(picked) })
+  const planParams = (): PlanParams => ({
+    ...meta,
+    material_paths: Array.from(picked),
+    template_path: templatePath,
+  })
   const unitMissing = !meta.unit.trim()
 
   const generateOutline = () => {
@@ -203,6 +214,20 @@ const PlanTool: React.FC = () => {
       </BarField>
       <BarField label={t('tw_f_hours')}>
         <input className="twb-input twt-input is-num" type="number" min={1} max={20} value={meta.hours} onChange={set('hours')} />
+      </BarField>
+      <BarField label={t('twt_template')}>
+        <select
+          className="twb-select twt-input"
+          value={templatePath}
+          onChange={(e) => setTemplatePath(e.target.value)}
+        >
+          <option value="">{t('twt_template_default')}</option>
+          {templates.map((entry) => (
+            <option key={entry.path} value={`knowledge/${entry.path}`}>
+              {entry.title}
+            </option>
+          ))}
+        </select>
       </BarField>
     </>
   )

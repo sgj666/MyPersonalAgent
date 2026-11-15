@@ -9,6 +9,15 @@ description: 由教案或口述生成可编辑的 .pptx 课件。Use when the te
 
 你只做两件事：**写页纲**、**逐页写 SVG**。渲染（SVG → pptx）由页面调用后端完成，你不跑导出命令。
 
+## 0 模板
+
+入参里有 `template_path` 就**先 read 它**：
+
+- `.pptx`：按 ppt-master 的 `Edit Native PPTX` / Create Template 思路取它的母版与版式，页面结构照它；
+- `.md`：按它的页面顺序与每页要点组织，只借结构，不抄内容。
+
+没有 `template_path`（空字符串）就按本技能默认主题与页序生成，**不要反问**要不要模板。
+
 ## 1 先读技能文档（按这个顺序，别跳）
 
 1. `${SKILL_DIR}/workflows/profiles/quick-generate.md` — 你要走的路由，规则全在这。

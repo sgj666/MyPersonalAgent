@@ -1,10 +1,11 @@
 // The 教学 pages' corner assistant: a right-hand drawer that continues one
 // conversation with the Agent on the page it was opened from.
 //
-// The drawer owns its prompt policy — read the page's teaching tool first,
-// write only when the request needs it, and close with one line saying what
-// changed — so every page gets the same contract and only supplies its scene,
-// its page key and the teaching tool to read. The exchange is a real session
+// The drawer owns its prompt policy — read the page's JSON files first, write
+// only when the request needs it, and close with one line saying what changed —
+// so every page gets the same contract and only supplies its scene, its page
+// key and the files the page owns. (There is no "teaching tool" for the agent
+// to call; the workspace files are the data.) The exchange is a real session
 // (`ai-<page>`), so closing and reopening the drawer shows the same history,
 // and it is listed under 对话.
 //
@@ -23,27 +24,32 @@ import { useChatStore } from '../store/chatStore'
 export interface AiAssistButtonProps {
   /** Page identity for the conversation, e.g. `classes`. */
   pageKey: string
-  /** Teaching tool the Agent must read first, e.g. `class_list`. */
-  dataTool: string
-  /** One line saying what this page's assistant is for. */
+  /**
+   * Data files under the workspace this page owns, e.g. ``teaching/classes.json``.
+   * The agent has no "teaching tool" to call — these files are the source.
+   */
+  dataFiles: string[]
+  /** What the page can actually do today, for the drawer's subtitle. */
   scene: string
 }
 
 /** The read → maybe write → one-line summary contract every page shares. */
-function buildPrompt(dataTool: string, request: string): string {
+function buildPrompt(dataFiles: string[], request: string): string {
   return [
     request,
     '',
     '要求：',
-    `1. 先调用教学工具 ${dataTool} 读取现有数据，按真实数据回答，不要编造。`,
+    `1. 先读这些文件拿到真实数据：${dataFiles.map((f) => `~/cow/${f}`).join('、')}。` +
+      '文件不存在或为空就直说「目前还没有数据」，不要编造，也不要说「接口不可用」。',
     '2. 只有用户明确要求改动时才写入；写入前核对班级与字段，避免覆盖别人刚改的内容。',
-    '3. 最后用一句话说明改了什么；没有改动就说「本次未修改数据」。',
+    '3. 写文件用整份 JSON 覆盖时，先读出来再改，不要凭记忆重建。',
+    '4. 最后用一句话说明改了什么；没有改动就说「本次未修改数据」。',
   ].join('\n')
 }
 
 const MAX_INPUT_HEIGHT = 100
 
-const AiAssistButton: React.FC<AiAssistButtonProps> = ({ pageKey, dataTool, scene }) => {
+const AiAssistButton: React.FC<AiAssistButtonProps> = ({ pageKey, dataFiles, scene }) => {
   const [open, setOpen] = useState(false)
   const [request, setRequest] = useState('')
   const [suggestions, setSuggestions] = useState<string[]>([])
@@ -112,7 +118,7 @@ const AiAssistButton: React.FC<AiAssistButtonProps> = ({ pageKey, dataTool, scen
     const text = request.trim()
     if (!text || running) return
     setRequest('')
-    void send(sessionId, buildPrompt(dataTool, text), [])
+    void send(sessionId, buildPrompt(dataFiles, text), [])
     window.requestAnimationFrame(autoSize)
   }
 

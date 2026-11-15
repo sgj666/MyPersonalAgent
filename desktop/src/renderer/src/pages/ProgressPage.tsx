@@ -236,7 +236,7 @@ const ProgressPage: React.FC<ProgressPageProps> = ({ baseUrl }) => {
               </button>
               <AiAssistButton
                 pageKey="progress"
-                dataTool="progress"
+                dataFiles={['teaching/progress.json', 'teaching/settings.json']}
                 scene={t('ai_scene_progress')}
               />
             </div>

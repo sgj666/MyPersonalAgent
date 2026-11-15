@@ -20,16 +20,27 @@ export interface PlanParams {
   lesson_type: string
   hours: string
   material_paths: string[]
+  /** A template the teacher pointed at, or "" to use the skill's own shape. */
+  template_path: string
 }
 
+const templateNote = (path: string): string =>
+  path
+    ? `教师指定了模板：${path}。先 read 这个文件，按它的章节结构与措辞组织，除非它明显不适用于本节课。`
+    : '教师没有指定模板：按本技能的默认结构生成，不要再反问。'
+
 export const planOutlinePrompt = (p: PlanParams): string =>
-  ask('lesson-plan', { mode: 'outline', ...p, outline: [] }, '只出大纲（7 行），不要写全文。')
+  ask(
+    'lesson-plan',
+    { mode: 'outline', ...p, outline: [] },
+    `只出大纲（7 行），不要写全文。${templateNote(p.template_path)}`
+  )
 
 export const planDraftPrompt = (p: PlanParams, rows: OutlineRow[]): string =>
   ask(
     'lesson-plan',
     { mode: 'draft', ...p, outline: outlineLines(rows) },
-    '按这份教师改过的大纲写全文 Markdown，段落与大纲一一对应，并落盘到 knowledge/教案/。'
+    `按这份教师改过的大纲写全文 Markdown，段落与大纲一一对应，并落盘到 knowledge/教案/。${templateNote(p.template_path)}`
   )
 
 export interface DeckParams {
@@ -37,13 +48,16 @@ export interface DeckParams {
   plan_path: string
   theme: string
   pages: number
+  /** A .pptx/markdown template the teacher pointed at, or "" for the default. */
+  template_path: string
 }
 
 export const deckOutlinePrompt = (p: DeckParams): string =>
   ask(
     'courseware-ppt',
     { mode: 'outline', ...p },
-    '先只出页纲：按 deck JSON 契约输出一个 ```json 代码块（含每页 layout / 标题 / 要点 / notes），不要渲染文件。'
+    '先只出页纲：按 deck JSON 契约输出一个 ```json 代码块（含每页 layout / 标题 / 要点 / notes），不要渲染文件。' +
+      templateNote(p.template_path)
   )
 
 export const deckRedrawPrompt = (deck: DeckDraft, slide: DeckSlide, index: number): string =>

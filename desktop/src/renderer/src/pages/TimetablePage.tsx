@@ -491,7 +491,7 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
               </button>
               <AiAssistButton
                 pageKey="timetable"
-                dataTool="timetable"
+                dataFiles={['teaching/timetable.json', 'teaching/classes.json']}
                 scene={t('ai_scene_timetable')}
               />
             </div>

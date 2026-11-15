@@ -334,7 +334,7 @@ const ClassesPage: React.FC<ClassesPageProps> = ({ baseUrl }) => {
               </button>
               <AiAssistButton
                 pageKey="classes"
-                dataTool="class_list"
+                dataFiles={['teaching/classes.json', 'teaching/students.json']}
                 scene={t('ai_scene_classes')}
               />
             </div>

@@ -440,7 +440,7 @@ const HomeworkPage: React.FC<HomeworkPageProps> = ({ baseUrl }) => {
               </button>
               <AiAssistButton
                 pageKey="homework"
-                dataTool="homework"
+                dataFiles={['teaching/homework.json', 'teaching/classes.json']}
                 scene={t('ai_scene_homework')}
               />
             </div>

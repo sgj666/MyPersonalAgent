@@ -587,7 +587,7 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
               </button>
               <AiAssistButton
                 pageKey="scores"
-                dataTool="exam_analysis"
+                dataFiles={['teaching/exams.json', 'teaching/scores.json']}
                 scene={t('ai_scene_scores')}
               />
             </div>

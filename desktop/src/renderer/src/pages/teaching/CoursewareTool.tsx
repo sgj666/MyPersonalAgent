@@ -81,6 +81,13 @@ const CoursewareTool: React.FC = () => {
 
   const knowledge = useLoad(source.knowledge, EMPTY_KNOWLEDGE, `k${source.demo}`)
   const recentPlans = useLoad(() => source.recent('plan'), [], `p${source.demo}`)
+  // A template the teacher already keeps (deck files or a markdown spec);
+  // empty keeps the built-in theme and layout set.
+  const [templatePath, setTemplatePath] = useState('')
+  const templates = useMemo(
+    () => knowledgeFiles(knowledge.data).filter((entry) => /\.(md|pptx)$/i.test(entry.path)),
+    [knowledge.data]
+  )
 
   const planChoices = useMemo(() => {
     const kb = filesUnder(knowledgeFiles(knowledge.data), KB.plans).map((f) => ({ path: `knowledge/${f.path}`, title: f.title }))
@@ -140,7 +147,7 @@ const CoursewareTool: React.FC = () => {
       setStatus({ text: tf('twt_deck_ready', { n: DEMO_DECK.slides.length }), tone: 'ok' })
       return
     }
-    const p = { unit, plan_path: mode === 'plan' ? planPath : '', theme, pages }
+    const p = { unit, plan_path: mode === 'plan' ? planPath : '', theme, pages, template_path: templatePath }
     void skill.run(deckOutlinePrompt(p), `${t('twt_deck_display')} · ${unit || planPath}`, (reply) => {
       const parsed = normalizeDeck(extractJson(reply))
       if (!parsed) {
@@ -276,6 +283,20 @@ const CoursewareTool: React.FC = () => {
           setTheme(v)
           setDeck((d) => (d ? { ...d, theme: v } : d))
         }} labelOf={(v) => t(`twt_theme_${v}`)} />
+      </BarField>
+      <BarField label={t('twt_template')}>
+        <select
+          className="twb-select twt-input"
+          value={templatePath}
+          onChange={(e) => setTemplatePath(e.target.value)}
+        >
+          <option value="">{t('twt_template_default')}</option>
+          {templates.map((entry) => (
+            <option key={entry.path} value={`knowledge/${entry.path}`}>
+              {entry.title}
+            </option>
+          ))}
+        </select>
       </BarField>
       <BarField label={t('tw_f_slides')}>
         <input
