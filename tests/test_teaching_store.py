@@ -176,6 +176,41 @@ def test_timetable_is_validated_as_a_whole(tmp_path):
     assert after["overrides"][0]["state"] == "cancelled"
 
 
+def test_timetable_whole_clear_is_refused(tmp_path):
+    store = _store(tmp_path)
+    klass = _class(store)
+    store.save_timetable(
+        periods=[{"index": 1, "start": "08:00", "end": "08:45"}],
+        slots=[{"class_id": klass["id"], "weekday": 1, "period": 1,
+                "subject": "英语", "kind": "regular"}],
+    )
+
+    # Three empty groups is a client that never loaded the table, not a teacher.
+    with pytest.raises(ValueError):
+        store.save_timetable(periods=[], slots=[], overrides=[])
+
+    kept = store.get_timetable()
+    assert kept["periods"] and kept["slots"]
+
+
+def test_timetable_write_refuses_an_unreadable_file(tmp_path):
+    store = _store(tmp_path)
+    klass = _class(store)
+    store.save_timetable(
+        periods=[{"index": 1, "start": "08:00", "end": "08:45"}],
+        slots=[{"class_id": klass["id"], "weekday": 1, "period": 1,
+                "subject": "英语", "kind": "regular"}],
+    )
+    path = tmp_path / "teaching" / "timetable.json"
+    broken = path.read_text(encoding="utf-8")[:-20]
+    path.write_text(broken, encoding="utf-8")
+
+    # A writer must not start from "empty" and overwrite what it cannot read.
+    with pytest.raises(ValueError):
+        store.save_timetable(overrides=[])
+    assert path.read_text(encoding="utf-8") == broken
+
+
 def test_exam_requires_positive_full_and_unique_items(tmp_path):
     store = _store(tmp_path)
     klass = _class(store)

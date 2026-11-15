@@ -1048,6 +1048,21 @@ class TeachingStore:
                                       if isinstance(overrides, list) else []) if o],
         }
 
+    def _timetable_for_save(self) -> dict:
+        """The stored table, for a writer: an unreadable file is an error.
+
+        Readers treat a broken file as empty so the page still opens. A writer
+        must not: starting from empty replaces a whole real timetable with
+        whatever the request happened to carry.
+        """
+        path = self._path("timetable")
+        if path.exists():
+            try:
+                json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError) as e:
+                raise ValueError(f"timetable file is unreadable ({e}); refusing to overwrite it") from None
+        return self._timetable_doc()
+
     def _scores_map(self) -> Dict[str, dict]:
         doc = self._read_doc("scores")
         raw = doc.get("by_exam")
@@ -1386,7 +1401,13 @@ class TeachingStore:
         another slot.
         """
         with self._locked("timetable", "classes"):
-            doc = self._timetable_doc()
+            doc = self._timetable_for_save()
+            # A whole-table PUT is not a licence to wipe the week. Both clients
+            # send every group they hold, so one that never loaded the table
+            # sends three empty ones — that has already emptied a real
+            # timetable. Refuse the wholesale clear; a single slot, period or
+            # override is still clearable through the same call.
+            had_table = bool(doc["periods"] or doc["slots"] or doc["overrides"])
             class_ids = {entry["id"] for entry in self._classes()}
             if periods is not None:
                 doc["periods"] = _clean_periods(periods)
@@ -1395,7 +1416,13 @@ class TeachingStore:
                     slots, class_ids, {slot["id"] for slot in doc["slots"]})
             if overrides is not None:
                 doc["overrides"] = _clean_overrides(overrides, class_ids)
+            if had_table and not (doc["periods"] or doc["slots"] or doc["overrides"]):
+                raise ValueError(
+                    "a save would empty the whole timetable; clear it group by group")
             self._write_doc("timetable", doc)
+            logger.info(
+                "teaching: timetable saved (%d periods, %d slots, %d overrides)",
+                len(doc["periods"]), len(doc["slots"]), len(doc["overrides"]))
             return doc
 
     # --- Reminder settings -------------------------------------------------
