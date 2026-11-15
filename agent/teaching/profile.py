@@ -33,21 +33,26 @@ MARKER_START = "<!-- teacher-profile:start -->"
 MARKER_END = "<!-- teacher-profile:end -->"
 
 #: How long a greeting may wait for the model before the fixed pool answers.
-MODEL_TIMEOUT = 4.0
+MODEL_TIMEOUT = 40.0
 
 #: Sentences used when no model is configured, when it fails, or when its
 #: answer is unusable. Each one is 18-30 characters, like the generated ones.
+# The fallback pool is what the hero shows when no model is reachable, so it
+# holds the same editorial bar as the prompt: famous lines with their source,
+# and real history — never wellness tips.
 _FALLBACK_MOTTOS = (
-    "你今天多讲的耐心，会在某个学生身上悄悄发芽。",
-    "散步十分钟，大脑整理记忆的效率比再刷一遍题更高。",
-    "睡前复习一次，第二天的留存率大约能翻一倍。",
-    "英语里 nice 原本是“无知”的意思，几百年才变成“好”。",
-    "把目标写下来，完成率通常会明显提高。",
-    "课间看向远处二十秒，眼睛的调节肌肉会松一口气。",
-    "章鱼有三颗心脏，其中两颗专门给鳃供血。",
-    "先做最难的那件事，一天的阻力会小很多。",
-    "雨的气味大多来自土壤里的放线菌，不是雨本身。",
-    "学生记住的常是你的一个眼神，而不是那句板书。",
+    "海内存知己，天涯若比邻。（王勃《送杜少府之任蜀州》）",
+    "会当凌绝顶，一览众山小。（杜甫《望岳》）",
+    "长风破浪会有时，直挂云帆济沧海。（李白《行路难》）",
+    "欲穷千里目，更上一层楼。（王之涣《登鹳雀楼》）",
+    "纸上得来终觉浅，绝知此事要躬行。（陆游《冬夜读书示子聿》）",
+    "问渠那得清如许？为有源头活水来。（朱熹《观书有感》）",
+    "莫等闲，白了少年头，空悲切。（岳飞《满江红》）",
+    "千磨万击还坚劲，任尔东西南北风。（郑燮《竹石》）",
+    "1969 年的今天，人类第一次踏上月球。",
+    "1903 年的今天，莱特兄弟完成人类首次动力飞行。",
+    "1953 年的今天，DNA 双螺旋结构登上《自然》。",
+    "1989 年的今天，万维网的第一份提案被写下。",
 )
 
 
@@ -166,7 +171,13 @@ def _split_motives(raw: str) -> List[str]:
         for line in part.splitlines():
             text = line.strip().strip('"\'“”‘’「」『』')
             text = re.sub(r"\s+\d{1,2}[.、)]?\s*$", "", text).strip()
-            if len(text) >= 8:
+            # Long entries are trimmed here, per line; the line breaks are the
+            # only separator this function can trust.
+            if len(text) > 80:
+                head = text[:80]
+                cut = max(head.rfind(ch) for ch in "，。！？；、,.!?;")
+                text = (head[:cut] if cut >= 8 else head).rstrip("，、；：,;: ") + "…"
+            if len(text) >= 8 and text not in entries:
                 entries.append(text)
     return entries[:3]
 
@@ -208,6 +219,50 @@ def _call_with_timeout(fn, seconds: float):
     return outcome.get("value")
 
 
+def _motto_prompt(profile: dict, day: date, lessons: List[dict]) -> str:
+    """The three-line brief for the hero: classics and real history, not tips."""
+    weekday = "一二三四五六日"[day.weekday()]
+    count = len(lessons or [])
+    subject = "、".join(profile.get("subjects") or []) or "老师"
+    return "\n".join([
+        f"你在为一位{subject}老师写工作台首页的一句话。今天是 {day.isoformat()}（周{weekday}），"
+        f"他/她今天有 {count} 节课。",
+        "",
+        "写 3 句，一行一句，不要编号、不要解释：",
+        "1. 一句中国古典名句：唐诗、宋词、绝句或古文里的传世句子，句末用括号注明作者与篇名，"
+        "例如「海内存知己，天涯若比邻。（王勃《送杜少府之任蜀州》）」。不要编造、不要用网络伪古句。",
+        "2. 一句「历史上的今天」：这一天真实发生过、且广为人知的大事（科学、教育、文化优先），"
+        "写成一句白话，不改写事实、不编日期；拿不准就换一件你确定的事。",
+        "3. 一句写给老师的话：30 字以内，具体、有画面，落在课堂或学生身上。",
+        "",
+        "禁止：养生、护眼、喝水、拉伸这类泛泛建议；禁止鸡汤口号与堆叠的感叹号；每句 18–60 字。",
+    ])
+
+
+def _warm_motto_async(store, profile: dict, day: date, day_iso: str,
+                      lessons: List[dict]) -> None:
+    """Generate the day's three lines off the request path.
+
+    The reply is written straight into the cache, so whichever "换一句" comes
+    next rotates through the model's lines instead of the fallback pool.
+    """
+    def work() -> None:
+        try:
+            lines = _split_motives(motto_from_model(profile, day, lessons))
+            if not lines:
+                return
+            for candidate in _fallback_motives(day):
+                if len(lines) >= 3:
+                    break
+                if candidate not in lines:
+                    lines.append(candidate)
+            store.save_daily_motto(day_iso, lines[0], motives=lines)
+        except Exception as exc:  # a background flourish must never raise
+            logger.warning(f"[Teaching] motto worker failed: {exc}")
+
+    threading.Thread(target=work, name="teaching-motto-bg", daemon=True).start()
+
+
 def motto_from_model(profile: dict, day: date, lessons: List[dict]) -> str:
     """Ask the configured chat model for one line; empty string on any failure.
 
@@ -244,7 +299,8 @@ def motto_from_model(profile: dict, day: date, lessons: List[dict]) -> str:
         return str(result.get("content") or "")
 
     raw = _call_with_timeout(ask, MODEL_TIMEOUT)
-    return _clean_motto(raw or "")
+    # Raw, with its line breaks: the caller splits first and cleans each line.
+    return (raw or "").strip()
 
 
 def greeting(store, *, day: Optional[str] = None, now: Optional[datetime] = None,
@@ -263,14 +319,31 @@ def greeting(store, *, day: Optional[str] = None, now: Optional[datetime] = None
     cached = store.get_daily_motto()
     text = ""
     from_cache = False
+    # 换一句 rotates through the day's three lines and answers instantly. A model
+    # call per click made the button feel dead whenever the provider was slow.
+    if refresh and cached["date"] == day_iso and cached["text"]:
+        lines = [item for item in (cached.get("motives") or []) if item]
+        if len(lines) > 1:
+            current = cached["text"] if cached["text"] in lines else lines[0]
+            text = lines[(lines.index(current) + 1) % len(lines)]
+            store.save_daily_motto(day_iso, text, motives=lines)
+            return {
+                "greeting": f"{_period_greeting(when.hour)}，{_address(profile['name'])}。",
+                "motto": text,
+                "motives": lines,
+                "date": day_iso,
+                "cached": False,
+            }
     if not refresh and cached["date"] == day_iso and cached["text"]:
         text = cached["text"]
         from_cache = True
     else:
         lessons = store.today(day_iso).get("slots", [])
-        lines = _split_motives(motto_from_model(profile, target, lessons))
-        # The model sometimes answers one line despite the list; top up from
-        # the local pool so the hero always has three to rotate.
+        # The model takes 10-30 s on a reasoning provider; the hero must not wait
+        # for it. Serve the day's classical lines now and let a worker upgrade
+        # them, so 换一句 has something to rotate through immediately.
+        lines = []
+        _warm_motto_async(store, profile, target, day_iso, lessons)
         for candidate in _fallback_motives(target):
             if len(lines) >= 3:
                 break
@@ -278,6 +351,11 @@ def greeting(store, *, day: Optional[str] = None, now: Optional[datetime] = None
                 lines.append(candidate)
         if not lines:
             lines = _fallback_motives(target)
+        # "换一句" pressed twice with a model that repeats itself must still
+        # change the line: fall through the generated set, then the pool.
+        if refresh and cached["text"] and lines[0] == cached["text"]:
+            rotation = lines[1:] + [m for m in _fallback_motives(target) if m not in lines]
+            lines = rotation or lines
         store.save_daily_motto(day_iso, lines[0], motives=lines)
         text = lines[0]
 

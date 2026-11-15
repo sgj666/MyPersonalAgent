@@ -156,7 +156,9 @@ def test_greeting_uses_the_model_free_fallback_and_caches_per_day(tmp_path):
         assert first["greeting"].endswith("，孙老师。")
         assert first["greeting"].split("，")[0] in ("早上好", "下午好", "晚上好")
         assert first["date"]
-        assert 18 <= len(first["motto"]) <= 30
+        # Famous lines carry their source, so the ceiling is wider than the old
+        # one-line tip.
+        assert 18 <= len(first["motto"]) <= 80
         assert first["cached"] is False
 
         second = _call(TeachingGreetingHandler, "GET", workspace, query={"agent_id": ""})
@@ -166,10 +168,12 @@ def test_greeting_uses_the_model_free_fallback_and_caches_per_day(tmp_path):
         refreshed = _call(TeachingGreetingHandler, "GET", workspace,
                           query={"agent_id": "", "refresh": "1"})
         assert refreshed["cached"] is False
-        assert refreshed["motto"] == first["motto"], "the date's sentence is deterministic"
+        # 换一句 must actually change the line, even when no model is reachable.
+        assert refreshed["motto"] != first["motto"]
 
     cached = json.loads((workspace / "teaching" / "daily_motto.json").read_text(encoding="utf-8"))
-    assert cached == {"date": first["date"], "text": first["motto"]}
+    assert cached["date"] == first["date"]
+    assert cached["text"] == refreshed["motto"]
 
     # No name yet: the fallback address is 老师, never 老师老师.
     blank = tmp_path / "blank"
