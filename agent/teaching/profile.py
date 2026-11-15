@@ -319,6 +319,24 @@ def greeting(store, *, day: Optional[str] = None, now: Optional[datetime] = None
     cached = store.get_daily_motto()
     text = ""
     from_cache = False
+    # Self-heal a cache written before the lines were split: a stored "motto"
+    # that is really three sentences glued together shows as one wall of text.
+    stored = (cached.get("text") or "").strip()
+    separate = [item for item in (cached.get("motives") or []) if item]
+    # One line is at most ~60 characters here; anything longer is several lines
+    # that were stored glued together (the old writer collapsed newlines).
+    if len(stored) > 60 and len(separate) > 1:
+        clean = [item for item in separate if len(item) <= 60]
+        if clean:
+            text = clean[0]
+            store.save_daily_motto(day_iso, text, motives=clean)
+            return {
+                "greeting": f"{_period_greeting(when.hour)}，{_address(profile['name'])}。",
+                "motto": text,
+                "motives": clean,
+                "date": day_iso,
+                "cached": True,
+            }
     # 换一句 rotates through the day's three lines and answers instantly. A model
     # call per click made the button feel dead whenever the provider was slow.
     if refresh and cached["date"] == day_iso and cached["text"]:

@@ -182,3 +182,25 @@ def test_greeting_uses_the_model_free_fallback_and_caches_per_day(tmp_path):
     assert answer["status"] == "success", answer
     assert answer["greeting"].endswith("，老师。")
     assert "老师老师" not in answer["greeting"]
+
+
+def test_a_glued_cache_line_is_repaired_on_read(tmp_path):
+    """Old caches stored the three lines glued together; the hero then showed a
+    wall of text. Reading it must pick one real line and rewrite the cache."""
+    from agent.teaching.store import TeachingStore
+
+    store = TeachingStore(str(tmp_path / "teaching"))
+    mashed = ("随风潜入夜，润物细无声。（杜甫《春夜喜雨》） "
+              "1971年11月15日，英特尔发布世界首款商用微处理器4004。 "
+              "明早把今天备好的例句写在黑板左上角…")
+    store.save_daily_motto("2026-11-15", mashed, motives=[
+        mashed,
+        "纸上得来终觉浅，绝知此事要躬行。（陆游《冬夜读书示子聿》）",
+        "1969 年的今天，人类第一次踏上月球。",
+    ])
+
+    answer = profile_mod.greeting(store, day="2026-11-15")
+    assert answer["motto"] == "纸上得来终觉浅，绝知此事要躬行。（陆游《冬夜读书示子聿》）"
+    assert len(answer["motives"]) == 2
+    stored = json.loads((tmp_path / "teaching" / "daily_motto.json").read_text(encoding="utf-8"))
+    assert stored["text"] == answer["motto"]
