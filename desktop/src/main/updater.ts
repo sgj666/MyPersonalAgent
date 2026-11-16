@@ -43,6 +43,14 @@ function isLegacyWindows(): boolean {
 // is specific to the default build's infrastructure). Absent -> default feed.
 const CONFIGURED_FEED = (loadAppConfig()?.updateFeedUrl || '').trim()
 
+// A derived/fork build must NOT keep the default feed: the default feed serves
+// the upstream product, so "updating" there silently replaces this build's
+// frontend + bundled skills/plugins with upstream's. Such a build has no release
+// feed of its own yet, so it ships app-config.json with `updateFeedUrl: "off"`
+// (or "none"/"disabled"/"false") to switch the updater off entirely. Point it
+// at a real URL once that build has a feed to update from.
+const UPDATES_DISABLED = /^(off|none|disabled|false)$/i.test(CONFIGURED_FEED)
+
 // The update feed. Both entries hit the same Pages Function
 // (https://cowagent.ai/update/); the ?lang=zh query tells it to 302 installer
 // downloads to the China CDN mirror instead of R2. The feed metadata is
@@ -192,6 +200,13 @@ export function initUpdater(windowGetter: () => BrowserWindow | null): void {
 
   log(`init: appVersion=${app.getVersion()} packaged=${app.isPackaged} logFile=${logFile ?? '<none>'}`)
 
+  if (UPDATES_DISABLED) {
+    // Explicitly opted out (see UPDATES_DISABLED): never wire the updater, so
+    // this build can't be pulled onto another product's feed.
+    log('updates disabled by app-config (updateFeedUrl=off) — updater wiring skipped')
+    return
+  }
+
   // In dev (not packaged) there's no update feed; skip wiring entirely so
   // electron-updater doesn't throw on the missing app-update.yml.
   if (!app.isPackaged) {
@@ -267,6 +282,13 @@ let userInitiatedCheck = false
 //   interval polls pass false, so a dismissed version only lights the dot.
 export function checkForUpdates(userInitiated = false): void {
   userInitiatedCheck = userInitiated
+  if (UPDATES_DISABLED) {
+    // Manual "check for update" on a build with no feed: answer honestly
+    // (up to date) instead of leaving the menu spinning on a dead request.
+    log('checkForUpdates: updates disabled by app-config, replying not-available')
+    send({ state: 'not-available' })
+    return
+  }
   if (!app.isPackaged) {
     // Dev-only UI harness: set COW_MOCK_UPDATE=1 to simulate an available
     // update so the update panel/menu interactions can be exercised in

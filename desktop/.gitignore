@@ -5,6 +5,12 @@ v[0-9]*/
 *.log
 .DS_Store
 Thumbs.db
-flavors/
+flavors/*
+# The teacher-workbench flavor is this fork's own product config (feed policy),
+# so unlike other flavors it is versioned — the release workflow stages it.
+# (The directory itself must be re-included first: git never descends into an
+# excluded directory, so a file-level negation alone would not work.)
+!flavors/teacher-workbench/
+!flavors/teacher-workbench/app-config.json
 resources/app-config.json
 resources/themes/

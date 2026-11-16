@@ -176,6 +176,17 @@ jobs:
         shell: bash
         run: npm version "${{ steps.ver.outputs.version }}" --no-git-tag-version --allow-same-version
 
+      # This repo is a fork re-branded as a teacher workbench. The flavor stages
+      # resources/app-config.json into the package, which is what pins the
+      # updater to OUR feed instead of falling back to the upstream one — an
+      # update from the upstream feed would replace this build's frontend and
+      # bundled skills with upstream's. Keep the flavor's updateFeedUrl in sync
+      # with wherever this fork publishes its own releases.
+      - name: Stage product flavor
+        working-directory: desktop
+        shell: bash
+        run: node scripts/apply-flavor.mjs teacher-workbench
+
       # Compile renderer + main in its OWN step, alone, so the npm.cmd batch
       # wrapper (see the note on the build step below) can't take out anything
       # after it.
