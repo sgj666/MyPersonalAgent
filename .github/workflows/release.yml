@@ -27,6 +27,10 @@ on:
         description: "Upload installers to R2 + register in D1 (needs Cloudflare secrets)"
         type: boolean
         default: false
+      publish_github:
+        description: "Create a GitHub Release with the installers + latest*.yml — this fork's own update feed"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -327,6 +331,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # HARD GUARD. publish-r2 writes to the UPSTREAM product's infrastructure:
+      # its R2 bucket (served as cowagent.ai/update + /download) and its D1
+      # registry. This repo is the 教师工作台 fork, so letting it run would
+      # replace the upstream product's official downloads with this build.
+      # Use publish_github instead; set the repo variable ALLOW_UPSTREAM_PUBLISH
+      # to 'true' only if this really is the upstream repository.
+      - name: Refuse to publish to the upstream product's R2/D1
+        if: vars.ALLOW_UPSTREAM_PUBLISH != 'true'
+        run: |
+          echo "::error::publish_r2 targets the UPSTREAM CowAgent R2 bucket + D1 registry. This is a fork — use publish_github instead."
+          exit 1
+
       - name: Guard on Cloudflare secrets
         id: guard
         env:
@@ -440,3 +456,61 @@ jobs:
           node .github/scripts/register-releases.mjs --dir dist --version "$VER" --sql d1.sql
           echo "==> D1 statements:"; cat d1.sql
           npx --yes wrangler@latest d1 execute cow-desktop --remote --file d1.sql
+
+  # This fork's own update feed. A normal GitHub Release (NOT a prerelease and
+  # NOT a draft) publishes the installers plus electron-builder's latest*.yml to
+  # https://github.com/<repo>/releases/latest/download/ — which is exactly what
+  # desktop/flavors/teacher-workbench/app-config.json points the updater at,
+  # through a GitHub accelerator mirror with the direct URL as the last fallback.
+  #
+  # Version must be plain semver (2.3.0, not 2.2.2-win-test): a prerelease
+  # version makes electron-builder emit "<tag>.yml" instead of "latest.yml", and
+  # "releases/latest" skips prereleases entirely.
+  publish-github:
+    name: Publish GitHub Release (own update feed)
+    needs: build
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.publish_github == 'true'
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Derive version
+        id: ver
+        shell: bash
+        run: echo "version=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="v${{ steps.ver.outputs.version }}"
+          # Everything a client needs: installers, the two feed files, and the
+          # blockmaps (differential downloads). builder-debug.yml is packaging
+          # noise, so it is skipped.
+          mapfile -t files < <(
+            find dist -maxdepth 3 -type f \
+              \( -name '*.exe' -o -name '*.zip' -o -name '*.dmg' \
+                 -o -name '*.blockmap' -o -name 'latest*.yml' \) \
+              -not -name 'builder-debug.yml' | sort
+          )
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::no release assets found under dist/"
+            exit 1
+          fi
+          printf 'assets:\n'; printf '  %s\n' "${files[@]}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "${files[@]}" --clobber
+          else
+            gh release create "$tag" "${files[@]}" \
+              --title "教师工作台 ${tag}" \
+              --notes "教师工作台 (teacher workbench) ${tag}. 已安装的客户端从这个 release 自动更新（latest.yml）。" \
+              --latest
+          fi
+          echo "::notice::published $tag — feed: https://github.com/${{ github.repository }}/releases/latest/download/"

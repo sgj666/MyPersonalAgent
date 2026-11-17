@@ -84,9 +84,10 @@ export interface AppConfig {
   appName?: string
   // Optional runtime-origin tag forwarded to the backend for stats.
   clientSource?: string
-  // Optional override for the auto-update feed base URL. When set, the updater
-  // uses it as-is instead of the default build's feed.
-  updateFeedUrl?: string
+  // Optional override for the auto-update feed base URL. A single URL, or a
+  // failover list tried in order (mirror first, direct origin last). When set,
+  // the updater uses it as-is instead of the default build's feed.
+  updateFeedUrl?: string | string[]
   // false: ignore runtime icon/title overrides (set-app-icon / set-app-title)
   // and their cache, for a build that ships its own fixed name and icon.
   runtimeIconTitle?: boolean

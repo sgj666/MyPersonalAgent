@@ -1,3 +1,7 @@
 {
-  "updateFeedUrl": "off"
+  "updateFeedUrl": [
+    "https://ghfast.top/https://github.com/sgj666/MyPersonalAgent/releases/latest/download/",
+    "https://gh-proxy.com/https://github.com/sgj666/MyPersonalAgent/releases/latest/download/",
+    "https://github.com/sgj666/MyPersonalAgent/releases/latest/download/"
+  ]
 }

@@ -38,20 +38,44 @@ function isLegacyWindows(): boolean {
   return Number.isFinite(major) && major < 10
 }
 
-// A bundled app-config may point the updater at a different feed origin. When
-// set, that single URL is used as-is (no China/R2 dual-origin switching, which
-// is specific to the default build's infrastructure). Absent -> default feed.
-const CONFIGURED_FEED = (loadAppConfig()?.updateFeedUrl || '').trim()
+// A bundled app-config may point the updater at a different feed origin.
+//
+// `updateFeedUrl` accepts ONE URL or an ARRAY of URLs. The array is a failover
+// list, tried in order — that is how a China-facing build keeps working when an
+// accelerator mirror dies: entry 1 is a GitHub proxy prefix (ghfast.top style),
+// the last entry is the direct GitHub Releases URL, so there is always a path
+// left. The URL that worked is remembered across launches
+// (userData/update-feed.json), so a healthy mirror is tried first next time.
+//
+// When set, these URLs are used as-is (the China/R2 dual-origin switching below
+// belongs to the default build's own infrastructure). Absent -> default feed.
+const CONFIGURED_FEEDS: string[] = (() => {
+  const raw = loadAppConfig()?.updateFeedUrl
+  const list = Array.isArray(raw) ? raw : raw ? [raw] : []
+  return list
+    .filter((u): u is string => typeof u === 'string' && u.trim() !== '')
+    .map((u) => u.trim())
+})()
 
 // A derived/fork build must NOT keep the default feed: the default feed serves
 // the upstream product, so "updating" there silently replaces this build's
-// frontend + bundled skills/plugins with upstream's. Such a build has no release
-// feed of its own yet, so it ships app-config.json with `updateFeedUrl: "off"`
-// (or "none"/"disabled"/"false") to switch the updater off entirely. Point it
-// at a real URL once that build has a feed to update from.
-const UPDATES_DISABLED = /^(off|none|disabled|false)$/i.test(CONFIGURED_FEED)
+// frontend + bundled skills/plugins with upstream's. A build with no release
+// feed of its own ships `updateFeedUrl: "off"` (or "none"/"disabled"/"false")
+// to switch the updater off entirely.
+const UPDATES_DISABLED = /^(off|none|disabled|false)$/i.test(CONFIGURED_FEEDS[0] || '')
 
-// The update feed. Both entries hit the same Pages Function
+// Index into CONFIGURED_FEEDS of the feed currently in use; seeded from the
+// last feed that worked (see loadFeedIndex).
+let activeFeed = 0
+
+// Human-readable label for logs: the active URL plus its position in the list.
+function feedLabel(): string {
+  if (CONFIGURED_FEEDS.length === 0) return preferChina ? `${FEED_BASE}?lang=zh` : FEED_BASE
+  const url = CONFIGURED_FEEDS[activeFeed] || CONFIGURED_FEEDS[0]
+  return CONFIGURED_FEEDS.length > 1 ? `${url} [#${activeFeed + 1}/${CONFIGURED_FEEDS.length}]` : url
+}
+
+// The update feed. Both default entries hit the same Pages Function
 // (https://cowagent.ai/update/); the ?lang=zh query tells it to 302 installer
 // downloads to the China CDN mirror instead of R2. The feed metadata is
 // identical either way, so we can freely switch the feed URL between attempts
@@ -59,7 +83,7 @@ const UPDATES_DISABLED = /^(off|none|disabled|false)$/i.test(CONFIGURED_FEED)
 // /legacy/ segment so it gets the win-legacy release instead of the standard.
 const FEED_BASE = 'https://cowagent.ai/update/' + (isLegacyWindows() ? 'legacy/' : '')
 const feedUrlFor = (china: boolean) => {
-  if (CONFIGURED_FEED) return withFeedQuery(CONFIGURED_FEED)
+  if (CONFIGURED_FEEDS.length) return withFeedQuery(CONFIGURED_FEEDS[activeFeed] || CONFIGURED_FEEDS[0])
   return withFeedQuery(china ? `${FEED_BASE}?lang=zh` : FEED_BASE)
 }
 
@@ -111,8 +135,64 @@ function withFeedQuery(url: string): string {
 // (zh -> China mirror). Downloads that fail on the preferred origin retry once
 // on the other one before surfacing an error.
 let preferChina = false
-// Guard so a single download only ever falls back once (avoids ping-pong).
-let downloadFellBack = false
+
+// How many *other* candidates this operation has already switched to. Reset at
+// the start of every check / download, so one operation may walk the whole
+// failover list once and then stop.
+let candidatesTried = 0
+
+// Move to the next candidate feed; false when this operation ran out.
+//   - configured list (>1): rotate to the next URL (wraps around);
+//   - single configured URL: nothing to fall back to;
+//   - default feed: swap the China mirror / R2 origin once.
+function switchFeed(): boolean {
+  if (CONFIGURED_FEEDS.length > 1) {
+    if (candidatesTried >= CONFIGURED_FEEDS.length - 1) return false
+    candidatesTried++
+    activeFeed = (activeFeed + 1) % CONFIGURED_FEEDS.length
+    applyFeedUrl()
+    return true
+  }
+  if (CONFIGURED_FEEDS.length === 1) return false
+  if (candidatesTried >= 1) return false
+  candidatesTried++
+  preferChina = !preferChina
+  applyFeedUrl()
+  return true
+}
+
+// Remember which feed worked, so the next launch starts there instead of
+// rediscovering a dead mirror. Best effort: a write failure only costs one
+// failed attempt next time.
+function feedStatePath(): string {
+  return path.join(app.getPath('userData'), 'update-feed.json')
+}
+
+function loadFeedIndex(): number {
+  if (CONFIGURED_FEEDS.length < 2) return 0
+  try {
+    const parsed = JSON.parse(fs.readFileSync(feedStatePath(), 'utf8')) as { url?: string; index?: number }
+    const savedUrl = typeof parsed?.url === 'string' ? parsed.url : ''
+    const byUrl = savedUrl ? CONFIGURED_FEEDS.indexOf(savedUrl) : -1
+    if (byUrl >= 0) return byUrl
+    const i = Number(parsed?.index)
+    return Number.isInteger(i) && i >= 0 && i < CONFIGURED_FEEDS.length ? i : 0
+  } catch {
+    return 0
+  }
+}
+
+function saveFeedIndex(): void {
+  if (CONFIGURED_FEEDS.length < 2) return
+  try {
+    fs.writeFileSync(
+      feedStatePath(),
+      JSON.stringify({ url: CONFIGURED_FEEDS[activeFeed], index: activeFeed, savedAt: new Date().toISOString() }),
+    )
+  } catch {
+    // ignore
+  }
+}
 
 function applyFeedUrl(): void {
   const url = feedUrlFor(preferChina)
@@ -199,6 +279,10 @@ export function initUpdater(windowGetter: () => BrowserWindow | null): void {
   initLogFile()
 
   log(`init: appVersion=${app.getVersion()} packaged=${app.isPackaged} logFile=${logFile ?? '<none>'}`)
+  if (CONFIGURED_FEEDS.length) {
+    activeFeed = loadFeedIndex()
+    log(`feeds: ${CONFIGURED_FEEDS.join(' -> ')} (starting at #${activeFeed + 1})`)
+  }
 
   if (UPDATES_DISABLED) {
     // Explicitly opted out (see UPDATES_DISABLED): never wire the updater, so
@@ -238,11 +322,13 @@ export function initUpdater(windowGetter: () => BrowserWindow | null): void {
   } as unknown as typeof autoUpdater.logger
 
   autoUpdater.on('checking-for-update', () => {
-    log(`checking-for-update: current=${app.getVersion()}`)
+    log(`checking-for-update: current=${app.getVersion()} feed=${feedLabel()}`)
     send({ state: 'checking' })
   })
   autoUpdater.on('update-available', (info) => {
     log(`update-available: current=${app.getVersion()} remote=${info.version} userInitiated=${userInitiatedCheck} -> update needed`)
+    // This feed answered properly: remember it for the next launch.
+    saveFeedIndex()
     send({
       state: 'available',
       version: info.version,
@@ -252,6 +338,8 @@ export function initUpdater(windowGetter: () => BrowserWindow | null): void {
   })
   autoUpdater.on('update-not-available', (info) => {
     log(`update-not-available: current=${app.getVersion()} remote=${info?.version ?? '<unknown>'} -> up to date`)
+    // The feed answered (404/mismatch counts as "answered" too), so keep it.
+    saveFeedIndex()
     send({ state: 'not-available' })
   })
   autoUpdater.on('download-progress', (p) => {
@@ -303,48 +391,59 @@ export function checkForUpdates(userInitiated = false): void {
     send({ state: 'not-available' })
     return
   }
-  log(`checkForUpdates: requesting feed, current=${app.getVersion()}`)
+  candidatesTried = 0
+  requestCheck()
+}
+
+// One check on the current feed. A failure walks the failover list (see
+// switchFeed) before it is reported, so a dead GitHub mirror doesn't stop the
+// update.
+function requestCheck(): void {
+  log(`checkForUpdates: requesting ${feedLabel()}, current=${app.getVersion()}`)
   autoUpdater.checkForUpdates().catch((err) => {
     const message = err?.message || String(err)
-    log(`checkForUpdates: request failed: ${message}`, err instanceof Error && err.stack ? err.stack : '')
+    log(`checkForUpdates: failed on ${feedLabel()}: ${message}`, err instanceof Error && err.stack ? err.stack : '')
+    if (switchFeed()) {
+      log(`checkForUpdates: retrying on ${feedLabel()}`)
+      requestCheck()
+      return
+    }
+    log('checkForUpdates: no candidate feed left')
     send({ state: 'error', message })
   })
 }
 
 export function startDownload(): void {
   if (!app.isPackaged) return
-  downloadFellBack = false
-  log(`startDownload: user requested download (preferChina=${preferChina})`)
+  candidatesTried = 0
+  log(`startDownload: user requested download (feed=${feedLabel()})`)
   attemptDownload()
 }
 
-// Download from the current origin; on failure, switch to the OTHER origin once
-// and retry. This is the client-side "mirrors back each other" fallback: R2 and
-// the China CDN hold identical bytes, so a slow/blocked origin can be swapped
-// transparently without the user noticing.
+// Download from the current feed; on failure switch to the next candidate (next
+// mirror in the configured list, or the other origin for the default feed) and
+// try again, until the candidates run out.
 function attemptDownload(): void {
   autoUpdater.downloadUpdate().catch((err) => {
     const message = err?.message || String(err)
-    log(`startDownload: failed on ${preferChina ? 'CN' : 'R2'}: ${message}`, err instanceof Error && err.stack ? err.stack : '')
-    if (!downloadFellBack) {
-      downloadFellBack = true
-      preferChina = !preferChina
-      applyFeedUrl()
-      log(`startDownload: retrying on ${preferChina ? 'CN' : 'R2'} mirror`)
-      // Re-check first so electron-updater re-reads the feed from the new origin
-      // before downloading (its cached updateInfo is origin-agnostic here, but a
-      // fresh check keeps the internal state consistent).
-      autoUpdater
-        .checkForUpdates()
-        .then(() => autoUpdater.downloadUpdate())
-        .catch((err2) => {
-          const m2 = err2?.message || String(err2)
-          log(`startDownload: fallback also failed: ${m2}`, err2 instanceof Error && err2.stack ? err2.stack : '')
-          send({ state: 'error', message: m2 })
-        })
+    log(`startDownload: failed on ${feedLabel()}: ${message}`, err instanceof Error && err.stack ? err.stack : '')
+    if (!switchFeed()) {
+      log('startDownload: no candidate feed left')
+      send({ state: 'error', message })
       return
     }
-    send({ state: 'error', message })
+    log(`startDownload: retrying on ${feedLabel()}`)
+    // Re-check first so electron-updater re-reads the feed from the new origin
+    // before downloading (its cached updateInfo is origin-agnostic here, but a
+    // fresh check keeps the internal state consistent).
+    autoUpdater
+      .checkForUpdates()
+      .then(() => attemptDownload())
+      .catch((err2) => {
+        const m2 = err2?.message || String(err2)
+        log(`startDownload: check on ${feedLabel()} failed: ${m2}`, err2 instanceof Error && err2.stack ? err2.stack : '')
+        send({ state: 'error', message: m2 })
+      })
   })
 }
 

@@ -95,17 +95,49 @@ The updater is therefore driven by `resources/app-config.json`, staged from
 | `updateFeedUrl` | Behaviour |
 | --- | --- |
 | `"off"` (or `none`/`disabled`/`false`) | updater is not wired at all; "check for update" replies "up to date" |
-| `"https://your.host/update/"` | generic feed; the client fetches `latest.yml` (win) / `latest-mac.yml` (mac) from there |
+| `"https://host/update/"` | generic feed; the client reads `latest.yml` (win) / `latest-mac.yml` (mac) there |
+| **an array of URLs** | failover list, tried in order (mirror first, direct origin last) |
 | absent | falls back to the upstream CowAgent feed — **never ship this** |
 
-To self-host auto-update, publish, for each release:
+### Feed for users in mainland China
 
-1. the installer(s) — `CowAgent-Setup-<ver>-x64.exe`, `CowAgent-<ver>-<arch>.zip` (mac);
-2. `latest.yml` / `latest-mac.yml` (electron-builder writes these next to the
-   installers, even with `--publish never`), unchanged, in the same directory.
+`desktop/flavors/teacher-workbench/app-config.json` ships the failover list:
 
-Use plain semver versions (`2.3.0`). A pre-release version like `2.2.2-win-test`
-makes electron-builder name the metadata `win-test.yml` instead of `latest.yml`.
+```
+https://ghfast.top/https://github.com/sgj666/MyPersonalAgent/releases/latest/download/
+https://gh-proxy.com/https://github.com/sgj666/MyPersonalAgent/releases/latest/download/
+https://github.com/sgj666/MyPersonalAgent/releases/latest/download/      <- always works, never delete
+```
+
+`updater.ts` walks the list on any check/download failure, and remembers the
+entry that answered (`userData/update-feed.json`), so the next launch starts on a
+healthy mirror. Measured from a mainland connection: direct GitHub ~2.4 MB/s (the
+feed 302s to GitHub's CDN), `ghfast.top` ~2.3 MB/s, `gh-proxy.com` ~65 KB/s —
+hence the order above and the direct URL as the final safety net.
+
+The list is baked into the build, so **changing mirrors requires a new release**.
+That is safe as long as one entry still works (normally the direct GitHub one);
+if every entry dies, installed clients must reinstall manually.
+
+### Publishing a release (this fork's own feed)
+
+```bash
+gh workflow run release.yml -f version=2.3.0 -f publish_github=true
+```
+
+`publish-github` then creates a **normal** (not prerelease, not draft) GitHub
+Release `v2.3.0` holding the installers, `latest.yml` / `latest-mac.yml` and the
+blockmaps — i.e. exactly what `releases/latest/download/` serves.
+
+Rules:
+
+- Version must be plain semver (`2.3.0`). A pre-release version such as
+  `2.2.2-win-test` makes electron-builder emit `win-test.yml` instead of
+  `latest.yml`, and `releases/latest` skips prereleases entirely.
+- The version must be **greater** than what clients run, or nothing is offered.
+- `release.yml`'s `publish_r2` job belongs to the upstream product (its R2 bucket
+  and D1 registry); this fork refuses to run it unless the repo variable
+  `ALLOW_UPSTREAM_PUBLISH=true` is set.
 
 Known limits for a self-hosted feed:
 

@@ -110,8 +110,10 @@
       "createStartMenuShortcut": true
     },
     "publish": {
-      "provider": "generic",
-      "url": "https://cowagent.ai/update/"
+      "provider": "github",
+      "owner": "sgj666",
+      "repo": "MyPersonalAgent",
+      "releaseType": "release"
     }
   },
   "overrides": {
