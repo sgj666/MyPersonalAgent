@@ -46,7 +46,10 @@ jobs:
       matrix:
         include:
           - name: macOS arm64
-            os: macos-14
+            # macos-14 was retired (jobs cancel with "configuration
+            # 'macos-14-arm64-us-default' is not supported"); macos-15 is the
+            # current Apple Silicon image, macos-15-intel the x64 one.
+            os: macos-15
             platform: mac
             arch: arm64
             eb_flags: --mac --arm64
@@ -470,7 +473,11 @@ jobs:
     name: Publish GitHub Release (own update feed)
     needs: build
     runs-on: ubuntu-latest
+    # `always()` so a macOS leg failing (runner image retirements, macOS-only
+    # signing flakiness) does not block a Windows build from reaching users; the
+    # asset check below still refuses to publish an incomplete release.
     if: >-
+      always() &&
       github.event_name == 'workflow_dispatch' &&
       github.event.inputs.publish_github == 'true'
     steps:
@@ -504,6 +511,19 @@ jobs:
             echo "::error::no release assets found under dist/"
             exit 1
           fi
+          # The updater needs both: a Windows installer to hand out and the
+          # feed file it looks up (latest.yml = win). Refuse a half release.
+          # No pipes here: `grep -q` closing early would trip `pipefail`.
+          for need in '.exe' 'latest.yml'; do
+            found=""
+            for f in "${files[@]}"; do
+              case "$f" in *"${need}") found=1 ;; esac
+            done
+            if [ -z "$found" ]; then
+              echo "::error::missing ${need} in the artifacts — not publishing"
+              exit 1
+            fi
+          done
           printf 'assets:\n'; printf '  %s\n' "${files[@]}"
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" "${files[@]}" --clobber
