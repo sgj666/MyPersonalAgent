@@ -1,0 +1,94 @@
+name: Publish Release From Build
+
+# Publishes this fork's update feed: a normal GitHub Release holding the Windows
+# installer plus electron-builder's latest.yml, i.e. exactly what
+# https://github.com/<repo>/releases/latest/download/ serves.
+#
+# Two callers:
+#   - release.yml (workflow_call) right after a build, and
+#   - workflow_dispatch, to re-publish from an existing run's artifacts without
+#     rebuilding (e.g. when only the publish step failed).
+#
+# Windows only on purpose: macOS builds are unsigned, and Squirrel.Mac refuses to
+# install updates for an unsigned app. Shipping a latest-mac.yml would also
+# collide (the arm64 and x64 legs each generate one with the same name). Add the
+# mac assets back together with code signing.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Release Desktop run id whose artifacts should be published"
+        type: string
+        required: true
+      version:
+        description: "Version to release (plain semver, e.g. 2.3.0)"
+        type: string
+        required: true
+  workflow_call:
+    inputs:
+      run_id:
+        type: string
+        required: true
+      version:
+        type: string
+        required: true
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    name: Publish GitHub Release (own update feed)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the built installer
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh run download "${{ inputs.run_id }}" --pattern 'cowagent-win-x64' -D dist
+          find dist -type f | sort
+
+      - name: Create or update the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # No checkout here, so gh cannot infer the repo from a local clone.
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag="v${{ inputs.version }}"
+          mapfile -t files < <(
+            find dist -type f \
+              \( -name '*.exe' -o -name '*.blockmap' -o -name 'latest.yml' \) \
+              -not -name 'builder-debug.yml' -not -name '*.yml.blockmap' | sort
+          )
+          # The updater needs both: a Windows installer to hand out and the feed
+          # file it looks up. Refuse a half release. No pipes in the check:
+          # `grep -q` closing early would trip pipefail.
+          for need in '.exe' 'latest.yml'; do
+            found=""
+            for f in "${files[@]}"; do
+              case "$f" in *"${need}") found=1 ;; esac
+            done
+            if [ -z "$found" ]; then
+              echo "::error::missing ${need} in the artifacts — not publishing"
+              exit 1
+            fi
+          done
+          printf 'assets:\n'; printf '  %s\n' "${files[@]}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "${files[@]}" --clobber
+          else
+            gh release create "$tag" "${files[@]}" \
+              --target "${{ github.ref_name }}" \
+              --title "教师工作台 ${tag}" \
+              --notes "教师工作台 (teacher workbench) ${tag}. 已安装的客户端从这个 release 自动更新（latest.yml）。" \
+              --latest
+          fi
+          echo "::notice::published $tag — feed: https://github.com/${{ github.repository }}/releases/latest/download/"
