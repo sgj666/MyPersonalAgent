@@ -495,6 +495,9 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # No checkout in this job, so gh has no local repo to infer from:
+          # GH_REPO names the target, --target names the commitish.
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           tag="v${{ steps.ver.outputs.version }}"
@@ -529,6 +532,7 @@ jobs:
             gh release upload "$tag" "${files[@]}" --clobber
           else
             gh release create "$tag" "${files[@]}" \
+              --target "${{ github.sha }}" \
               --title "教师工作台 ${tag}" \
               --notes "教师工作台 (teacher workbench) ${tag}. 已安装的客户端从这个 release 自动更新（latest.yml）。" \
               --latest
