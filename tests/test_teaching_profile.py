@@ -170,10 +170,22 @@ def test_greeting_uses_the_model_free_fallback_and_caches_per_day(tmp_path):
         assert refreshed["cached"] is False
         # 换一句 must actually change the line, even when no model is reachable.
         assert refreshed["motto"] != first["motto"]
+        # The hero renders the list's FIRST entry, so the rotated-to line has to
+        # lead it -- otherwise the button looks dead (motto changed, display did
+        # not).
+        assert refreshed["motives"][0] == refreshed["motto"]
+
+        # A second press keeps moving forward rather than oscillating.
+        again = _call(TeachingGreetingHandler, "GET", workspace,
+                      query={"agent_id": "", "refresh": "1"})
+        assert again["motto"] not in (first["motto"], refreshed["motto"])
+        assert again["motives"][0] == again["motto"]
 
     cached = json.loads((workspace / "teaching" / "daily_motto.json").read_text(encoding="utf-8"))
     assert cached["date"] == first["date"]
-    assert cached["text"] == refreshed["motto"]
+    # The last press is what the cache holds, and the stored line leads the list.
+    assert cached["text"] == again["motto"]
+    assert cached["motives"][0] == cached["text"]
 
     # No name yet: the fallback address is 老师, never 老师老师.
     blank = tmp_path / "blank"
@@ -182,6 +194,32 @@ def test_greeting_uses_the_model_free_fallback_and_caches_per_day(tmp_path):
     assert answer["status"] == "success", answer
     assert answer["greeting"].endswith("，老师。")
     assert "老师老师" not in answer["greeting"]
+
+
+def test_motto_asks_the_configured_primary_model(monkeypatch):
+    """The motto must run on the model set in settings, not on whatever a
+    long-lived bot instance was built with (the console can change it)."""
+    from datetime import date
+
+    import bridge.bridge as bridge_mod
+    import config as config_mod
+
+    captured = {}
+
+    class FakeBot:
+        args = {"model": "some-stale-model"}
+
+        def reply_text(self, session, args=None):
+            captured.update(args or {})
+            return {"content": "海内存知己，天涯若比邻。（王勃《送杜少府之任蜀州》）", "completion_tokens": 8}
+
+    # ``Bridge`` is a singleton getter: patch the instance's method.
+    monkeypatch.setattr(bridge_mod.Bridge(), "get_bot", lambda typename: FakeBot())
+    monkeypatch.setattr(config_mod, "conf", lambda: {"model": "deepseek-flash"})
+
+    answer = profile_mod.motto_from_model(PROFILE, date(2026, 11, 20), [])
+    assert "海内存知己" in answer
+    assert captured.get("model") == "deepseek-flash"
 
 
 def test_a_glued_cache_line_is_repaired_on_read(tmp_path):

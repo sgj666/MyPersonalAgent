@@ -282,6 +282,15 @@ def motto_from_model(profile: dict, day: date, lessons: List[dict]) -> str:
         # This is a one-line flourish, not a reasoning task: thinking mode adds
         # seconds of latency and burns the token budget before the answer starts.
         args = dict(getattr(bot, "args", {}) or {})
+        # Always ask the model configured in settings (the "primary model"), not
+        # whatever a long-lived bot instance was built with: the console can
+        # change the model while this process keeps running.
+        from config import conf
+
+        primary_model = conf().get("model")
+        if primary_model:
+            args["model"] = primary_model
+        logger.info(f"[Teaching] daily motto model: {args.get('model') or '<bot default>'}")
         supports = getattr(bot, "_model_supports_thinking", None)
         try:
             if callable(supports) and supports(str(args.get("model", ""))):
@@ -343,7 +352,13 @@ def greeting(store, *, day: Optional[str] = None, now: Optional[datetime] = None
         lines = [item for item in (cached.get("motives") or []) if item]
         if len(lines) > 1:
             current = cached["text"] if cached["text"] in lines else lines[0]
-            text = lines[(lines.index(current) + 1) % len(lines)]
+            at = lines.index(current)
+            # Rotate (not reorder) so the list keeps advancing: the hero renders
+            # the FIRST line, so "换一句" has to bring the next line to the front.
+            # Reordering while indexing always at position 0 made two presses
+            # bounce between the same two lines.
+            lines = lines[at + 1:] + lines[:at + 1]
+            text = lines[0]
             store.save_daily_motto(day_iso, text, motives=lines)
             return {
                 "greeting": f"{_period_greeting(when.hour)}，{_address(profile['name'])}。",
@@ -377,9 +392,13 @@ def greeting(store, *, day: Optional[str] = None, now: Optional[datetime] = None
         store.save_daily_motto(day_iso, lines[0], motives=lines)
         text = lines[0]
 
-    motives = cached.get("motives") or []
+    motives = [item for item in (cached.get("motives") or []) if item]
     if not motives:
         motives = [text]
+    elif text and motives[0] != text:
+        # Same invariant as the rotation above: motives[0] is what the hero
+        # shows, so it is always the current line.
+        motives = ([text] + [item for item in motives if item != text]) if text in motives else motives
     return {
         "greeting": f"{_period_greeting(when.hour)}，{_address(profile['name'])}。",
         "motto": text,

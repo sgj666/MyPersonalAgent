@@ -15,11 +15,14 @@
 // per-page model call and are only shown before the first message; tapping one
 // fills the input rather than sending, so the teacher can edit it first.
 import React, { useEffect, useRef, useState } from 'react'
-import { ArrowUp, Sparkles, Square, X } from 'lucide-react'
+import { Sparkles, X } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { t } from '../i18n'
 import apiClient from '../api/client'
+import ChatInput, { type ChatInputHandle } from './ChatInput'
 import EmbeddedChat from './EmbeddedChat'
 import { useChatStore } from '../store/chatStore'
+import type { Attachment } from '../types'
 
 export interface AiAssistButtonProps {
   /** Page identity for the conversation, e.g. `classes`. */
@@ -47,31 +50,40 @@ function buildPrompt(dataFiles: string[], request: string): string {
   ].join('\n')
 }
 
-const MAX_INPUT_HEIGHT = 100
+// Drawer width: the teacher drags the left edge. Wide enough for the chat
+// composer's chip row, never wider than most of the window.
+const MIN_DRAWER_WIDTH = 380
+const MAX_DRAWER_WIDTH = 940
+const DEFAULT_DRAWER_WIDTH = 470
+const DRAWER_WIDTH_KEY = 'twb.aiDrawer.width'
+
+function clampDrawerWidth(width: number): number {
+  const viewportCap = Math.round(window.innerWidth * 0.92)
+  return Math.max(MIN_DRAWER_WIDTH, Math.min(MAX_DRAWER_WIDTH, viewportCap, Math.round(width)))
+}
 
 const AiAssistButton: React.FC<AiAssistButtonProps> = ({ pageKey, dataFiles, scene }) => {
   const [open, setOpen] = useState(false)
-  const [request, setRequest] = useState('')
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [suggestionsLoading, setSuggestionsLoading] = useState(false)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const [width, setWidth] = useState(() => {
+    const saved = Number(window.localStorage.getItem(DRAWER_WIDTH_KEY))
+    return clampDrawerWidth(Number.isFinite(saved) && saved > 0 ? saved : DEFAULT_DRAWER_WIDTH)
+  })
+  const inputRef = useRef<ChatInputHandle>(null)
+  const dragRef = useRef<{ x: number; width: number } | null>(null)
+  const navigate = useNavigate()
   const sessionId = `ai-${pageKey}`
   const send = useChatStore((s) => s.send)
   const cancel = useChatStore((s) => s.cancel)
+  const clearContext = useChatStore((s) => s.clearContext)
   const running = useChatStore((s) => s.getSession(sessionId).isStreaming)
   const hasMessages = useChatStore((s) => (s.sessions[sessionId]?.messages.length ?? 0) > 0)
 
-  // A textarea that grows with its draft, capped at four lines.
-  const autoSize = () => {
-    const el = inputRef.current
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, MAX_INPUT_HEIGHT)}px`
-  }
-
+  // Remember the dragged width so the next open starts where the teacher left it.
   useEffect(() => {
-    if (open) autoSize()
-  }, [open, request])
+    window.localStorage.setItem(DRAWER_WIDTH_KEY, String(width))
+  }, [width])
 
   // Escape closes the drawer, the same as the clay dialogs.
   useEffect(() => {
@@ -106,20 +118,17 @@ const AiAssistButton: React.FC<AiAssistButtonProps> = ({ pageKey, dataFiles, sce
     }
   }, [open, pageKey])
 
+  // A pill only fills the composer: the teacher edits it (class, unit, counts)
+  // before sending.
   const fill = (text: string) => {
-    setRequest(text)
-    window.requestAnimationFrame(() => {
-      autoSize()
-      inputRef.current?.focus()
-    })
+    inputRef.current?.(text, [])
   }
 
-  const run = () => {
-    const text = request.trim()
-    if (!text || running) return
-    setRequest('')
-    void send(sessionId, buildPrompt(dataFiles, text), [])
-    window.requestAnimationFrame(autoSize)
+  // Same composer as the chat page (attachments, images, model chip, `/skill`),
+  // but every message carries the page contract and the transcript keeps what
+  // the teacher actually typed.
+  const handleSend = (message: string, attachments: Attachment[], display?: string) => {
+    void send(sessionId, buildPrompt(dataFiles, message), attachments, display ?? message)
   }
 
   return (
@@ -143,7 +152,35 @@ const AiAssistButton: React.FC<AiAssistButtonProps> = ({ pageKey, dataFiles, sce
             role="dialog"
             aria-modal="true"
             aria-labelledby="twb-ai-title"
+            style={{ width: `${width}px` }}
           >
+            <div
+              className="twb-ai-resize"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label={t('ai_resize')}
+              aria-valuenow={width}
+              aria-valuemin={MIN_DRAWER_WIDTH}
+              aria-valuemax={MAX_DRAWER_WIDTH}
+              title={t('ai_resize')}
+              onDoubleClick={() => setWidth(clampDrawerWidth(DEFAULT_DRAWER_WIDTH))}
+              onPointerDown={(e) => {
+                dragRef.current = { x: e.clientX, width }
+                e.currentTarget.setPointerCapture(e.pointerId)
+              }}
+              onPointerMove={(e) => {
+                const drag = dragRef.current
+                if (!drag) return
+                setWidth(clampDrawerWidth(drag.width + (drag.x - e.clientX)))
+              }}
+              onPointerUp={(e) => {
+                dragRef.current = null
+                e.currentTarget.releasePointerCapture(e.pointerId)
+              }}
+              onPointerCancel={() => {
+                dragRef.current = null
+              }}
+            />
             <header className="twb-ai-head">
               <div>
                 <h2 id="twb-ai-title">{t('ai_assistant')}</h2>
@@ -192,34 +229,20 @@ const AiAssistButton: React.FC<AiAssistButtonProps> = ({ pageKey, dataFiles, sce
             )}
 
             <div className="twb-ai-composer">
-              <textarea
+              <ChatInput
                 ref={inputRef}
-                className="twb-ai-input"
-                rows={1}
-                value={request}
-                placeholder={t('ai_input_ph')}
-                aria-label={t('ai_input_ph')}
-                onChange={(e) => setRequest(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                    e.preventDefault()
-                    run()
-                  }
+                sessionId={sessionId}
+                isStreaming={running}
+                hideNewChat
+                onSend={handleSend}
+                onNewChat={() => {}}
+                onStop={() => void cancel(sessionId)}
+                onClearContext={() => void clearContext(sessionId)}
+                onAdjustContext={() => {
+                  setOpen(false)
+                  navigate('/agents')
                 }}
               />
-              <button
-                type="button"
-                className="twb-ai-send"
-                title={running ? t('ai_stop') : t('ai_send')}
-                aria-label={running ? t('ai_stop') : t('ai_send')}
-                disabled={!running && !request.trim()}
-                onClick={() => {
-                  if (running) void cancel(sessionId)
-                  else run()
-                }}
-              >
-                {running ? <Square size={13} /> : <ArrowUp size={16} />}
-              </button>
             </div>
           </aside>
         </div>

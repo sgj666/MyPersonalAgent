@@ -1968,59 +1968,55 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
 }
 
 /* The composer is the drawer's last child: the timeline takes the leftover
-   height, so this row always sits against the bottom padding. */
+   height, so this row always sits against the bottom padding. It is the chat
+   page's own composer now (attachments, images, model chip, /skill), only
+   stripped of its page-level bar so it reads as part of the drawer. */
 .twb-ai-composer {
-  display: flex;
   flex: none;
-  align-items: flex-end;
-  gap: 8px;
   margin-top: 10px;
-  padding-top: 10px;
   border-top: 1px solid var(--twb-line);
+  padding-top: 10px;
 }
 
-.twb-ai-input {
-  flex: 1;
-  min-height: 40px;
-  max-height: 100px;
-  padding: 9px 12px;
-  border: 1px solid var(--twb-rim);
-  border-radius: 14px;
-  background: var(--twb-surface-2);
-  color: var(--twb-ink);
-  font: inherit;
-  font-size: 13px;
-  line-height: 20px;
-  resize: none;
-  overflow-y: auto;
+.twb-ai-drawer .composer-bar {
+  padding: 0;
+  border-top: 0;
+  background: transparent;
 }
 
-.twb-ai-input:focus {
-  outline: 2px solid var(--twb-accent);
-  outline-offset: 1px;
+.twb-ai-drawer .composer-card {
+  max-width: none;
 }
 
-.twb-ai-send {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  flex: none;
-  border: 1px solid var(--twb-rim);
-  border-radius: 50%;
+/* Drag handle on the drawer's left edge. The hit area is wider than the visible
+   grip so it is easy to grab, and touch-action keeps a drag from scrolling. */
+.twb-ai-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  width: 12px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.twb-ai-resize::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 5px;
+  width: 3px;
+  height: 48px;
+  border-radius: 3px;
+  transform: translateY(-50%);
+  background: var(--twb-rim);
+  opacity: 0.65;
+}
+
+.twb-ai-resize:hover::after,
+.twb-ai-resize:active::after {
   background: var(--twb-accent);
-  color: #fff;
-  cursor: pointer;
-}
-
-.twb-ai-send:hover {
-  background: var(--twb-accent-hover);
-}
-
-.twb-ai-send:disabled {
-  opacity: 0.45;
-  cursor: default;
+  opacity: 1;
 }
 
 @media (max-width: 520px) {

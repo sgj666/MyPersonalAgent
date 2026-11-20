@@ -61,10 +61,13 @@ interface ChatInputProps {
   onAdjustContext: () => void
   // Transient toast surface owned by the page.
   onToast?: (msg: string) => void
+  // Embedded surfaces (the page assistant drawer) continue one fixed
+  // conversation, so starting a new one there has no meaning: hide the "+".
+  hideNewChat?: boolean
 }
 
 const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput(
-  { onSend, onNewChat, onStop, onClearContext, isStreaming, sessionId, onAdjustContext, onToast },
+  { onSend, onNewChat, onStop, onClearContext, isStreaming, sessionId, onAdjustContext, onToast, hideNewChat },
   ref
 ) {
   // Restore the draft saved in `chatDraft` on mount (lazy init: the very first
@@ -974,14 +977,16 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
               conversation owned by the current Agent right away, no picker
               (matches the web console). Choosing a different Agent or starting a
               group lives in the session-list "+" menu instead. */}
-          <Tooltip label={t('session_new')}>
-            <button
-              onClick={onNewChat}
-              className="shrink-0 w-8 h-8 flex items-center justify-center rounded-btn cursor-pointer transition-colors text-content-secondary hover:text-accent hover:bg-accent-soft"
-            >
-              <Plus size={18} />
-          </button>
-        </Tooltip>
+          {!hideNewChat && (
+            <Tooltip label={t('session_new')}>
+              <button
+                onClick={onNewChat}
+                className="shrink-0 w-8 h-8 flex items-center justify-center rounded-btn cursor-pointer transition-colors text-content-secondary hover:text-accent hover:bg-accent-soft"
+              >
+                <Plus size={18} />
+              </button>
+            </Tooltip>
+          )}
           {/* Context pie sits second (mirrors the web console), always visible
               as a mini donut; hover/click opens the usage card with actions. */}
           <ContextUsagePopover

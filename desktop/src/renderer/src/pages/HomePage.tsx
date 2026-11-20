@@ -322,6 +322,10 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
   // rather than a task list. CSS runs the ticker: a background window throttles
   // JS timers, and a marquee should not depend on that.
   const mottoLines = greeting?.motives?.length ? greeting.motives : greeting ? [greeting.motto] : []
+  // The hero shows one line: the current one the backend reports, not the
+  // first of the day's set. 换一句 rotates within that set and the two can
+  // differ (an older cache may also still be ordered that way).
+  const mottoText = greeting?.motto || mottoLines[0] || ''
 
   const changeMotto = async () => {
     if (mottoBusy) return
@@ -373,7 +377,7 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
                     in the tooltip (the CSS line-clamp is inert in this Chromium). */}
                 <ClampedText
                   className="twb-motto-line"
-                  text={mottoLines[0] || t('tw_greeting_pending')}
+                  text={mottoText || t('tw_greeting_pending')}
                   lines={2}
                 />
                 <button
