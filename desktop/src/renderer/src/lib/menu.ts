@@ -48,6 +48,7 @@ import {
   Search,
   Presentation,
   Copy,
+  Volume2,
   Lightbulb,
   type LucideIcon,
 } from 'lucide-react'
@@ -91,6 +92,7 @@ export const MENU_TEACHING_TOOLS: MenuTeachingTool[] = [
   { tab: 'plan', labelKey: 'tw_tool_plan', icon: FileText },
   { tab: 'courseware', labelKey: 'tw_tool_courseware', icon: Presentation },
   { tab: 'card', labelKey: 'tw_tool_card', icon: Copy },
+  { tab: 'dictation', labelKey: 'tw_tool_dictation', icon: Volume2 },
   { tab: 'advice', labelKey: 'tw_tool_advice', icon: Lightbulb },
   { tab: 'schedule', labelKey: 'tw_tool_schedule', icon: CalendarDays },
 ]

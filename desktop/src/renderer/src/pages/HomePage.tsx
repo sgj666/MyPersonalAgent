@@ -15,6 +15,7 @@ import {
   RefreshCw,
   Sparkles,
   TriangleAlert,
+  Volume2,
   type LucideIcon,
 } from 'lucide-react'
 import { t, tf, getLang } from '../i18n'
@@ -41,18 +42,19 @@ interface HomePageProps {
 }
 
 interface ToolCard {
-  id: 'plan' | 'courseware' | 'card' | 'advice' | 'schedule'
+  id: 'plan' | 'courseware' | 'card' | 'dictation' | 'advice' | 'schedule'
   labelKey: string
   descKey: string
   icon: LucideIcon
   tone: string
 }
 
-// The five teaching tools, in the order the web console lists them.
+// The six teaching tools, in the order the web console lists them.
 const TOOLS: ToolCard[] = [
   { id: 'plan', labelKey: 'tw_tool_plan', descKey: 'tw_tool_plan_desc', icon: FileText, tone: 'twb-tool-a' },
   { id: 'courseware', labelKey: 'tw_tool_courseware', descKey: 'tw_tool_courseware_desc', icon: Presentation, tone: 'twb-tool-b' },
   { id: 'card', labelKey: 'tw_tool_card', descKey: 'tw_tool_card_desc', icon: Copy, tone: 'twb-tool-c' },
+  { id: 'dictation', labelKey: 'tw_tool_dictation', descKey: 'tw_tool_dictation_desc', icon: Volume2, tone: 'twb-tool-b' },
   { id: 'advice', labelKey: 'tw_tool_advice', descKey: 'tw_tool_advice_desc', icon: Lightbulb, tone: 'twb-tool-d' },
   { id: 'schedule', labelKey: 'tw_tool_schedule', descKey: 'tw_tool_schedule_desc', icon: CalendarDays, tone: 'twb-tool-e' },
 ]

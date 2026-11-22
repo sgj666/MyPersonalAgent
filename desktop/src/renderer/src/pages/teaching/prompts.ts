@@ -105,6 +105,19 @@ export const advicePrompt = (p: AdviceParams): string =>
 export const adviceFollowUp = (question: string, facts: TeachingFact[]): string =>
   [question, '', '（本班事实，供参考，不要改写数字）', block(facts)].join('\n')
 
+export interface DictationParams {
+  book: string
+  unit: string
+  knowledge_paths?: string[]
+}
+
+export const dictationPrompt = (p: DictationParams): string =>
+  ask(
+    'word-dictation',
+    p,
+    '只出本单元词表：按 Dictation JSON 契约输出一个 ```json 代码块（meta + words[{word, phonetic, senses:[{pos, meaning}]}]），不要生成 HTML。'
+  )
+
 export interface ScheduleParams {
   term: string
   book: string

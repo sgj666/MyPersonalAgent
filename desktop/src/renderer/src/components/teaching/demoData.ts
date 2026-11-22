@@ -3,7 +3,7 @@
 // pages read the real API and show an error state when it is missing.
 import type { TeachingFacts, TeachingRecentItem, TeachingWeek } from '../../api/client'
 import type { KnowledgeList, ProgressItem, TeachingClass, TeachingTimetable } from '../../types'
-import type { AdviceAction, CardDraft, DeckDraft, OutlineRow } from '../../pages/teaching/drafts'
+import type { AdviceAction, CardDraft, DeckDraft, DictationDraft, OutlineRow } from '../../pages/teaching/drafts'
 
 export const DEMO_CLASSES: TeachingClass[] = [
   { id: 'c3', name: '七(3)班', grade: '七年级', subject: '英语', room: '301', created_at: '' },
@@ -37,7 +37,51 @@ export const DEMO_KNOWLEDGE: KnowledgeList = {
 export const DEMO_RECENT: TeachingRecentItem[] = [
   { slug: 'u2-read', title: 'Unit 2 读写课教案', when: '2026-11-05', rel: 'artifacts/教学工具/plan/u2-read.json', kind: 'plan', class_ids: ['c3'] },
   { slug: 'u2-card', title: '七(3) Unit 2 作业反馈', when: '2026-11-07', rel: 'artifacts/教学工具/card/u2-card.json', kind: 'card', class_ids: ['c3'] },
+  { slug: 'u3-dictation', title: 'Unit 3 单词听写', when: '2026-11-08', rel: 'artifacts/教学工具/dictation/u3-dictation.json', kind: 'dictation', class_ids: [] },
 ]
+
+export const DEMO_DICTATION: DictationDraft = {
+  version: 1,
+  meta: { title: 'Unit 3 单词听写', book: '人教新版七上', unit: 'Unit 3 My weekend plan', date: '2026-11-12', mode: 'zh' },
+  words: [
+    { word: 'visit', phonetic: '/ˈvɪzɪt/', senses: [{ pos: 'v.', meaning: '参观；拜访' }] },
+    { word: 'see a film', phonetic: '', senses: [{ pos: 'phr.', meaning: '看电影' }] },
+    { word: 'picnic', phonetic: '/ˈpɪknɪk/', senses: [{ pos: 'n.', meaning: '野餐' }] },
+    { word: 'cinema', phonetic: '/ˈsɪnəmə/', senses: [{ pos: 'n.', meaning: '电影院' }] },
+    { word: 'tomorrow', phonetic: '/təˈmɒrəʊ/', senses: [{ pos: 'adv.', meaning: '明天' }] },
+    { word: 'lesson', phonetic: '/ˈlesn/', senses: [{ pos: 'n.', meaning: '课；课程' }] },
+    { word: 'present', phonetic: '/prɪˈzent/', senses: [{ pos: 'v.', meaning: '呈现；赠送' }, { pos: 'n.', meaning: '礼物' }] },
+  ],
+}
+
+/** A stand-in dictation sheet, mirroring the backend renderer's markup. */
+export function demoDictationHtml(draft: DictationDraft): string {
+  const mode = draft.meta.mode === 'en' ? '英文听写' : '中文听写'
+  const rows = draft.words
+    .filter((word) => word.on !== false)
+    .map((word, i) => {
+      const prompt =
+        mode === '英文听写'
+          ? '🔊'
+          : word.senses.map((sense) => `${sense.pos ? `${esc(sense.pos)} ` : ''}${esc(sense.meaning)}`).join(' / ')
+      const answer = `${esc(word.word)}${word.phonetic ? ` <em>${esc(word.phonetic)}</em>` : ''}`
+      return `<li><b>${i + 1}</b><span>${prompt}<i></i><em class="a">${answer}</em></span></li>`
+    })
+    .join('')
+  return `<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0}body{padding:24px;background:#efece4;font-family:-apple-system,"PingFang SC",sans-serif;color:#22262b}
+.sheet{max-width:820px;margin:0 auto;padding:40px 46px;background:#fffdf7;border:1px solid #ddd6c8;border-radius:12px}
+h1{margin:0;font-size:24px}.sub{margin:6px 0 0;color:#666d76;font-size:14px}
+.tag{display:inline-block;margin:14px 8px 0 0;padding:2px 10px;font-size:12px;color:#666d76;background:#f1ede4;border-radius:99px}
+ol{display:grid;grid-template-columns:1fr 1fr;gap:0 30px;margin:20px 0 0;padding:0;list-style:none}
+li{display:flex;gap:8px;padding:10px 0;border-bottom:1px dashed #ddd6c8}li b{color:#666d76;font-size:13px}
+li span{flex:1}i{display:block;height:1.5em;margin-top:4px;border-bottom:1px solid #c9c1b1}
+em.a{display:none;font-style:normal;font-size:13px;color:#2f6b4f}
+</style></head><body><main class="sheet"><h1>${esc(draft.meta.title)}</h1>
+<p class="sub">${esc(draft.meta.book)} · ${esc(draft.meta.unit)}</p>
+<span class="tag">${mode}</span><span class="tag">共 ${draft.words.length} 词</span><span class="tag">${esc(draft.meta.date)}</span>
+<ol>${rows}</ol></main></body></html>`
+}
 
 export const DEMO_FACTS: TeachingFacts = {
   facts: [

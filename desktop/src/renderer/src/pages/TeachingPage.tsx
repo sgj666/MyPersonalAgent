@@ -4,19 +4,21 @@ import { asToolId, TOOL_IDS, type ToolId } from './teaching/drafts'
 import PlanTool from './teaching/PlanTool'
 import CoursewareTool from './teaching/CoursewareTool'
 import CardTool from './teaching/CardTool'
+import DictationTool from './teaching/DictationTool'
 import AdviceTool from './teaching/AdviceTool'
 import ScheduleTool from './teaching/ScheduleTool'
 
 /**
- * Five pages, each laid out for what it produces
+ * Six pages, each laid out for what it produces
  * (docs/plans/teaching-tools-redesign.md §3): 教案 = manuscript, 课件 = slide
- * rail + preview + notes, 作业卡片 = portrait card, 教学建议 = facts +
- * actions, 教学计划 = week table.
+ * rail + preview + notes, 作业卡片 = portrait card, 单词听写 = printable sheet,
+ * 教学建议 = facts + actions, 教学计划 = week table.
  */
 const TOOL_PAGES: Record<ToolId, React.FC> = {
   plan: PlanTool,
   courseware: CoursewareTool,
   card: CardTool,
+  dictation: DictationTool,
   advice: AdviceTool,
   schedule: ScheduleTool,
 }

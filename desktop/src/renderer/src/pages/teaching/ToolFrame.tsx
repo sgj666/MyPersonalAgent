@@ -2,7 +2,7 @@
 // laid out for that tool's output, and the delivery bar pinned at the bottom.
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CalendarDays, Copy, ExternalLink, FileText, Lightbulb, Presentation, type LucideIcon } from 'lucide-react'
+import { CalendarDays, Copy, ExternalLink, FileText, Lightbulb, Presentation, Volume2, type LucideIcon } from 'lucide-react'
 import { t } from '../../i18n'
 import { useSessionStore } from '../../store/sessionStore'
 import type { ToolId } from './drafts'
@@ -11,6 +11,7 @@ export const TOOL_ICONS: Record<ToolId, LucideIcon> = {
   plan: FileText,
   courseware: Presentation,
   card: Copy,
+  dictation: Volume2,
   advice: Lightbulb,
   schedule: CalendarDays,
 }

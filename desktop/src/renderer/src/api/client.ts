@@ -112,6 +112,8 @@ export interface TeachingRenderRequest {
   out_name?: string
   formats?: string[]
   a4?: boolean
+  /** false skips standard-audio synthesis (live previews); the saved page asks for it. */
+  tts?: boolean
 }
 
 export interface TeachingRenderResult {

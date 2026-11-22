@@ -24,7 +24,7 @@ import type {
   TeachingTimetable,
 } from '../../types'
 import * as demo from '../../components/teaching/demoData'
-import type { CardDraft, DeckDraft } from './drafts'
+import type { CardDraft, DeckDraft, DictationDraft } from './drafts'
 
 export type DemoMode = '1' | 'empty' | 'loading' | 'error'
 
@@ -40,7 +40,9 @@ export interface TeachingSource {
   demo: DemoMode | null
   classes: () => Promise<TeachingClass[]>
   knowledge: () => Promise<KnowledgeList>
-  recent: (kind: TeachingDraftKind) => Promise<TeachingRecentItem[]>
+  recent: (kind: TeachingDraftKind, limit?: number) => Promise<TeachingRecentItem[]>
+  /** One saved draft by slug, for the history lists. */
+  loadDraft: (kind: TeachingDraftKind, slug: string) => Promise<unknown>
   facts: (classId: string, unit: string) => Promise<TeachingFacts>
   profile: () => Promise<Partial<TeacherProfile>>
   timetable: () => Promise<TeachingTimetable>
@@ -51,7 +53,11 @@ export interface TeachingSource {
    * field in the §4.1 render request, so the real source refuses it with
    * ANSWER_UNSUPPORTED instead of showing the student copy under that label.
    */
-  preview: (kind: 'deck' | 'card', draft: DeckDraft | CardDraft, opts?: { a4?: boolean; answer?: boolean }) => Promise<PreviewResult>
+  preview: (
+    kind: 'deck' | 'card' | 'dictation',
+    draft: DeckDraft | CardDraft | DictationDraft,
+    opts?: { a4?: boolean; answer?: boolean }
+  ) => Promise<PreviewResult>
   saveDraft: (kind: TeachingDraftKind, slug: string, draft: unknown) => Promise<string>
   importProgress: (classIds: string[], weeks: TeachingWeek[]) => Promise<TeachingProgressImport>
   /** Write a knowledge page; `overwrite` false refuses an existing file. */
@@ -76,7 +82,8 @@ const real: TeachingSource = {
   demo: null,
   classes: () => apiClient.listTeachingClasses(),
   knowledge: () => apiClient.getKnowledgeList(),
-  recent: (kind) => apiClient.listTeachingRecent({ kind, limit: 5 }),
+  recent: (kind, limit) => apiClient.listTeachingRecent({ kind, limit: limit ?? 5 }),
+  loadDraft: async (kind, slug) => (await apiClient.getTeachingDraft(kind, slug)).draft,
   facts: (classId, unit) => apiClient.getTeachingFacts({ class_id: classId, unit }),
   profile: () => apiClient.getTeachingProfile(),
   timetable: () => apiClient.getTeachingTimetable(),
@@ -86,7 +93,7 @@ const real: TeachingSource = {
     if (opts.answer) throw new Error(ANSWER_UNSUPPORTED)
     const a4 = opts.a4 === true
     const format = a4 ? 'a4' : 'html'
-    const result = await apiClient.renderTeachingDraft({ kind, draft, formats: [format] })
+    const result = await apiClient.renderTeachingDraft({ kind, draft, formats: [format], tts: false })
     const file = result.files.find((f) => f.format === format) || result.files[0]
     if (!file) throw new Error('render returned no file')
     return { html: await readRendered(file.path), path: file.path, warnings: result.warnings }
@@ -114,6 +121,7 @@ function demoSource(mode: DemoMode): TeachingSource {
     classes: answer(demo.DEMO_CLASSES, demo.DEMO_CLASSES),
     knowledge: answer(demo.DEMO_KNOWLEDGE, EMPTY_KNOWLEDGE),
     recent: answer(demo.DEMO_RECENT, []),
+    loadDraft: answer(demo.DEMO_DICTATION, demo.DEMO_DICTATION),
     facts: answer(demo.DEMO_FACTS, { facts: [], stats: {} }),
     profile: answer({ subjects: ['英语'], textbook: '人教新版' }, {}),
     timetable: answer(demo.DEMO_TIMETABLE, { periods: [], slots: [], overrides: [] }),
@@ -122,7 +130,12 @@ function demoSource(mode: DemoMode): TeachingSource {
     preview: (kind, draft, opts = {}) => {
       if (mode === 'loading') return new Promise<PreviewResult>(() => undefined)
       if (mode === 'error') return Promise.reject(new Error('HTTP 404: Not Found'))
-      const html = kind === 'deck' ? demo.demoDeckHtml(draft as DeckDraft) : demo.demoCardHtml(draft as CardDraft, opts.answer === true)
+      const html =
+        kind === 'deck'
+          ? demo.demoDeckHtml(draft as DeckDraft)
+          : kind === 'dictation'
+            ? demo.demoDictationHtml(draft as DictationDraft)
+            : demo.demoCardHtml(draft as CardDraft, opts.answer === true)
       return Promise.resolve({ html, path: '', warnings: [] })
     },
     saveDraft: answer('artifacts/教学工具/demo.json', ''),

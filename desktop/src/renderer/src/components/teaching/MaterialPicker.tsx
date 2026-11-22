@@ -38,6 +38,27 @@ export const filesUnder = (files: KnowledgeEntry[], ...roots: string[]): Knowled
 export const unitChoices = (files: KnowledgeEntry[], textbookRoot: string): string[] =>
   Array.from(new Set(filesUnder(files, textbookRoot).map((file) => file.title.replace(/\.md$/, ''))))
 
+// Fallback choices so the two selects are usable before any textbook is
+// imported; the last option in each select is 自定义….
+export const TEXTBOOKS = [
+  '人教新版七上', '人教新版七下', '人教新版八上', '人教新版八下', '人教新版九上', '人教新版九下',
+  '外研版七上', '外研版八上', '外研版九上', '译林版七上', '译林版八上', '译林版九上',
+  'PEP 五年级上', 'PEP 六年级上',
+]
+export const UNIT_CHOICES = [
+  'Starter Unit 1', 'Starter Unit 2', 'Starter Unit 3',
+  ...Array.from({ length: 12 }, (_, i) => `Unit ${i + 1}`),
+]
+
+/** The textbooks the knowledge base already has under the textbook folder, plus the profile's. */
+export function bookChoices(files: KnowledgeEntry[], textbookRoot: string, fallback: string): string[] {
+  const books = filesUnder(files, textbookRoot)
+    .map((file) => file.path.split('/')[1] || '')
+    .filter(Boolean)
+  if (fallback) books.push(fallback)
+  return Array.from(new Set(books))
+}
+
 // ---------- classes ----------
 
 export const ClassPicker: React.FC<{
@@ -102,6 +123,60 @@ export const UnitPicker: React.FC<{
     </datalist>
   </>
 )
+
+/** A real select with a 自定义… escape hatch, for lists that cannot be complete. */
+export const SelectOrType: React.FC<{
+  id: string
+  label: string
+  value: string
+  choices: string[]
+  placeholder?: string
+  onChange: (value: string) => void
+}> = ({ id, label, value, choices, placeholder, onChange }) => {
+  const [custom, setCustom] = useState(false)
+  const options = Array.from(new Set([...choices, value].filter(Boolean)))
+  if (custom) {
+    return (
+      <span className="twt-pick-custom">
+        <input
+          id={`${id}-custom`}
+          className="twb-input twt-input"
+          value={value}
+          placeholder={placeholder}
+          aria-label={label}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <button type="button" className="twb-link" onClick={() => setCustom(false)}>
+          {t('twt_pick_list')}
+        </button>
+      </span>
+    )
+  }
+  return (
+    <select
+      id={`${id}-select`}
+      className="twb-input twt-input twt-select"
+      value={value}
+      aria-label={label}
+      onChange={(e) => {
+        if (e.target.value === '__custom__') {
+          setCustom(true)
+          onChange('')
+          return
+        }
+        onChange(e.target.value)
+      }}
+    >
+      <option value="">{placeholder || t('twt_pick_placeholder')}</option>
+      {options.map((option) => (
+        <option key={option} value={option}>
+          {option}
+        </option>
+      ))}
+      <option value="__custom__">{t('twt_pick_custom')}</option>
+    </select>
+  )
+}
 
 // ---------- material groups ----------
 

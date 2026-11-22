@@ -4,16 +4,17 @@
 // React, no network.
 import type { TeachingWeek } from '../../api/client'
 
-export type ToolId = 'plan' | 'courseware' | 'card' | 'advice' | 'schedule'
+export type ToolId = 'plan' | 'courseware' | 'card' | 'dictation' | 'advice' | 'schedule'
 
-export const TOOL_IDS: ToolId[] = ['plan', 'courseware', 'card', 'advice', 'schedule']
+export const TOOL_IDS: ToolId[] = ['plan', 'courseware', 'card', 'dictation', 'advice', 'schedule']
 
 export const asToolId = (value: string): ToolId | null =>
   TOOL_IDS.includes(value as ToolId) ? (value as ToolId) : null
 
 // ---------- deck (§2) ----------
 
-export const DECK_THEMES = ['lecture', 'activity', 'review', 'warm', 'mint'] as const
+/** The skill's three themes (skills/courseware-ppt/SKILL.md §5). */
+export const DECK_THEMES = ['lecture', 'activity', 'review'] as const
 export type DeckTheme = (typeof DECK_THEMES)[number]
 
 /** The renderer's layout list (agent/tools/pptx/validation.py LAYOUTS). */
@@ -139,6 +140,32 @@ export interface CardDraft {
 
 /** The contract allows at most 4 sections of at most 8 items each. */
 export const CARD_MAX_ITEMS_PER_SECTION = 8
+
+// ---------- dictation ----------
+
+/** 中文听写 prints the meaning; 英文听写 plays the word instead. */
+export const DICTATION_MODES = ['zh', 'en'] as const
+export type DictationMode = (typeof DICTATION_MODES)[number]
+
+export interface DictationSense {
+  pos: string
+  meaning: string
+}
+
+export interface DictationWord {
+  word: string
+  phonetic?: string
+  /** One word can be several parts of speech, each with its own meaning. */
+  senses: DictationSense[]
+  /** The page's checkbox; false means it is not printed. */
+  on?: boolean
+}
+
+export interface DictationDraft {
+  version: 1
+  meta: { title: string; book: string; unit: string; date: string; mode: DictationMode }
+  words: DictationWord[]
+}
 
 // ---------- plan outline, advice actions ----------
 
@@ -301,6 +328,83 @@ export function normalizeCard(raw: unknown): CardDraft | null {
     sections,
     footer: { score: footer.score !== false },
   }
+}
+
+export function normalizeDictation(raw: unknown): DictationDraft | null {
+  const root = isRecord(raw) && isRecord(raw.dictation) ? raw.dictation : raw
+  if (!isRecord(root) || !Array.isArray(root.words)) return null
+  const words = root.words
+    .filter(isRecord)
+    .map((row) => {
+      const senses: DictationSense[] = Array.isArray(row.senses)
+        ? row.senses
+            .filter(isRecord)
+            .map((sense) => ({ pos: str(sense.pos).trim(), meaning: str(sense.meaning).trim() }))
+            .filter((sense) => sense.pos || sense.meaning)
+        : [{ pos: str(row.pos).trim(), meaning: str(row.meaning).trim() }].filter((sense) => sense.pos || sense.meaning)
+      const out: DictationWord = { word: str(row.word).trim(), senses, on: row.on !== false }
+      if (str(row.phonetic).trim()) out.phonetic = str(row.phonetic).trim()
+      return out
+    })
+    .filter((row) => row.word)
+  if (!words.length) return null
+  const meta = isRecord(root.meta) ? root.meta : {}
+  return {
+    version: 1,
+    meta: {
+      title: str(meta.title),
+      book: str(meta.book),
+      unit: str(meta.unit),
+      date: str(meta.date),
+      mode: meta.mode === 'en' ? 'en' : 'zh',
+    },
+    words,
+  }
+}
+
+const PHONETIC = /\/[^/\s][^/\n]{0,40}\//
+const WORD_POS = /(?:^|\s)(n|v|vt|vi|adj|adv|prep|pron|conj|num|art|int|aux|abbr|phr)\.\s*$/i
+const CJK = /[\u4e00-\u9fff]/
+const TRIM = /^[\s,;:，；：、|/·\-—–]+|[\s,;:，；：、|/·\-—–]+$/g
+const tidy = (value: string): string => value.replace(/\s+/g, ' ').replace(TRIM, '').trim()
+
+/**
+ * A pasted word list, one word per line. Accepts the shapes teachers copy from
+ * a textbook or a chat reply: `visit 参观`, `1. visit /vɪzɪt/ v. 参观；拜访`,
+ * `see a film  看电影`, `visit - to go and see` (no Chinese at all).
+ */
+export function parseWordList(text: string): DictationWord[] {
+  const out: DictationWord[] = []
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim().replace(/^\d+[).、]\s*/, '').replace(/^[-*•]\s*/, '')
+    if (!line) continue
+    const at = (() => {
+      let hit = line.search(CJK)
+      // `T恤衫` / `A股`: a lone Latin letter glued to the Chinese belongs to it.
+      while (hit > 0 && /[A-Za-z]/.test(line[hit - 1]) && (hit < 2 || !/[A-Za-z]/.test(line[hit - 2]))) hit -= 1
+      return hit
+    })()
+    let left = at >= 0 ? line.slice(0, at) : line
+    let meaning = at >= 0 ? line.slice(at) : ''
+    if (at < 0) {
+      // No Chinese: `word — explanation` or a bare word.
+      const split = line.match(/^([A-Za-z][A-Za-z'’.\- ]*?)\s*(?:[-—–|:：,，\t])\s*(.+)$/)
+      if (split) {
+        left = split[1]
+        meaning = split[2]
+      }
+    }
+    const phonetic = left.match(PHONETIC)?.[0] || ''
+    left = left.replace(PHONETIC, ' ')
+    const pos = left.match(WORD_POS)?.[1] || ''
+    left = left.replace(WORD_POS, ' ')
+    const word = tidy(left)
+    if (!/^[A-Za-z][A-Za-z0-9'’.\- ]*$/.test(word)) continue
+    const row: DictationWord = { word, senses: [{ pos: pos ? `${pos}.` : '', meaning: tidy(meaning) }] }
+    if (phonetic) row.phonetic = phonetic
+    out.push(row)
+  }
+  return out
 }
 
 /** Renumber every item 1…n across sections, the order the card prints in. */
