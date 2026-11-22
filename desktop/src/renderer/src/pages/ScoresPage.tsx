@@ -298,6 +298,9 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
   })
   // 学科筛选：null = 全部（所有分项 + 总分），否则只显示选中的分项。
   const [subjectKeys, setSubjectKeys] = useState<string[] | null>(null)
+  // 表头排序：默认按学号升序，数字列可点。缺考/未录的格子永远排在最后。
+  const [sortKey, setSortKey] = useState('no')
+  const [sortAsc, setSortAsc] = useState(true)
   const gridRef = useRef<HTMLDivElement>(null)
   const scoreToken = useRef(0)
   const studentToken = useRef(0)
@@ -444,6 +447,72 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
       : [...subjectKeys, key]
     setSubjectKeys(next.length === 0 || next.length === allItemKeys.length ? null : next)
   }
+
+  // 实时排名：看总分时按总分排，筛了学科时按所选学科的合计排。
+  // 同分同名次（1、2、2、4），缺考/未录不参与排名。
+  const rankByStudent = useMemo(() => {
+    const value = (student: TeachingStudent): number | null => {
+      const entry = scores[student.id]
+      if (!entry) return null
+      if (showTotal) return entry.total
+      const values = shownItems
+        .map((item) => entry.items?.[item.key])
+        .filter((item): item is number => item !== null && item !== undefined)
+      if (!values.length) return null
+      return Number(values.reduce((sum, item) => sum + item, 0).toFixed(2))
+    }
+    const ranked = students
+      .map((student) => ({ id: student.id, value: value(student) }))
+      .filter((row): row is { id: string; value: number } => row.value !== null)
+      .sort((a, b) => b.value - a.value)
+    const ranks = new Map<string, number>()
+    ranked.forEach((row, index) => {
+      const prev = ranked[index - 1]
+      ranks.set(row.id, prev && prev.value === row.value ? ranks.get(prev.id)! : index + 1)
+    })
+    return ranks
+  }, [students, scores, showTotal, shownItems])
+
+  const toggleSort = (key: string) => {
+    if (key === sortKey) {
+      setSortAsc((prev) => !prev)
+      return
+    }
+    setSortKey(key)
+    // 名次从小到大（第一名在最上面），分数从高到低，学号/姓名正序。
+    setSortAsc(key === 'rank' || (!allItemKeys.includes(key) && key !== Column.total))
+  }
+
+  const sortValue = (student: TeachingStudent): number | string | null => {
+    if (sortKey === 'no') return student.no
+    if (sortKey === 'name') return student.name
+    if (sortKey === 'rank') return rankByStudent.get(student.id) ?? null
+    if (sortKey === Column.total) return scores[student.id]?.total ?? null
+    const value = scores[student.id]?.items?.[sortKey]
+    return value === null || value === undefined ? null : value
+  }
+
+  const rows = useMemo(() => {
+    const direction = sortAsc ? 1 : -1
+    return [...students].sort((a, b) => {
+      const left = sortValue(a)
+      const right = sortValue(b)
+      if (left === null && right === null) return 0
+      if (left === null) return 1
+      if (right === null) return -1
+      if (typeof left === 'number' && typeof right === 'number') return (left - right) * direction
+      return String(left).localeCompare(String(right), 'zh-Hans-CN', { numeric: true }) * direction
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [students, sortKey, sortAsc, scores, rankByStudent])
+
+  // 表头按钮：同一列再点一次反向。
+  const sortHeader = (key: string, label: React.ReactNode) => (
+    <button type="button" className="twb-sort" onClick={() => toggleSort(key)}>
+      {label}
+      {sortKey === key && <span className="twb-sort-mark">{sortAsc ? '↑' : '↓'}</span>}
+    </button>
+  )
 
   const isAbsent = (entry: ScoreEntry | undefined): boolean =>
     Boolean(entry) && entry!.total === null && !Object.values(entry!.items || {}).some((v) => v !== null)
@@ -596,8 +665,6 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
     [students, scores, itemColumns]
   )
 
-  const classExams = selectedExam ? exams : []
-
   return (
     <div id="twb-scores" className="flex-1 flex flex-col min-h-0">
       <div className="twb-scroll">
@@ -632,114 +699,97 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
           ) : error ? (
             <PageError message={error} onRetry={() => void load()} />
           ) : (
-            <div className="twb-split">
-              <aside className="twb-card twb-side">
-                <div className="twb-card-head">
-                  <h2>{t('tw_sc_exam_list')}</h2>
-                  <span className="twb-count">{exams.length}</span>
-                </div>
-                {classExams.length ? (
-                  <ul className="twb-side-list">
-                    {classExams.map((exam) => (
-                      <li key={exam.id}>
-                        <button
-                          type="button"
-                          className={`twb-side-item${exam.id === selectedExamId ? ' is-active' : ''}`}
-                          onClick={() => pickExam(exam)}
-                        >
-                          <b>{exam.name}</b>
-                          <small>
-                            {[exam.subject, exam.date].filter(Boolean).join(' · ')}
-                          </small>
-                          <small>
-                            {exam.class_ids
-                              .map((id) => classes.find((row) => row.id === id)?.name || '')
-                              .filter(Boolean)
-                              .join('、')}
-                          </small>
-                        </button>
-                        <span className="twb-side-actions">
-                          <button
-                            type="button"
-                            className="twb-icon-btn"
-                            title={t('tw_sc_exam_edit')}
-                            aria-label={t('tw_sc_exam_edit')}
-                            onClick={() => setDialog({ open: true, target: exam })}
-                          >
-                            <Pencil size={12} />
-                          </button>
-                          <button
-                            type="button"
-                            className="twb-icon-btn is-danger"
-                            title={t('tw_delete')}
-                            aria-label={t('tw_delete')}
-                            onClick={() => void deleteExam(exam)}
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <Empty
-                    icon={GraduationCap}
-                    text={t('tw_sc_exam_empty')}
-                    actionLabel={classes.length ? t('tw_sc_exam_new') : undefined}
-                    onAction={() => setDialog({ open: true, target: null })}
-                  />
-                )}
-              </aside>
-
-              <section className="twb-card twb-sc-main" aria-labelledby="twb-sc-main-title">
-                {!selectedExam ? (
-                  <Empty icon={GraduationCap} text={t('tw_sc_pick_exam')} />
-                ) : (
-                  <>
-                    <div className="twb-card-head">
-                      <div>
-                        <h2 id="twb-sc-main-title">{selectedExam.name}</h2>
-                        <p className="twb-hint">
-                          {[
-                            selectedExam.subject,
-                            tf('tw_sc_full', { n: selectedExam.full_score }),
-                            tf('tw_sc_absent_count', { n: absentCount }),
-                          ]
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </p>
-                      </div>
-                      <div className="twb-segs twb-segs-sm" role="tablist" aria-label={t('tw_sc_title')}>
-                        <button
-                          type="button"
-                          role="tab"
-                          aria-selected={view === 'entry'}
-                          className="twb-seg"
-                          onClick={() => setView('entry')}
-                        >
-                          {t('tw_sc_entry')}
-                        </button>
-                        <button
-                          type="button"
-                          role="tab"
-                          aria-selected={view === 'analysis'}
-                          className="twb-seg"
-                          onClick={() => setView('analysis')}
-                        >
-                          {t('tw_sc_analysis')}
-                        </button>
+            <section className="twb-card twb-sc-main" aria-labelledby="twb-sc-main-title">
+              {!selectedExam ? (
+                <Empty icon={GraduationCap} text={t('tw_sc_pick_exam')} />
+              ) : (
+                <>
+                  <div className="twb-card-head">
+                    <div>
+                      <h2 id="twb-sc-main-title">{selectedExam.name}</h2>
+                      <p className="twb-hint">
+                        {[
+                          selectedExam.subject,
+                          tf('tw_sc_full', { n: selectedExam.full_score }),
+                          tf('tw_sc_absent_count', { n: absentCount }),
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </p>
+                    </div>
+                    <div className="twb-sc-head-tools">
+                      <span className="twb-sc-exam-tools">
+                      <button
+                        type="button"
+                        className="twb-icon-btn"
+                        title={t('tw_sc_exam_edit')}
+                        aria-label={t('tw_sc_exam_edit')}
+                        onClick={() => setDialog({ open: true, target: selectedExam })}
+                      >
+                        <Pencil size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        className="twb-icon-btn is-danger"
+                        title={t('tw_delete')}
+                        aria-label={t('tw_delete')}
+                        onClick={() => void deleteExam(selectedExam)}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </span>
+                    <div className="twb-segs twb-segs-sm" role="tablist" aria-label={t('tw_sc_title')}>
+                      <button
+                        type="button"
+                        role="tab"
+                        aria-selected={view === 'entry'}
+                        className="twb-seg"
+                        onClick={() => setView('entry')}
+                      >
+                        {t('tw_sc_entry')}
+                      </button>
+                      <button
+                        type="button"
+                        role="tab"
+                        aria-selected={view === 'analysis'}
+                        className="twb-seg"
+                        onClick={() => setView('analysis')}
+                      >
+                        {t('tw_sc_analysis')}
+                      </button>
                       </div>
                     </div>
+                  </div>
+
+                  {/* 筛选都在上方：考试、班级、学科。左侧栏曾占近 300px，
+                      而考试与班级通常只有几条。 */}
+                  <div className="twb-filter-bar">
+                    <label className="twb-filter-field">
+                      <span className="twb-filter-label">{t('tw_sc_exam_list')}</span>
+                      <select
+                        className="twb-filter-select"
+                        value={selectedExamId}
+                        onChange={(e) => {
+                          const next = exams.find((exam) => exam.id === e.target.value)
+                          if (next) pickExam(next)
+                        }}
+                      >
+                        {exams.map((exam) => (
+                          <option key={exam.id} value={exam.id}>
+                            {[exam.name, exam.subject, exam.date].filter(Boolean).join(' · ')}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
 
                     {selectedExam.class_ids.length > 1 && (
-                      <div className="twb-segs twb-segs-sm" role="tablist" aria-label={t('tw_sc_classes')}>
+                      <div className="twb-filter-chips" role="group" aria-label={t('tw_sc_classes')}>
                         {selectedExam.class_ids.map((id) => (
                           <button
                             key={id}
                             type="button"
-                            role="tab"
-                            aria-selected={id === classId}
-                            className="twb-seg"
+                            className={`twb-chip${id === classId ? ' is-on' : ''}`}
+                            aria-pressed={id === classId}
                             onClick={() => setClassId(id)}
                           >
                             {classes.find((item) => item.id === id)?.name || id}
@@ -748,116 +798,299 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
                       </div>
                     )}
 
-                    {view === 'entry' ? (
-                      scoresLoading ? (
-                        <Loading />
-                      ) : scoresError ? (
-                        <PageError message={scoresError} onRetry={() => setSelectedExamId(selectedExam.id)} />
-                      ) : students.length ? (
-                        <>
-                          {itemColumns.length > 1 && (
-                            <div
-                              className="twb-subject-filter"
-                              role="group"
-                              aria-label={t('tw_sc_subject_filter')}
+                    {view === 'entry' && itemColumns.length > 1 && (
+                      <div className="twb-filter-chips" role="group" aria-label={t('tw_sc_subject_filter')}>
+                        <button
+                          type="button"
+                          className={`twb-chip${subjectKeys === null ? ' is-on' : ''}`}
+                          aria-pressed={subjectKeys === null}
+                          onClick={() => setSubjectKeys(null)}
+                        >
+                          {t('tw_sc_all_subjects')}
+                        </button>
+                        {itemColumns.map((item) => {
+                          const on = subjectKeys !== null && subjectKeys.includes(item.key)
+                          return (
+                            <button
+                              key={item.key}
+                              type="button"
+                              className={`twb-chip${on ? ' is-on' : ''}`}
+                              aria-pressed={on}
+                              onClick={() => toggleSubject(item.key)}
                             >
-                              <button
-                                type="button"
-                                className={`twb-chip${subjectKeys === null ? ' is-on' : ''}`}
-                                aria-pressed={subjectKeys === null}
-                                onClick={() => setSubjectKeys(null)}
-                              >
-                                {t('tw_sc_all_subjects')}
-                              </button>
-                              {itemColumns.map((item) => {
-                                const on = subjectKeys !== null && subjectKeys.includes(item.key)
+                              {item.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {view === 'entry' ? (
+                    scoresLoading ? (
+                      <Loading />
+                    ) : scoresError ? (
+                      <PageError message={scoresError} onRetry={() => setSelectedExamId(selectedExam.id)} />
+                    ) : students.length ? (
+                      <>
+                        <div className="twb-table-wrap" ref={gridRef}>
+                          <table className="twb-table twb-score-table">
+                            <thead>
+                              <tr>
+                                <th>{sortHeader('no', t('tw_st_no'))}</th>
+                                <th>{sortHeader('name', t('tw_st_name'))}</th>
+                                <th className="is-num twb-rank-col">{sortHeader('rank', t('tw_sc_rank'))}</th>
+                                {shownItems.map((item) => (
+                                  <th key={item.key} className="is-num">
+                                    {sortHeader(item.key, item.label)}
+                                    <small>/{item.full}</small>
+                                  </th>
+                                ))}
+                                {showTotal && (
+                                  <th className="is-num">
+                                    {sortHeader(Column.total, t('tw_sc_total'))}
+                                    <small>/{selectedExam.full_score}</small>
+                                  </th>
+                                )}
+                                <th>{t('tw_sc_absent')}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rows.map((student, row) => {
+                                const entry = scores[student.id]
+                                const absent = isAbsent(entry)
                                 return (
-                                  <button
-                                    key={item.key}
-                                    type="button"
-                                    className={`twb-chip${on ? ' is-on' : ''}`}
-                                    aria-pressed={on}
-                                    onClick={() => toggleSubject(item.key)}
-                                  >
-                                    {item.label}
-                                  </button>
+                                  <tr key={student.id} className={absent ? 'is-absent' : ''}>
+                                    <td className="is-num">{student.no}</td>
+                                    <td>{student.name}</td>
+                                    <td className="is-num twb-rank-cell">
+                                      {absent ? '—' : rankByStudent.get(student.id) ?? '—'}
+                                    </td>
+                                    {shownItems.map((item, column) => (
+                                      <td key={item.key} className="is-num is-cell">
+                                        <input
+                                          className="twb-score-input"
+                                          type="number"
+                                          min={0}
+                                          max={item.full}
+                                          data-cell={`${row}-${column}`}
+                                          disabled={absent}
+                                          value={cellValue(entry, item.key)}
+                                          onChange={(e) => applyCell(student.id, item.key, e.target.value)}
+                                          onKeyDown={(e) => onCellKey(e, row, column)}
+                                          onPaste={(e) => onPasteAt(e, row, column)}
+                                        />
+                                      </td>
+                                    ))}
+                                    {showTotal && (
+                                      <td className="is-num is-cell">
+                                        <input
+                                          className="twb-score-input twb-score-total"
+                                          type="number"
+                                          min={0}
+                                          max={selectedExam.full_score}
+                                          data-cell={`${row}-${columns.length - 1}`}
+                                          disabled={absent}
+                                          readOnly={itemColumns.length > 0}
+                                          value={cellValue(entry, Column.total)}
+                                          onChange={(e) =>
+                                            applyCell(student.id, Column.total, e.target.value)
+                                          }
+                                          onKeyDown={(e) => onCellKey(e, row, columns.length - 1)}
+                                          onPaste={(e) => onPasteAt(e, row, columns.length - 1)}
+                                        />
+                                      </td>
+                                    )}
+                                    <td>
+                                      <button
+                                        type="button"
+                                        className={`twb-chip${absent ? ' is-on' : ''}`}
+                                        aria-pressed={absent}
+                                        onClick={() => toggleAbsent(student.id)}
+                                      >
+                                        {absent ? t('tw_sc_absent') : t('tw_sc_mark_absent')}
+                                      </button>
+                                    </td>
+                                  </tr>
                                 )
                               })}
-                            </div>
-                          )}
-                          <div className="twb-table-wrap" ref={gridRef}>
-                            <table className="twb-table twb-score-table">
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className="twb-form-actions">
+                          <button
+                            type="button"
+                            className="twb-btn twb-btn-primary"
+                            disabled={saving}
+                            onClick={() => void save()}
+                          >
+                            {t('tw_sc_save')}
+                          </button>
+                          <span className="twb-hint">{t('tw_sc_entry_hint')}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <Empty icon={GraduationCap} text={t('tw_sc_no_students')} />
+                    )
+                  ) : analysisLoading ? (
+                    <Loading />
+                  ) : analysisError ? (
+                    <PageError
+                      message={analysisError}
+                      onRetry={() => {
+                        setAnalysis(null)
+                        setAnalysisKey('')
+                      }}
+                    />
+                  ) : analysis ? (
+                    <div className="twb-analysis">
+                      <div className="twb-stats">
+                        <div className="twb-stat">
+                          <span>{t('tw_an_count')}</span>
+                          <b>{analysis.summary.scored}</b>
+                          <small>{tf('tw_an_absent_n', { n: analysis.summary.absent })}</small>
+                        </div>
+                        <div className="twb-stat">
+                          <span>{t('tw_an_average')}</span>
+                          <b>{numberText(analysis.summary.average)}</b>
+                        </div>
+                        <div className="twb-stat">
+                          <span>{t('tw_an_pass')}</span>
+                          <b>{percentText(analysis.summary.pass_rate)}</b>
+                        </div>
+                        <div className="twb-stat">
+                          <span>{t('tw_an_excellent')}</span>
+                          <b>{percentText(analysis.summary.excellent_rate)}</b>
+                        </div>
+                        <div className="twb-stat">
+                          <span>{t('tw_an_stddev')}</span>
+                          <b>{numberText(analysis.summary.stddev, 2)}</b>
+                        </div>
+                      </div>
+
+                      {analysis.by_class.length > 1 && (
+                        <div className="twb-an-block">
+                          <h3>{t('tw_an_by_class')}</h3>
+                          <table className="twb-table">
+                            <thead>
+                              <tr>
+                                <th>{t('tw_an_class')}</th>
+                                <th className="is-num">{t('tw_an_count')}</th>
+                                <th className="is-num">{t('tw_an_average')}</th>
+                                <th className="is-num">{t('tw_an_pass')}</th>
+                                <th className="is-num">{t('tw_an_excellent')}</th>
+                                <th className="is-num">{t('tw_an_stddev')}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {analysis.by_class.map((row) => (
+                                <tr key={row.class_id}>
+                                  <td>{row.class_name}</td>
+                                  <td className="is-num">{row.students}</td>
+                                  <td className="is-num">{numberText(row.average)}</td>
+                                  <td className="is-num">{percentText(row.pass_rate)}</td>
+                                  <td className="is-num">{percentText(row.excellent_rate)}</td>
+                                  <td className="is-num">{numberText(row.stddev, 2)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {analysis.items.length > 0 && (
+                        <div className="twb-an-block">
+                          <h3>{t('tw_an_items')}</h3>
+                          <table className="twb-table">
+                            <thead>
+                              <tr>
+                                <th>{t('tw_sc_item_label')}</th>
+                                <th className="is-num">{t('tw_an_full')}</th>
+                                <th className="is-num">{t('tw_an_average')}</th>
+                                <th>{t('tw_an_rate')}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {analysis.items.map((item) => (
+                                <tr key={item.key}>
+                                  <td>{item.label}</td>
+                                  <td className="is-num">{wholeText(item.full)}</td>
+                                  <td className="is-num">{numberText(item.average)}</td>
+                                  <td>
+                                    <div className="twb-progress-bar">
+                                      <i style={{ width: `${Math.round(Math.min(100, item.rate ?? 0))}%` }} />
+                                    </div>
+                                    <small className="twb-hint">{percentText(item.rate)}</small>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      <div className="twb-an-block">
+                        <h3>{t('tw_an_critical')}</h3>
+                        {analysis.critical.length ? (
+                          <ul className="twb-critical">
+                            {analysis.critical.map((row) => (
+                              <li key={row.student_id}>
+                                <b>{row.name}</b>
+                                <span>
+                                  {row.class_name}
+                                  {' · '}
+                                  {wholeText(row.total)}
+                                  {' · '}
+                                  {tf('tw_an_gap', { n: numberText(row.gap) })}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="twb-hint">{t('tw_an_no_critical')}</p>
+                        )}
+                      </div>
+
+                      <div className="twb-an-block">
+                        <h3>{t('tw_an_trend')}</h3>
+                        {analysis.students.length ? (
+                          <div className="twb-table-wrap">
+                            <table className="twb-table">
                               <thead>
                                 <tr>
-                                  <th>{t('tw_st_no')}</th>
                                   <th>{t('tw_st_name')}</th>
-                                  {shownItems.map((item) => (
-                                    <th key={item.key} className="is-num">
-                                      {item.label}
-                                      <small>/{item.full}</small>
-                                    </th>
-                                  ))}
-                                  {showTotal && (
-                                    <th className="is-num">
-                                      {t('tw_sc_total')}
-                                      <small>/{selectedExam.full_score}</small>
-                                    </th>
-                                  )}
-                                  <th>{t('tw_sc_absent')}</th>
+                                  <th>{t('tw_an_class')}</th>
+                                  <th>{t('tw_an_trend')}</th>
+                                  <th className="is-num">{t('tw_sc_total')}</th>
+                                  <th className="is-num">{t('tw_an_delta')}</th>
                                 </tr>
                               </thead>
                               <tbody>
-                                {students.map((student, row) => {
-                                  const entry = scores[student.id]
-                                  const absent = isAbsent(entry)
+                                {analysis.students.map((student) => {
+                                  // The backend sends each student's whole
+                                  // subject series; compare the last two
+                                  // sittings that produced a total.
+                                  const scored = student.exams.filter(
+                                    (point) => point.total !== null
+                                  )
+                                  const first = scored[scored.length - 2]
+                                  const second = scored[scored.length - 1]
+                                  const delta =
+                                    first && second && first.total !== null && second.total !== null
+                                      ? second.total - first.total
+                                      : null
                                   return (
-                                    <tr key={student.id} className={absent ? 'is-absent' : ''}>
-                                      <td className="is-num">{student.no}</td>
+                                    <tr key={student.student_id}>
                                       <td>{student.name}</td>
-                                      {shownItems.map((item, column) => (
-                                        <td key={item.key} className="is-num is-cell">
-                                          <input
-                                            className="twb-score-input"
-                                            type="number"
-                                            min={0}
-                                            max={item.full}
-                                            data-cell={`${row}-${column}`}
-                                            disabled={absent}
-                                            value={cellValue(entry, item.key)}
-                                            onChange={(e) => applyCell(student.id, item.key, e.target.value)}
-                                            onKeyDown={(e) => onCellKey(e, row, column)}
-                                            onPaste={(e) => onPasteAt(e, row, column)}
-                                          />
-                                        </td>
-                                      ))}
-                                      {showTotal && (
-                                        <td className="is-num is-cell">
-                                          <input
-                                            className="twb-score-input twb-score-total"
-                                            type="number"
-                                            min={0}
-                                            max={selectedExam.full_score}
-                                            data-cell={`${row}-${columns.length - 1}`}
-                                            disabled={absent}
-                                            readOnly={itemColumns.length > 0}
-                                            value={cellValue(entry, Column.total)}
-                                            onChange={(e) =>
-                                              applyCell(student.id, Column.total, e.target.value)
-                                            }
-                                            onKeyDown={(e) => onCellKey(e, row, columns.length - 1)}
-                                            onPaste={(e) => onPasteAt(e, row, columns.length - 1)}
-                                          />
-                                        </td>
-                                      )}
+                                      <td>{student.class_name}</td>
                                       <td>
-                                        <button
-                                          type="button"
-                                          className={`twb-chip${absent ? ' is-on' : ''}`}
-                                          aria-pressed={absent}
-                                          onClick={() => toggleAbsent(student.id)}
-                                        >
-                                          {absent ? t('tw_sc_absent') : t('tw_sc_mark_absent')}
-                                        </button>
+                                        <TrendChart points={student.exams} />
+                                      </td>
+                                      <td className="is-num">{wholeText(student.total)}</td>
+                                      <td className="is-num">
+                                        {delta === null
+                                          ? '—'
+                                          : `${delta > 0 ? '+' : ''}${numberText(delta)}`}
                                       </td>
                                     </tr>
                                   )
@@ -865,211 +1098,29 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
                               </tbody>
                             </table>
                           </div>
-                          <div className="twb-form-actions">
-                            <button
-                              type="button"
-                              className="twb-btn twb-btn-primary"
-                              disabled={saving}
-                              onClick={() => void save()}
-                            >
-                              {t('tw_sc_save')}
-                            </button>
-                            <span className="twb-hint">{t('tw_sc_entry_hint')}</span>
-                          </div>
-                        </>
-                      ) : (
-                        <Empty icon={GraduationCap} text={t('tw_sc_no_students')} />
-                      )
-                    ) : analysisLoading ? (
-                      <Loading />
-                    ) : analysisError ? (
-                      <PageError
-                        message={analysisError}
-                        onRetry={() => {
+                        ) : (
+                          <p className="twb-hint">{t('tw_an_no_students')}</p>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        className="twb-btn"
+                        onClick={() => {
                           setAnalysis(null)
                           setAnalysisKey('')
                         }}
-                      />
-                    ) : analysis ? (
-                      <div className="twb-analysis">
-                        <div className="twb-stats">
-                          <div className="twb-stat">
-                            <span>{t('tw_an_count')}</span>
-                            <b>{analysis.summary.scored}</b>
-                            <small>{tf('tw_an_absent_n', { n: analysis.summary.absent })}</small>
-                          </div>
-                          <div className="twb-stat">
-                            <span>{t('tw_an_average')}</span>
-                            <b>{numberText(analysis.summary.average)}</b>
-                          </div>
-                          <div className="twb-stat">
-                            <span>{t('tw_an_pass')}</span>
-                            <b>{percentText(analysis.summary.pass_rate)}</b>
-                          </div>
-                          <div className="twb-stat">
-                            <span>{t('tw_an_excellent')}</span>
-                            <b>{percentText(analysis.summary.excellent_rate)}</b>
-                          </div>
-                          <div className="twb-stat">
-                            <span>{t('tw_an_stddev')}</span>
-                            <b>{numberText(analysis.summary.stddev, 2)}</b>
-                          </div>
-                        </div>
-
-                        {analysis.by_class.length > 1 && (
-                          <div className="twb-an-block">
-                            <h3>{t('tw_an_by_class')}</h3>
-                            <table className="twb-table">
-                              <thead>
-                                <tr>
-                                  <th>{t('tw_an_class')}</th>
-                                  <th className="is-num">{t('tw_an_count')}</th>
-                                  <th className="is-num">{t('tw_an_average')}</th>
-                                  <th className="is-num">{t('tw_an_pass')}</th>
-                                  <th className="is-num">{t('tw_an_excellent')}</th>
-                                  <th className="is-num">{t('tw_an_stddev')}</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {analysis.by_class.map((row) => (
-                                  <tr key={row.class_id}>
-                                    <td>{row.class_name}</td>
-                                    <td className="is-num">{row.students}</td>
-                                    <td className="is-num">{numberText(row.average)}</td>
-                                    <td className="is-num">{percentText(row.pass_rate)}</td>
-                                    <td className="is-num">{percentText(row.excellent_rate)}</td>
-                                    <td className="is-num">{numberText(row.stddev, 2)}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-
-                        {analysis.items.length > 0 && (
-                          <div className="twb-an-block">
-                            <h3>{t('tw_an_items')}</h3>
-                            <table className="twb-table">
-                              <thead>
-                                <tr>
-                                  <th>{t('tw_sc_item_label')}</th>
-                                  <th className="is-num">{t('tw_an_full')}</th>
-                                  <th className="is-num">{t('tw_an_average')}</th>
-                                  <th>{t('tw_an_rate')}</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {analysis.items.map((item) => (
-                                  <tr key={item.key}>
-                                    <td>{item.label}</td>
-                                    <td className="is-num">{wholeText(item.full)}</td>
-                                    <td className="is-num">{numberText(item.average)}</td>
-                                    <td>
-                                      <div className="twb-progress-bar">
-                                        <i style={{ width: `${Math.round(Math.min(100, item.rate ?? 0))}%` }} />
-                                      </div>
-                                      <small className="twb-hint">{percentText(item.rate)}</small>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-
-                        <div className="twb-an-block">
-                          <h3>{t('tw_an_critical')}</h3>
-                          {analysis.critical.length ? (
-                            <ul className="twb-critical">
-                              {analysis.critical.map((row) => (
-                                <li key={row.student_id}>
-                                  <b>{row.name}</b>
-                                  <span>
-                                    {row.class_name}
-                                    {' · '}
-                                    {wholeText(row.total)}
-                                    {' · '}
-                                    {tf('tw_an_gap', { n: numberText(row.gap) })}
-                                  </span>
-                                </li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <p className="twb-hint">{t('tw_an_no_critical')}</p>
-                          )}
-                        </div>
-
-                        <div className="twb-an-block">
-                          <h3>{t('tw_an_trend')}</h3>
-                          {analysis.students.length ? (
-                            <div className="twb-table-wrap">
-                              <table className="twb-table">
-                                <thead>
-                                  <tr>
-                                    <th>{t('tw_st_name')}</th>
-                                    <th>{t('tw_an_class')}</th>
-                                    <th>{t('tw_an_trend')}</th>
-                                    <th className="is-num">{t('tw_sc_total')}</th>
-                                    <th className="is-num">{t('tw_an_delta')}</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {analysis.students.map((student) => {
-                                    // The backend sends each student's whole
-                                    // subject series; compare the last two
-                                    // sittings that produced a total.
-                                    const scored = student.exams.filter(
-                                      (point) => point.total !== null
-                                    )
-                                    const first = scored[scored.length - 2]
-                                    const second = scored[scored.length - 1]
-                                    const delta =
-                                      first && second && first.total !== null && second.total !== null
-                                        ? second.total - first.total
-                                        : null
-                                    return (
-                                      <tr key={student.student_id}>
-                                        <td>{student.name}</td>
-                                        <td>{student.class_name}</td>
-                                        <td>
-                                          <TrendChart points={student.exams} />
-                                        </td>
-                                        <td className="is-num">{wholeText(student.total)}</td>
-                                        <td className="is-num">
-                                          {delta === null
-                                            ? '—'
-                                            : `${delta > 0 ? '+' : ''}${numberText(delta)}`}
-                                        </td>
-                                      </tr>
-                                    )
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
-                          ) : (
-                            <p className="twb-hint">{t('tw_an_no_students')}</p>
-                          )}
-                        </div>
-
-                        <button
-                          type="button"
-                          className="twb-btn"
-                          onClick={() => {
-                            setAnalysis(null)
-                            setAnalysisKey('')
-                          }}
-                        >
-                          <RefreshCw size={14} />
-                          <span>{t('tw_an_refresh')}</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <Empty icon={ChartLine} text={t('tw_an_empty')} />
-                    )}
-                  </>
-                )}
-              </section>
-            </div>
+                      >
+                        <RefreshCw size={14} />
+                        <span>{t('tw_an_refresh')}</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <Empty icon={ChartLine} text={t('tw_an_empty')} />
+                  )}
+                </>
+              )}
+          </section>
           )}
         </div>
       </div>

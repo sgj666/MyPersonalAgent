@@ -1232,16 +1232,71 @@
   color: var(--twb-urgent);
 }
 
-/* The subject filter reuses .twb-chip, but its "on" state must not read as
-   缺考 (the urgent orange above): selected columns are a view choice. */
+/* Filters (考试 / 班级 / 学科) live in one bar above the grid: the old left
+   column spent ~300px on a list that is usually two or three rows long. */
+.twb-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 0 0 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--twb-line);
+}
+
+.twb-filter-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.twb-filter-label {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--twb-ink-3);
+  white-space: nowrap;
+}
+
+.twb-filter-select {
+  max-width: 360px;
+  padding: 7px 30px 7px 12px;
+  border: 1px solid var(--twb-rim);
+  border-radius: 999px;
+  background: var(--twb-surface-2);
+  color: var(--twb-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: right 14px center, right 9px center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.twb-filter-select:hover {
+  border-color: var(--twb-accent);
+}
+
+.twb-filter-select:focus-visible {
+  outline: 2px solid var(--twb-accent);
+  outline-offset: 1px;
+}
+
+.twb-filter-chips,
 .twb-subject-filter {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin: 10px 0 2px;
+  margin: 0;
 }
 
-.twb-subject-filter .twb-chip.is-on {
+#twb-scores .twb-filter-chips .twb-chip.is-on,
+#twb-scores .twb-subject-filter .twb-chip.is-on {
   background: var(--twb-accent-soft);
   border-color: var(--twb-accent);
   color: var(--twb-ink);
@@ -4076,4 +4131,43 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
   font-weight: 600;
   color: var(--twb-ink-3);
   margin-left: 6px;
+}
+
+/* Exam edit/delete sit next to the 录分/分析 switch instead of on every row. */
+.twb-sc-head-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.twb-sc-exam-tools {
+  display: inline-flex;
+  gap: 4px;
+}
+
+/* A rank is 1-3 characters. width:1% + nowrap is the classic "shrink to content"
+   hint: without it the column soaks up the width the subject filter freed and
+   the number drifts away from its header. */
+.twb-rank-col,
+.twb-rank-cell {
+  width: 1%;
+  white-space: nowrap;
+}
+
+/* The 缺考 toggle is a fixed-width button: let it collapse to content so the
+   slack goes to the score columns instead of an empty gutter at the edge. */
+.twb-score-table th:last-child,
+.twb-score-table td:last-child {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.twb-rank-cell {
+  color: var(--twb-ink-2);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.twb-sort-mark {
+  color: var(--twb-accent);
 }
