@@ -4,7 +4,7 @@
 // backend renderer (agent/teaching/render/dictation_html.py); edits here only
 // change the draft it renders.
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { CheckSquare, ExternalLink, FileDown, History, Printer, Square, Sparkles } from 'lucide-react'
+import { CheckSquare, ExternalLink, FileDown, History, Languages, Printer, Square, Sparkles, Volume2 } from 'lucide-react'
 import { t, tf } from '../../i18n'
 import type { TeachingRecentItem } from '../../api/client'
 import DeliverBar, { type DeliverStatus } from '../../components/teaching/DeliverBar'
@@ -29,7 +29,7 @@ import { dictationPrompt, KB } from './prompts'
 import { useTeachingSource, type PreviewResult } from './source'
 import { useLoad } from './useLoad'
 import { useSkillRun } from './useSkillRun'
-import ToolFrame, { BarField, Segs, sessionOf } from './ToolFrame'
+import ToolFrame, { BarField, sessionOf } from './ToolFrame'
 
 const EMPTY_KNOWLEDGE = { tree: [], stats: { pages: 0, size: 0 }, enabled: true }
 const PREVIEW_DEBOUNCE_MS = 450
@@ -374,13 +374,24 @@ const DictationTool: React.FC = () => {
         />
       </BarField>
       <BarField label={t('twt_dict_kind')}>
-        <Segs<DictationKind>
-          label={t('twt_dict_kind')}
-          value={kind}
-          options={DICTATION_KINDS}
-          onChange={switchKind}
-          labelOf={(value) => t(`twt_dict_kind_${value}`)}
-        />
+        <div className="twt-mode-switch" role="radiogroup" aria-label={t('twt_dict_kind')}>
+          {DICTATION_KINDS.map((value) => (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={kind === value}
+              className={`twt-mode-pill is-${value}${kind === value ? ' is-on' : ''}`}
+              onClick={() => switchKind(value)}
+            >
+              {value === 'dictation' ? <Volume2 size={18} /> : <Languages size={18} />}
+              <span className="twt-mode-copy">
+                <span className="twt-mode-name">{t(`twt_dict_kind_${value}`)}</span>
+                <span className="twt-mode-sub">{t(`twt_dict_kind_${value}_sub`)}</span>
+              </span>
+            </button>
+          ))}
+        </div>
       </BarField>
       <BarField label={t('twt_dict_title')} grow>
         <input

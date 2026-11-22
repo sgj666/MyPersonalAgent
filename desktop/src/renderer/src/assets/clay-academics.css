@@ -3540,6 +3540,42 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
 .twt-dict-left > .twt-card { flex-shrink: 0; }
 .twt-dict-bar-actions,
 .twt-dict-head-tools { display: flex; align-items: center; gap: 10px; }
+.twt-mode-switch {
+  display: flex;
+  gap: 6px;
+  padding: 5px;
+  background: var(--twb-surface);
+  border: 1px solid var(--twb-rim);
+  border-radius: 999px;
+  box-shadow: var(--twb-shadow-sm);
+}
+.twt-mode-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  height: 56px;
+  padding: 0 24px;
+  font: inherit;
+  color: var(--twb-ink-2);
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background-color 120ms var(--twb-ease), color 120ms var(--twb-ease), box-shadow 120ms var(--twb-ease);
+}
+.twt-mode-pill svg { flex: none; }
+.twt-mode-copy { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
+.twt-mode-name { font-size: 17px; font-weight: 900; letter-spacing: 0.01em; }
+.twt-mode-sub { font-size: 11px; font-weight: 600; color: var(--twb-ink-3); }
+.twt-mode-pill.is-on {
+  color: var(--twb-accent-ink);
+  background: var(--twb-accent);
+  box-shadow: 0 0 0 4px rgba(82, 162, 119, 0.14), 0 12px 24px -12px rgba(47, 107, 79, 0.9);
+}
+.twt-mode-pill.is-on .twt-mode-sub { color: inherit; opacity: 0.74; }
+.twt-mode-pill:not(.is-on):hover { color: var(--twb-accent); background: var(--twb-accent-soft); }
+.twt-mode-pill:focus-visible { outline: 3px solid var(--twb-accent); outline-offset: 2px; }
+
 .twt-select { cursor: pointer; }
 .twt-pick-custom { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .twt-pick-custom .twt-input { flex: 1; min-width: 0; }
