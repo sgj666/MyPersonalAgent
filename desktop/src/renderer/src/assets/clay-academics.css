@@ -204,6 +204,94 @@
   padding: 14px;
 }
 
+/* 班级选择条：班级从左侧栏挪到花名册上方，横排胶囊 + 右侧管理动作。
+   胶囊用 accent-soft 表示选中，悬停轻微上浮，和 clay 的柔和阴影一致。 */
+.twb-class-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 0 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--twb-line);
+}
+
+.twb-class-bar-label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  flex: none;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--twb-ink-3);
+}
+
+.twb-class-bar-label em {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--twb-surface-2);
+  border: 1px solid var(--twb-line);
+  color: var(--twb-ink-2);
+}
+
+.twb-class-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.twb-class-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--twb-rim);
+  background: var(--twb-surface-2);
+  color: var(--twb-ink-2);
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.twb-class-pill:hover {
+  border-color: var(--twb-accent);
+  color: var(--twb-ink);
+  transform: translateY(-1px);
+  box-shadow: var(--twb-shadow-sm);
+}
+
+.twb-class-pill.is-active {
+  background: var(--twb-accent-soft);
+  border-color: var(--twb-accent);
+  color: var(--twb-ink);
+  box-shadow: 0 8px 18px -10px rgba(82, 162, 119, 0.75);
+}
+
+.twb-class-pill-name {
+  font-size: 14px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.twb-class-pill-meta {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--twb-ink-3);
+  white-space: nowrap;
+}
+
+.twb-class-tools {
+  display: inline-flex;
+  gap: 6px;
+  flex: none;
+}
+
 .twb-side-list {
   display: flex;
   flex-direction: column;

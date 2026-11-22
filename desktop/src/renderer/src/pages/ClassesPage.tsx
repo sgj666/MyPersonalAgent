@@ -342,65 +342,70 @@ const ClassesPage: React.FC<ClassesPageProps> = ({ baseUrl }) => {
 
           <Status text={status} />
 
-          <div className="twb-split">
-            <aside className="twb-card twb-side">
-              <div className="twb-card-head">
-                <h2>{t('tw_classes_list')}</h2>
-                <span className="twb-count">{classes.length}</span>
+          {/* 班级选择放在上方：一个班一个胶囊，右侧是当前班的管理动作。
+              左侧栏曾占据近三分之一宽度，而班级通常只有两三个。 */}
+          <section className="twb-card twb-roster" aria-labelledby="twb-roster-title">
+            <div className="twb-class-bar">
+              <span className="twb-class-bar-label">
+                {t('tw_classes_list')}
+                <em>{classes.length}</em>
+              </span>
+              <div className="twb-class-pills" role="tablist" aria-label={t('tw_classes_list')}>
+                {classes.map((item) => {
+                  const meta = [item.grade, item.subject, item.room].filter(Boolean).join(' · ')
+                  const active = item.id === selectedId
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      className={`twb-class-pill${active ? ' is-active' : ''}`}
+                      onClick={() => setSelectedId(item.id)}
+                    >
+                      <span className="twb-class-pill-name">{item.name}</span>
+                      {meta && <span className="twb-class-pill-meta">{meta}</span>}
+                    </button>
+                  )
+                })}
               </div>
-              {loading ? (
-                <Loading />
-              ) : error ? (
-                <PageError message={error} onRetry={() => void loadClasses()} />
-              ) : classes.length ? (
-                <ul className="twb-side-list">
-                  {classes.map((item) => (
-                    <li key={item.id}>
-                      <button
-                        type="button"
-                        className={`twb-side-item${item.id === selectedId ? ' is-active' : ''}`}
-                        onClick={() => setSelectedId(item.id)}
-                      >
-                        <b>{item.name}</b>
-                        <small>
-                          {[item.grade, item.subject, item.room].filter(Boolean).join(' · ') ||
-                            t('tw_classes_no_meta')}
-                        </small>
-                      </button>
-                      <span className="twb-side-actions">
-                        <button
-                          type="button"
-                          className="twb-icon-btn"
-                          title={t('tw_classes_edit')}
-                          aria-label={t('tw_classes_edit')}
-                          onClick={() => setClassDialog({ open: true, target: item })}
-                        >
-                          <Pencil size={12} />
-                        </button>
-                        <button
-                          type="button"
-                          className="twb-icon-btn is-danger"
-                          title={t('tw_delete')}
-                          aria-label={t('tw_delete')}
-                          onClick={() => void deleteClass(item)}
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <Empty
-                  icon={Users}
-                  text={t('tw_classes_empty')}
-                  actionLabel={t('tw_classes_new')}
-                  onAction={() => setClassDialog({ open: true, target: null })}
-                />
+              {selected && (
+                <span className="twb-class-tools">
+                  <button
+                    type="button"
+                    className="twb-icon-btn"
+                    title={t('tw_classes_edit')}
+                    aria-label={t('tw_classes_edit')}
+                    onClick={() => setClassDialog({ open: true, target: selected })}
+                  >
+                    <Pencil size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    className="twb-icon-btn is-danger"
+                    title={t('tw_delete')}
+                    aria-label={t('tw_delete')}
+                    onClick={() => void deleteClass(selected)}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </span>
               )}
-            </aside>
+            </div>
 
-            <section className="twb-card twb-roster" aria-labelledby="twb-roster-title">
+            {loading ? (
+              <Loading />
+            ) : error ? (
+              <PageError message={error} onRetry={() => void loadClasses()} />
+            ) : !classes.length ? (
+              <Empty
+                icon={Users}
+                text={t('tw_classes_empty')}
+                actionLabel={t('tw_classes_new')}
+                onAction={() => setClassDialog({ open: true, target: null })}
+              />
+            ) : (
+              <>
               <div className="twb-card-head">
                 <h2 id="twb-roster-title">
                   {selected ? selected.name : t('tw_classes_roster')}
@@ -522,8 +527,9 @@ const ClassesPage: React.FC<ClassesPageProps> = ({ baseUrl }) => {
                   onAction={() => setPasteOpen(true)}
                 />
               )}
-            </section>
-          </div>
+              </>
+            )}
+          </section>
         </div>
       </div>
 
