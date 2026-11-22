@@ -4348,6 +4348,11 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
   opacity: 0.95;
 }
 
+.twb-seq-cell {
+  color: var(--twb-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
 .twb-rank-cell {
   color: var(--twb-ink-2);
   font-weight: 700;

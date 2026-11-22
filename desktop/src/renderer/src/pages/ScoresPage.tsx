@@ -301,7 +301,8 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
   // 学科筛选：null = 全部（所有分项 + 总分），否则只显示选中的分项。
   const [subjectKeys, setSubjectKeys] = useState<string[] | null>(null)
   // 表头排序：默认按学号升序，数字列可点。缺考/未录的格子永远排在最后。
-  const [sortKey, setSortKey] = useState('no')
+  // 序号 = 当前显示的第几行，不参与排序；默认保持导入时的顺序。
+  const [sortKey, setSortKey] = useState('seq')
   const [sortAsc, setSortAsc] = useState(true)
   // 每场考试一份 AI 分析报告，跟着考试走（切换考试即换）。
   const [report, setReport] = useState<TeachingReport | null>(null)
@@ -525,12 +526,11 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
       return
     }
     setSortKey(key)
-    // 名次从小到大（第一名在最上面），分数从高到低，学号/姓名正序。
+    // 名次从小到大（第一名在最上面），分数从高到低，姓名正序。
     setSortAsc(key === 'rank' || (!allItemKeys.includes(key) && key !== Column.total))
   }
 
   const sortValue = (student: TeachingStudent): number | string | null => {
-    if (sortKey === 'no') return student.no
     if (sortKey === 'name') return student.name
     if (sortKey === 'rank') return rankByStudent.get(student.id) ?? null
     if (sortKey === Column.total) return scores[student.id]?.total ?? null
@@ -539,6 +539,8 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
   }
 
   const rows = useMemo(() => {
+    // Nothing clicked yet: keep the order the roster arrived in.
+    if (sortKey === 'seq') return students
     const direction = sortAsc ? 1 : -1
     return [...students].sort((a, b) => {
       const left = sortValue(a)
@@ -894,7 +896,7 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
                           <table className="twb-table twb-score-table">
                             <thead>
                               <tr>
-                                <th className="twb-col-no">{sortHeader('no', t('tw_st_no'))}</th>
+                                <th className="twb-col-no">{t('tw_sc_seq')}</th>
                                 <th className="twb-col-name">{sortHeader('name', t('tw_st_name'))}</th>
                                 <th className="twb-col-rank">{sortHeader('rank', t('tw_sc_rank'))}</th>
                                 {shownItems.map((item) => (
@@ -918,7 +920,9 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
                                 const absent = isAbsent(entry)
                                 return (
                                   <tr key={student.id} className={absent ? 'is-absent' : ''}>
-                                    <td className="is-num">{student.no}</td>
+                                    {/* 序号跟着当前行序走（排序后重新从 1 开始），
+                                        学号不在成绩表里展示。 */}
+                                    <td className="is-num twb-seq-cell">{row + 1}</td>
                                     <td>{student.name}</td>
                                     <td className="is-num twb-rank-cell">
                                       {absent ? '—' : rankByStudent.get(student.id) ?? '—'}
