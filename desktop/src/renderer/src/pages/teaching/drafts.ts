@@ -148,6 +148,10 @@ export const CARD_MAX_ITEMS_PER_SECTION = 8
 
 // ---------- dictation ----------
 
+/** How the task is practised: spell the English word, or translate into Chinese. */
+export const DICTATION_KINDS = ['dictation', 'translation'] as const
+export type DictationKind = (typeof DICTATION_KINDS)[number]
+
 /** 中文听写 prints the meaning; 英文听写 plays the word instead. */
 export const DICTATION_MODES = ['zh', 'en'] as const
 export type DictationMode = (typeof DICTATION_MODES)[number]
@@ -168,7 +172,15 @@ export interface DictationWord {
 
 export interface DictationDraft {
   version: 1
-  meta: { title: string; book: string; unit: string; date: string; mode: DictationMode }
+  meta: {
+    title: string
+    book: string
+    unit: string
+    date: string
+    /** dictation = write the English word; translation = give the Chinese meaning. */
+    kind: DictationKind
+    mode: DictationMode
+  }
   words: DictationWord[]
 }
 
@@ -365,6 +377,7 @@ export function normalizeDictation(raw: unknown): DictationDraft | null {
       book: str(meta.book),
       unit: str(meta.unit),
       date: str(meta.date),
+      kind: meta.kind === 'translation' ? 'translation' : 'dictation',
       mode: meta.mode === 'en' ? 'en' : 'zh',
     },
     words,

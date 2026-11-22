@@ -14,9 +14,11 @@ import { DEMO_DICTATION } from '../../components/teaching/demoData'
 import { openImage, saveCardPdf, revealInFolder } from '../../lib/exportImage'
 import { errorText, todayISO } from '../../lib/teaching'
 import {
+  DICTATION_KINDS,
   extractJson,
   normalizeDictation,
   parseWordList,
+  type DictationKind,
   type DictationSense,
   slugify,
   type DictationDraft,
@@ -27,7 +29,7 @@ import { dictationPrompt, KB } from './prompts'
 import { useTeachingSource, type PreviewResult } from './source'
 import { useLoad } from './useLoad'
 import { useSkillRun } from './useSkillRun'
-import ToolFrame, { BarField, sessionOf } from './ToolFrame'
+import ToolFrame, { BarField, Segs, sessionOf } from './ToolFrame'
 
 const EMPTY_KNOWLEDGE = { tree: [], stats: { pages: 0, size: 0 }, enabled: true }
 const PREVIEW_DEBOUNCE_MS = 450
@@ -57,6 +59,7 @@ const DictationTool: React.FC = () => {
   const [book, setBook] = useState('')
   const [unit, setUnit] = useState('')
   const [title, setTitle] = useState('')
+  const [kind, setKind] = useState<DictationKind>('dictation')
   const [mode, setMode] = useState<DictationMode>('zh')
   const [words, setWords] = useState<DictationWord[]>([])
   const [pasting, setPasting] = useState(false)
@@ -103,17 +106,25 @@ const DictationTool: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source.demo])
 
+  const kindName = kind === 'translation' ? t('twt_dict_kind_translation') : t('twt_dict_kind_dictation')
   const draft = useMemo<DictationDraft | null>(() => {
     // Blank rows are editing placeholders; they never reach the renderer.
     const printable = words.filter(filled)
     return printable.length
       ? {
           version: 1,
-          meta: { title: title || [book, unit, '单词听写'].filter(Boolean).join(' '), book, unit, date: todayISO(), mode },
+          meta: {
+            title: title || [book, unit, kindName].filter(Boolean).join(' '),
+            book,
+            unit,
+            date: todayISO(),
+            kind,
+            mode,
+          },
           words: printable,
         }
       : null
-  }, [words, title, book, unit, mode])
+  }, [words, title, book, unit, kind, kindName, mode])
 
   const filledWords = words.filter(filled)
   const chosen = selected(words)
@@ -158,6 +169,7 @@ const DictationTool: React.FC = () => {
     setBook(parsed.meta.book || book)
     setUnit(parsed.meta.unit || unit)
     setTitle(parsed.meta.title || '')
+    setKind(parsed.meta.kind)
     setMode(parsed.meta.mode)
   }
 
@@ -170,7 +182,7 @@ const DictationTool: React.FC = () => {
     }
   }
 
-  const generate = (nextBook = book, nextUnit = unit) => {
+  const generate = (nextBook = book, nextUnit = unit, nextKind = kind) => {
     if (!nextBook.trim() || !nextUnit.trim()) {
       setStatus({ text: t('twt_dict_need_book_unit'), tone: 'warn' })
       return
@@ -189,7 +201,9 @@ const DictationTool: React.FC = () => {
           setStatus({ text: t('twt_parse_failed'), tone: 'error' })
           return
         }
-        const base = (parsed.meta.title || `${nextBook.trim()} ${nextUnit.trim()} 单词听写`).trim()
+        const nextKindName = nextKind === 'translation' ? t('twt_dict_kind_translation') : t('twt_dict_kind_dictation')
+        const raw = (parsed.meta.title || `${nextBook.trim()} ${nextUnit.trim()} ${nextKindName}`).trim()
+        const base = /单词听写|英译汉/.test(raw) ? raw.replace(/单词听写|英译汉/g, nextKindName) : `${raw} ${nextKindName}`
         const next: DictationDraft = {
           ...parsed,
           meta: {
@@ -198,6 +212,7 @@ const DictationTool: React.FC = () => {
             unit: parsed.meta.unit || nextUnit.trim(),
             title: `${base} ${stamp()}`,
             date: todayISO(),
+            kind: nextKind,
           },
           words: parsed.words.map((word) => ({ ...word, on: true })),
         }
@@ -231,7 +246,7 @@ const DictationTool: React.FC = () => {
   const patchWord = (index: number, patch: Partial<DictationWord>) =>
     setWords((prev) => prev.map((word, i) => (i === index ? { ...word, ...patch } : word)))
 
-  const defaultTitle = () => `${[book, unit, '单词听写'].filter(Boolean).join(' ')} ${stamp()}`
+  const defaultTitle = () => `${[book, unit, kindName].filter(Boolean).join(' ')} ${stamp()}`
   const ensureTitle = () => {
     if (!title.trim()) setTitle(defaultTitle())
   }
@@ -321,10 +336,19 @@ const DictationTool: React.FC = () => {
       if (!parsed) throw new Error(t('twt_dict_parse_failed'))
       setBook(parsed.meta.book)
       setUnit(parsed.meta.unit)
-      generate(parsed.meta.book, parsed.meta.unit)
+      setKind(parsed.meta.kind)
+      generate(parsed.meta.book, parsed.meta.unit, parsed.meta.kind)
     } catch (err) {
       setStatus({ text: errorText(err), tone: 'error' })
     }
+  }
+
+  const switchKind = (next: DictationKind) => {
+    if (next === kind) return
+    const oldLabel = kind === 'translation' ? t('twt_dict_kind_translation') : t('twt_dict_kind_dictation')
+    const nextLabel = next === 'translation' ? t('twt_dict_kind_translation') : t('twt_dict_kind_dictation')
+    setKind(next)
+    setTitle((value) => (value.includes(oldLabel) ? value.replace(oldLabel, nextLabel) : value))
   }
 
   const bar = (
@@ -347,6 +371,15 @@ const DictationTool: React.FC = () => {
           choices={units}
           placeholder={t('twt_unit_ph')}
           onChange={setUnit}
+        />
+      </BarField>
+      <BarField label={t('twt_dict_kind')}>
+        <Segs<DictationKind>
+          label={t('twt_dict_kind')}
+          value={kind}
+          options={DICTATION_KINDS}
+          onChange={switchKind}
+          labelOf={(value) => t(`twt_dict_kind_${value}`)}
         />
       </BarField>
       <BarField label={t('twt_dict_title')} grow>

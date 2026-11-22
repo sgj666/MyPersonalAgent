@@ -42,7 +42,7 @@ export const DEMO_RECENT: TeachingRecentItem[] = [
 
 export const DEMO_DICTATION: DictationDraft = {
   version: 1,
-  meta: { title: 'Unit 3 单词听写', book: '人教新版七上', unit: 'Unit 3 My weekend plan', date: '2026-11-12', mode: 'zh' },
+  meta: { title: 'Unit 3 单词听写', book: '人教新版七上', unit: 'Unit 3 My weekend plan', date: '2026-11-12', kind: 'dictation', mode: 'zh' },
   words: [
     { word: 'visit', phonetic: '/ˈvɪzɪt/', senses: [{ pos: 'v.', meaning: '参观；拜访' }] },
     { word: 'see a film', phonetic: '', senses: [{ pos: 'phr.', meaning: '看电影' }] },
@@ -56,15 +56,19 @@ export const DEMO_DICTATION: DictationDraft = {
 
 /** A stand-in dictation sheet, mirroring the backend renderer's markup. */
 export function demoDictationHtml(draft: DictationDraft): string {
-  const mode = draft.meta.mode === 'en' ? '英文听写' : '中文听写'
+  const translation = draft.meta.kind === 'translation'
+  const mode = translation ? '英译汉' : draft.meta.mode === 'en' ? '英文听写' : '中文听写'
   const rows = draft.words
     .filter((word) => word.on !== false)
     .map((word, i) => {
-      const prompt =
-        mode === '英文听写'
+      const prompt = translation
+        ? esc(word.word)
+        : mode === '英文听写'
           ? '🔊'
           : word.senses.map((sense) => `${sense.pos ? `${esc(sense.pos)} ` : ''}${esc(sense.meaning)}`).join(' / ')
-      const answer = `${esc(word.word)}${word.phonetic ? ` <em>${esc(word.phonetic)}</em>` : ''}`
+      const answer = translation
+        ? word.senses.map((sense) => `${esc(sense.pos)} ${esc(sense.meaning)}`).join('；')
+        : `${esc(word.word)}${word.phonetic ? ` <em>${esc(word.phonetic)}</em>` : ''}`
       return `<li><b>${i + 1}</b><span>${prompt}<i></i><em class="a">${answer}</em></span></li>`
     })
     .join('')
