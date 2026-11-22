@@ -473,6 +473,12 @@ jobs:
   publish-github:
     name: Publish GitHub Release (own update feed)
     needs: build
+    # The called workflow reads the build artifacts with the Actions API, so the
+    # caller must grant it more than the workflow-level `contents: write`
+    # default (which sets every other scope to none).
+    permissions:
+      contents: write
+      actions: read
     # `always()` so a macOS leg failing (runner retirements, mac-only signing
     # flakiness) cannot strand a finished Windows build. The called workflow
     # still refuses to publish without a .exe and a latest.yml.
