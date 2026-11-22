@@ -11,7 +11,7 @@ from pathlib import Path
 
 from agent.teaching.store import MAX_TOPIC
 
-DRAFT_KINDS = ("deck", "card", "plan", "advice")
+DRAFT_KINDS = ("deck", "card", "dictation", "plan", "advice")
 
 
 def facts(store, class_id="", unit="") -> dict:
@@ -153,7 +153,7 @@ def import_progress(store, class_ids, weeks, overwrite=False) -> dict:
 def recent(workspace, kind="", limit=5) -> dict:
     """List valid draft JSON files newest first, confined to this workspace."""
     if kind and kind not in DRAFT_KINDS:
-        raise ValueError("kind 必须为 deck、card、plan 或 advice")
+        raise ValueError("kind 必须为 deck、card、dictation、plan 或 advice")
     if type(limit) is not int or limit < 1:
         raise ValueError("limit 必须为正整数")
     workspace = Path(workspace).resolve()

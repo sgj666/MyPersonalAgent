@@ -5,7 +5,7 @@ from pathlib import Path, PurePosixPath
 from common.atomic_write import write_text_atomic
 from agent.tools.pptx.validation import validate_card, validate_deck
 
-KINDS = ('deck', 'card', 'plan', 'advice')
+KINDS = ('deck', 'card', 'dictation', 'plan', 'advice')
 
 
 def workspace_path(workspace, relative):
@@ -74,14 +74,18 @@ def validate_draft(kind, draft):
         return validate_deck(draft)
     if kind == 'card':
         return validate_card(draft)
+    if kind == 'dictation':
+        from agent.teaching.render.dictation_html import validate_dictation
+
+        return validate_dictation(draft)
     if kind not in KINDS or not isinstance(draft, dict):
-        raise ValueError('草稿请使用 JSON 对象，kind 请改为 deck/card/plan/advice')
+        raise ValueError('草稿请使用 JSON 对象，kind 请改为 deck/card/dictation/plan/advice')
     return draft
 
 
-def render_draft(kind, draft, out_name=None, formats=None, a4=False, workspace=None):
-    if kind not in ('deck', 'card'):
-        raise ValueError('渲染 kind 请改为 deck 或 card')
+def render_draft(kind, draft, out_name=None, formats=None, a4=False, workspace=None, tts=True):
+    if kind not in ('deck', 'card', 'dictation'):
+        raise ValueError('渲染 kind 请改为 deck、card 或 dictation')
     draft = validate_draft(kind, draft)
     if workspace is None:
         from common.state_dir import real_state_root
@@ -90,7 +94,10 @@ def render_draft(kind, draft, out_name=None, formats=None, a4=False, workspace=N
     slug = slug_name(out_name if out_name is not None else draft['meta']['title'])
     if formats is None:
         formats = ('pptx', 'html') if kind == 'deck' else ('html',)
-    allowed = ('pptx', 'html') if kind == 'deck' else ('html', 'a4')
+    if kind == 'dictation':
+        allowed = ('html',)
+    else:
+        allowed = ('pptx', 'html') if kind == 'deck' else ('html', 'a4')
     if not isinstance(formats, (list, tuple)) or not formats or any(f not in allowed for f in formats):
         raise ValueError(f'{kind} formats 请使用：' + ' / '.join(allowed))
     if not isinstance(a4, bool):
@@ -112,7 +119,12 @@ def render_draft(kind, draft, out_name=None, formats=None, a4=False, workspace=N
                     except ValueError:
                         raise ValueError('图片路径超出 workspace，请先将图片保存到当前 workspace')
                 image['path'] = str(workspace_path(root, source))
-    files, warnings = [], []
+    audio, audio_warnings = {}, []
+    if kind == 'dictation' and 'html' in formats:
+        from agent.teaching.render.dictation_audio import build_audio
+
+        audio, audio_warnings = build_audio(draft['words'], root / 'tmp' / 'dictation-audio', enabled=tts)
+    warnings, files = list(audio_warnings), []
     for fmt in formats:
         suffix = '.pptx' if fmt == 'pptx' else ('-a4.html' if fmt == 'a4' else '.html')
         rel = f'artifacts/教学工具/{kind}/{slug}/{slug}{suffix}'
@@ -130,6 +142,9 @@ def render_draft(kind, draft, out_name=None, formats=None, a4=False, workspace=N
             if kind == 'deck':
                 from agent.teaching.render.deck_html import render_deck_html
                 result = render_deck_html(draft)
+            elif kind == 'dictation':
+                from agent.teaching.render.dictation_html import render_dictation_html
+                result = render_dictation_html(draft, audio=audio)
             else:
                 from agent.teaching.render.card_html import render_card_html
                 result = render_card_html(draft, format='a4' if fmt == 'a4' else 'group')

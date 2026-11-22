@@ -33,6 +33,9 @@ zai-sdk>=0.2.3
 # tongyi qwen sdk
 dashscope
 
+# standard pronunciation for 单词听写 (Microsoft neural voices, no key)
+edge-tts>=7.0.0
+
 # feishu
 lark-oapi>=1.5.5
 # dingtalk

@@ -576,9 +576,13 @@ class TeachingRenderHandler:
             if not path.is_file():
                 raise KeyError(body.get("draft_path"))
             draft = json.loads(path.read_text(encoding="utf-8"))
+        tts = body.get("tts", True)
+        if not isinstance(tts, bool):
+            raise ValueError('tts 请使用 true 或 false')
         return _ok(**render_draft(
             body.get("kind"), draft, out_name=body.get("out_name"),
             formats=body.get("formats"), a4=body.get("a4", False), workspace=workspace,
+            tts=tts,
         ))
 
 
