@@ -1,18 +1,23 @@
 name: Publish Release From Build
 
 # Publishes this fork's update feed: a normal GitHub Release holding the Windows
-# installer plus electron-builder's latest.yml, i.e. exactly what
+# installer plus electron-builder's latest.yml — and, when the mac build was
+# code-signed, the macOS dmg/zip pair with a merged latest-mac.yml covering both
+# arches. That is exactly what
 # https://github.com/<repo>/releases/latest/download/ serves.
+#
+# macOS is conditional on signing. Squirrel.Mac refuses to install an update
+# whose signature differs from the running app's, and an unsigned arm64 build
+# does not even launch, so an unsigned mac asset would be a broken download
+# rather than an update. MAC_CSC_LINK (the same secret release.yml signs with)
+# is the switch: without it mac assets are not published and the release stays
+# Windows-only, as before. Both mac arches must be present too — a feed naming
+# only one architecture makes electron-updater error out on the other.
 #
 # Two callers:
 #   - release.yml (workflow_call) right after a build, and
 #   - workflow_dispatch, to re-publish from an existing run's artifacts without
 #     rebuilding (e.g. when only the publish step failed).
-#
-# Windows only on purpose: macOS builds are unsigned, and Squirrel.Mac refuses to
-# install updates for an unsigned app. Shipping a latest-mac.yml would also
-# collide (the arm64 and x64 legs each generate one with the same name). Add the
-# mac assets back together with code signing.
 
 on:
   workflow_dispatch:
@@ -43,7 +48,7 @@ jobs:
     name: Publish GitHub Release (own update feed)
     runs-on: ubuntu-latest
     steps:
-      - name: Download the built installer
+      - name: Download the built installers
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -51,8 +56,62 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          gh run download "${{ inputs.run_id }}" --pattern 'cowagent-win-x64' -D dist
+          # Every matrix leg, not just Windows: the mac assets are filtered below
+          # once we know whether they were signed.
+          gh run download "${{ inputs.run_id }}" -D dist
           find dist -type f | sort
+
+      - name: Stage assets
+        id: stage
+        shell: bash
+        env:
+          # Presence of the signing certificate is what makes the mac build
+          # installable/updatable, so it also decides whether mac goes into the
+          # release. See the header note.
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+        run: |
+          set -euo pipefail
+          out=dist/assets
+          mkdir -p "$out"
+          # Windows is published whether or not the installer is signed: NSIS
+          # updates do not require a signature (SmartScreen warns on first
+          # install only).
+          find dist -mindepth 2 -type f \
+            \( -name '*.exe' -o -name '*.exe.blockmap' -o -name 'latest.yml' \) \
+            -exec cp {} "$out/" \;
+
+          mac=0
+          if [ -n "${MAC_CSC_LINK:-}" ]; then
+            # electron-builder emits latest-mac.yml once per arch, with the same
+            # file name. The cache is per-artifact dir, so they survive the
+            # download; merge them into the single feed MacUpdater reads, which
+            # then filters by the arch in each file name.
+            mapfile -t mac_ymls < <(find dist -mindepth 2 -maxdepth 2 -type f -name 'latest-mac.yml' | sort)
+            mapfile -t mac_zips < <(find dist -mindepth 2 -maxdepth 2 -type f -name '*.zip' | sort)
+            arm_zips=0
+            intel_zips=0
+            for z in "${mac_zips[@]:-}"; do
+              case "$(basename "$z")" in
+                *arm64*) arm_zips=$((arm_zips + 1)) ;;
+                *) intel_zips=$((intel_zips + 1)) ;;
+              esac
+            done
+            if [ "${#mac_ymls[@]}" -eq 0 ] || [ "$arm_zips" -eq 0 ] || [ "$intel_zips" -eq 0 ]; then
+              # A partially failed mac matrix would publish a feed that either
+              # points at a missing arch or errors on it. Windows still ships.
+              echo "::warning::mac signing is configured but the mac artifacts are incomplete (feeds=${#mac_ymls[@]} arm64=$arm_zips x64=$intel_zips) — skipping mac assets"
+            else
+              find dist -mindepth 2 -type f \
+                \( -name '*.dmg' -o -name '*.zip' -o -name '*.blockmap' \) \
+                -exec cp {} "$out/" \;
+              ruby -e 'require "yaml"; out = ARGV.shift; docs = ARGV.map { |p| YAML.load_file(p) }; abort "mac feeds disagree on version" if docs.map { |d| d["version"] }.uniq.size != 1; merged = docs.first.dup; merged["files"] = docs.flat_map { |d| d["files"] || [] }.uniq { |f| f["url"] }; File.write(out, merged.to_yaml)' \
+                "$out/latest-mac.yml" "${mac_ymls[@]}"
+              mac=1
+            fi
+          else
+            echo "::notice::MAC_CSC_LINK not set — mac build is unsigned, so mac assets are not published (Squirrel.Mac cannot update them)."
+          fi
+          echo "mac=$mac" >> "$GITHUB_OUTPUT"
 
       - name: Create or update the release
         shell: bash
@@ -60,18 +119,25 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # No checkout here, so gh cannot infer the repo from a local clone.
           GH_REPO: ${{ github.repository }}
+          VERSION: ${{ inputs.version }}
+          INCLUDE_MAC: ${{ steps.stage.outputs.mac }}
         run: |
           set -euo pipefail
-          tag="v${{ inputs.version }}"
+          tag="v${VERSION}"
           mapfile -t files < <(
-            find dist -type f \
-              \( -name '*.exe' -o -name '*.blockmap' -o -name 'latest.yml' \) \
+            find dist/assets -maxdepth 1 -type f \
+              \( -name '*.exe' -o -name '*.exe.blockmap' -o -name 'latest.yml' \
+                 -o -name '*.dmg' -o -name '*.zip' -o -name '*.blockmap' -o -name 'latest-mac.yml' \) \
               -not -name 'builder-debug.yml' -not -name '*.yml.blockmap' | sort
           )
-          # The updater needs both: a Windows installer to hand out and the feed
-          # file it looks up. Refuse a half release. No pipes in the check:
-          # `grep -q` closing early would trip pipefail.
-          for need in '.exe' 'latest.yml'; do
+          # The updater needs the installer and the feed file it looks up. Refuse
+          # a half release. No pipes in the check: `grep -q` closing early would
+          # trip pipefail.
+          required=('.exe' 'latest.yml')
+          if [ "$INCLUDE_MAC" = "1" ]; then
+            required+=('.dmg' 'latest-mac.yml')
+          fi
+          for need in "${required[@]}"; do
             found=""
             for f in "${files[@]}"; do
               case "$f" in *"${need}") found=1 ;; esac
@@ -81,14 +147,20 @@ jobs:
               exit 1
             fi
           done
+          notes="教师工作台 (teacher workbench) ${tag}. 已安装的客户端从这个 release 自动更新（Windows: latest.yml"
+          if [ "$INCLUDE_MAC" = "1" ]; then
+            notes="${notes}；macOS: latest-mac.yml"
+          fi
+          notes="${notes}）。"
           printf 'assets:\n'; printf '  %s\n' "${files[@]}"
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" "${files[@]}" --clobber
+            gh release edit "$tag" --notes "$notes" --latest
           else
             gh release create "$tag" "${files[@]}" \
               --target "${{ github.ref_name }}" \
               --title "教师工作台 ${tag}" \
-              --notes "教师工作台 (teacher workbench) ${tag}. 已安装的客户端从这个 release 自动更新（latest.yml）。" \
+              --notes "$notes" \
               --latest
           fi
           echo "::notice::published $tag — feed: https://github.com/${{ github.repository }}/releases/latest/download/"

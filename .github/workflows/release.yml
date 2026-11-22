@@ -461,9 +461,11 @@ jobs:
           npx --yes wrangler@latest d1 execute cow-desktop --remote --file d1.sql
 
   # This fork's own update feed: a normal GitHub Release (not draft, not
-  # prerelease) holding the Windows installer + latest.yml. The actual publishing
-  # lives in publish-existing.yml so the same logic can re-publish an existing
-  # build without rebuilding, and so the mac/windows asset rules sit in one place.
+  # prerelease) holding the Windows installer + latest.yml, plus the signed
+  # macOS dmg/zip set + merged latest-mac.yml when MAC_CSC_LINK is configured.
+  # The actual publishing lives in publish-existing.yml so the same logic can
+  # re-publish an existing build without rebuilding, and so the per-platform
+  # asset rules sit in one place.
   #
   # Version must be plain semver (2.3.0, not 2.2.2-win-test): a prerelease
   # version makes electron-builder emit "<tag>.yml" instead of "latest.yml", and
