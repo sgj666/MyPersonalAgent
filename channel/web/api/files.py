@@ -180,6 +180,88 @@ class VoiceTtsHandler:
             return json.dumps({"status": "error", "message": str(e)})
 
 
+
+# ---------------------------------------------------------------------------
+# Ranged file bodies
+# ---------------------------------------------------------------------------
+
+# Files above this are streamed in chunks instead of read into memory. A
+# downloaded video is routinely hundreds of megabytes, and reading one whole to
+# answer a request is how a preview panel takes the backend down.
+_STREAM_THRESHOLD = 8 * 1024 * 1024
+_STREAM_CHUNK = 256 * 1024
+
+
+def _parse_range(header: str, size: int):
+    """`bytes=start-end` -> (start, end) inclusive, or None to ignore it.
+
+    Only a single range is understood: multi-range answers need multipart
+    bodies, and every player asks for one span at a time.
+    """
+    if not header:
+        return None
+    match = re.match(r"^bytes=(\d*)-(\d*)$", header.strip())
+    if not match:
+        return None
+    first, last = match.groups()
+    if not first and not last:
+        return None
+    if not first:
+        # `bytes=-500`: the final 500 bytes.
+        length = int(last)
+        if length <= 0 or size <= 0:
+            return None
+        return max(0, size - length), size - 1
+    start = int(first)
+    if start >= size:
+        # Kept as a span so the caller can answer 416 rather than silently
+        # serving the whole file to a player that asked for something else.
+        return start, size - 1
+    end = int(last) if last else size - 1
+    if end < start:
+        return None
+    return start, min(end, size - 1)
+
+
+def _stream_file(path: str, start: int, end: int):
+    with open(path, "rb") as handle:
+        handle.seek(start)
+        remaining = end - start + 1
+        while remaining > 0:
+            chunk = handle.read(min(_STREAM_CHUNK, remaining))
+            if not chunk:
+                break
+            remaining -= len(chunk)
+            yield chunk
+
+
+def _ranged_body(path: str):
+    """The request's body: 206 when a Range was asked, else the whole file.
+
+    Returning a generator lets web.py send it chunked, which is what makes
+    seeking in a <video> work (Safari refuses to play without a 206) and keeps
+    a large file off the heap.
+    """
+    size = os.path.getsize(path)
+    web.header("Accept-Ranges", "bytes")
+    env = getattr(web.ctx, "env", None) or {}
+    span = _parse_range(env.get("HTTP_RANGE") or "", size)
+    if span is None:
+        if size <= _STREAM_THRESHOLD:
+            with open(path, "rb") as handle:
+                return handle.read()
+        return _stream_file(path, 0, size - 1)
+
+    start, end = span
+    if start >= size:
+        web.header("Content-Range", f"bytes */{size}")
+        raise web.HTTPError("416 Requested Range Not Satisfiable")
+    web.header("Content-Range", f"bytes {start}-{end}/{size}")
+    web.header("Content-Length", str(end - start + 1))
+    web.ctx.status = "206 Partial Content"
+    return _stream_file(path, start, end)
+
+
 class UploadsHandler:
     def GET(self, file_name):
         _require_auth()
@@ -229,8 +311,7 @@ class FileServeHandler:
             # twice within an artifact URL's timestamp second. Revalidate the
             # current bytes instead of hiding an update behind an hour of cache.
             web.header('Cache-Control', 'no-cache')
-            with open(file_path, 'rb') as f:
-                return f.read()
+            return _ranged_body(file_path)
         except web.HTTPError:
             raise
         except Exception as e:
@@ -394,9 +475,10 @@ class PreviewHandler:
                     'Content-Security-Policy',
                     "sandbox allow-scripts allow-popups allow-forms allow-modals",
                 )
-            with open(full_path, 'rb') as f:
-                data = f.read()
-            return _inject_preview_chrome(data) if is_html else data
+            if is_html:
+                with open(full_path, 'rb') as f:
+                    return _inject_preview_chrome(f.read())
+            return _ranged_body(full_path)
         except web.HTTPError:
             raise
         except Exception as e:

@@ -27,6 +27,10 @@ from agent.tools.subagent.subagent import SubagentTool
 # Import the task board tool (no optional dependency)
 from agent.tools.task_board.task_board import TaskBoardTool
 
+# Import the video download tool (soft-depends on yt-dlp; reports unavailable
+# instead of failing the import when it is missing)
+from agent.tools.video_download.video_download import VideoDownloadTool
+
 # Import tools with optional dependencies
 _PIP_PACKAGES = {
     "dotenv": "python-dotenv>=1.0.0",
@@ -163,6 +167,7 @@ __all__ = [
     'SubagentTool',
     'AgentDelegateTool',
     'TaskBoardTool',
+    'VideoDownloadTool',
     'EnvConfig',
     'SchedulerTool',
     'WebSearch',

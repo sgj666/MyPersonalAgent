@@ -38,20 +38,23 @@ const CardPreview: React.FC<CardPreviewProps> = ({
   const boxRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(0.3)
 
+  // Fit inside the box. A box whose height comes from flex can read as its
+  // min-height on the first frame (which shrank a whole slide to a thumbnail),
+  // so a box that has no height yet falls back to fitting the width.
   useEffect(() => {
     const box = boxRef.current
     if (!box) return
     const fit = () => {
       const w = box.clientWidth
       const h = box.clientHeight
-      if (!w || !h) return
-      setScale(Math.min(w / width, h / height))
+      if (!w) return
+      setScale(h ? Math.min(w / width, h / height) : w / width)
     }
     fit()
     const observer = new ResizeObserver(fit)
     observer.observe(box)
     return () => observer.disconnect()
-  }, [width, height])
+  }, [width])
 
   const doc = useMemo(() => {
     if (!html) return ''

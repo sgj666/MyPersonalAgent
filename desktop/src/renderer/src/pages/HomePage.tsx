@@ -589,6 +589,34 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
                       <label className="twb-check">
                         <input
                           type="checkbox"
+                          checked={settings.overdue.enabled}
+                          onChange={(e) =>
+                            patchSettings({
+                              overdue: { ...settings.overdue, enabled: e.target.checked },
+                            })
+                          }
+                        />
+                        <span>{t('tw_rem_overdue')}</span>
+                      </label>
+                      <label className="twb-field twb-field-inline">
+                        <span>{t('tw_rem_morning_time')}</span>
+                        <input
+                          className="twb-input twb-rem-time"
+                          type="time"
+                          value={settings.overdue.time}
+                          disabled={!settings.overdue.enabled}
+                          onChange={(e) =>
+                            patchSettings({
+                              overdue: { ...settings.overdue, time: e.target.value },
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                    <div className="twb-rem">
+                      <label className="twb-check">
+                        <input
+                          type="checkbox"
                           checked={settings.lesson.enabled}
                           onChange={(e) =>
                             patchSettings({

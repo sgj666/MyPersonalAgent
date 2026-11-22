@@ -89,7 +89,7 @@ from channel.web.api.teaching import (  # noqa: F401
     TeachingRemindersSyncHandler, TeachingScoresHandler, TeachingSettingsHandler,
     TeachingStudentsHandler, TeachingStudentHandler, TeachingSuggestionsHandler,
     TeachingReportHandler,
-    TeachingTimetableHandler,
+    TeachingTimetableHandler, TeachingTimetableInsertHandler,
     TeachingTodayHandler,
 )
 from channel.web.api.teaching_insights import (  # noqa: F401
@@ -101,6 +101,12 @@ from channel.web.api.tasks import (  # noqa: F401
 )
 from channel.web.api.themes import (  # noqa: F401
     ThemeAssetHandler, ThemeImportHandler, ThemesHandler,
+)
+from channel.web.api.video import (  # noqa: F401
+    VideoCancelHandler, VideoDeleteHandler, VideoDownloadHandler, VideoLoginCloseHandler,
+    VideoLoginPollHandler, VideoLoginStartHandler, VideoLogoutHandler,
+    VideoPosterHandler, VideoProbeHandler, VideoRecentHandler, VideoStatusHandler,
+    VideoThumbHandler,
 )
 from channel.web.api.update import (  # noqa: F401
     UpdateCheckHandler, UpdateStartHandler, UpdateStatusHandler, VersionHandler,
@@ -155,6 +161,18 @@ URLS = (
     '/api/themes/import', 'ThemeImportHandler',
     '/api/artifacts/delete', 'ArtifactDeleteHandler',
     '/api/artifacts', 'ArtifactsHandler',
+    '/api/video/status', 'VideoStatusHandler',
+    '/api/video/probe', 'VideoProbeHandler',
+    '/api/video/download', 'VideoDownloadHandler',
+    '/api/video/recent', 'VideoRecentHandler',
+    '/api/video/poster', 'VideoPosterHandler',
+    '/api/video/thumb', 'VideoThumbHandler',
+    '/api/video/cancel', 'VideoCancelHandler',
+    '/api/video/delete', 'VideoDeleteHandler',
+    '/api/video/login/start', 'VideoLoginStartHandler',
+    '/api/video/login/poll', 'VideoLoginPollHandler',
+    '/api/video/login/close', 'VideoLoginCloseHandler',
+    '/api/video/logout', 'VideoLogoutHandler',
     '/api/projects', 'ProjectsHandler',
     '/api/projects/select', 'ProjectSelectHandler',
     '/api/projects/create', 'ProjectCreateHandler',
@@ -234,7 +252,7 @@ URLS = (
     # can ever shadow an API route above -- which is also why the
     # settings view is /settings and not /config, a path the config
     # API already owns.
-    '/(?:home|board|teaching|classes|timetable|progress|homework|scores|agents|artifacts|settings|skills|memory|knowledge|channels|scheduler|logs)'
+    '/(?:home|board|teaching|classes|timetable|progress|homework|scores|video|agents|artifacts|settings|skills|memory|knowledge|channels|scheduler|logs)'
     '(?:/[a-z]+)?/?', 'ChatHandler',
     # A page the user put in the menu: /m/<item id>.
     '/m/[A-Za-z0-9_-]{1,40}/?', 'ChatHandler',

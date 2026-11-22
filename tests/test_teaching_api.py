@@ -305,3 +305,70 @@ def test_unknown_body_fields_are_refused(tmp_path):
         "class_id": klass["id"], "topic": "Unit 1", "plannedPeriods": 3,
     })
     assert response["code"] == "bad_request"
+
+
+def test_timetable_round_trips_named_periods_and_a_break(tmp_path):
+    workspace = tmp_path / "ws"
+    klass = _class(workspace)
+
+    saved = _call(TeachingTimetableHandler, "PUT", workspace, payload={
+        "periods": [
+            {"index": 1, "start": "08:00", "end": "08:45", "name": "早自习"},
+            {"index": 2, "start": "08:55", "end": "09:40"},
+            {"index": 2.5, "kind": "break", "name": "大课间",
+             "start": "09:40", "end": "10:10"},
+        ],
+        "slots": [{"class_id": klass["id"], "weekday": 1, "period": 2,
+                   "subject": "英语", "kind": "regular"}],
+    })
+    assert saved["status"] == "success"
+
+    back = _call(TeachingTimetableHandler, "GET", workspace, query={"agent_id": ""})
+    assert [(row["index"], row.get("kind"), row.get("name")) for row in back["periods"]] == [
+        (1, "period", "早自习"),
+        (2, "period", ""),
+        (2.5, "break", "大课间"),
+    ]
+    # The lesson still points at period 2 even though a row was inserted after it.
+    assert back["slots"][0]["period"] == 2
+
+    # A break may sit before the first lesson (morning exercise), but a lesson
+    # cannot take a fractional slot — that position is reserved for breaks.
+    bad = _call(TeachingTimetableHandler, "PUT", workspace, payload={
+        "periods": [{"index": 1.5, "kind": "period", "start": "08:00"}],
+    })
+    assert bad["code"] == "bad_request"
+
+
+def test_insert_endpoint_adds_a_period_between_two_lessons(tmp_path):
+    from channel.web.api.teaching import TeachingTimetableInsertHandler
+
+    workspace = tmp_path / "ws"
+    klass = _class(workspace)
+    _call(TeachingTimetableHandler, "PUT", workspace, payload={
+        "periods": [{"index": 1, "start": "08:00", "end": "08:45"},
+                    {"index": 2, "start": "08:55", "end": "09:40"},
+                    {"index": 3, "start": "10:30", "end": "11:15"}],
+        "slots": [{"class_id": klass["id"], "weekday": 1, "period": 3,
+                   "subject": "英语", "kind": "regular"}],
+    })
+
+    inserted = _call(TeachingTimetableInsertHandler, "POST", workspace, payload={
+        "after": 2, "kind": "period", "name": "午读", "start": "09:45", "end": "10:10",
+    })
+    assert inserted["status"] == "success"
+    assert [(row["index"], row["name"]) for row in inserted["periods"]] == [
+        (1, ""), (2, ""), (3, "午读"), (4, ""),
+    ]
+    assert inserted["slots"][0]["period"] == 4
+
+    brk = _call(TeachingTimetableInsertHandler, "POST", workspace, payload={
+        "after": 3, "kind": "break", "name": "大课间", "start": "10:10", "end": "10:25",
+    })
+    assert [row["index"] for row in brk["periods"]] == [1, 2, 3, 3.5, 4]
+    assert brk["slots"][0]["period"] == 4
+
+    missing_after = _call(TeachingTimetableInsertHandler, "POST", workspace, payload={
+        "kind": "period",
+    })
+    assert missing_after["code"] == "bad_request"

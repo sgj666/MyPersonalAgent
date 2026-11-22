@@ -33,18 +33,33 @@ export function notifyRunDone(sid: string, kind: 'done' | 'error', text: string)
  * session is invisible otherwise, and the whole point of a reminder is to reach
  * the user wherever they are. Still honors the "task notify" toggle. `title`
  * prefers the task name (sessions for other Agents may not be in local state).
+ *
+ * A teaching reminder (morning brief, lesson, overdue to-dos) passes
+ * `reminderTitle`: it is announced as itself rather than as a finished task, and
+ * it ignores the "task notify" toggle because each reminder has its own switch
+ * in teaching settings.
  */
-export function notifyScheduledRun(sid: string, taskName: string, preview: string): void {
+export function notifyScheduledRun(
+  sid: string,
+  taskName: string,
+  preview: string,
+  reminderTitle = ''
+): void {
   const { taskNotify, taskNotifySound } = useUIStore.getState()
-  if (!taskNotify) return
-  const prefix = t('notify_task_done')
+  if (!reminderTitle && !taskNotify) return
   const snippet = (preview || '').split('\n')[0].trim().slice(0, SNIPPET_LIMIT)
+  const body = reminderTitle
+    ? (preview || '').trim()
+    : snippet
+      ? `${t('notify_task_done')}: ${snippet}`
+      : t('notify_task_done')
+  if (reminderTitle && !body) return
   const sessionTitle = useSessionStore.getState().sessions.find((s) => s.session_id === sid)?.title
-  const title = taskName || sessionTitle || undefined
+  const title = reminderTitle || taskName || sessionTitle || undefined
   window.electronAPI
     ?.notify?.({
       title,
-      body: snippet ? `${prefix}: ${snippet}` : prefix,
+      body,
       sessionId: sid,
       silent: !taskNotifySound,
       force: true,

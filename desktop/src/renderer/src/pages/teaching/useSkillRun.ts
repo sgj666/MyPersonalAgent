@@ -5,16 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useChatStore } from '../../store/chatStore'
 import type { ChatMessage } from '../../types'
-import { errorText } from '../../lib/teaching'
-
-/** The text of a finished assistant turn: `content`, else its content steps. */
-function replyText(message: ChatMessage): string {
-  if (message.content) return message.content
-  return (message.steps || [])
-    .filter((step) => step.type === 'content' && step.content)
-    .map((step) => step.content)
-    .join('\n')
-}
+import { errorText, replyText } from '../../lib/teaching'
 
 export interface SkillRun {
   run: (prompt: string, display: string, onReply: (text: string) => void) => Promise<void>

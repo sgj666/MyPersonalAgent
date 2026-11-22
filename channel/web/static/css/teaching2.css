@@ -893,3 +893,50 @@ html.dark .tw-tt-mine { color: var(--tw-accent); }
     #view-timetable .tw-tt-kind { color: #333333; }
     #view-timetable .tw-input-time { border: 0; padding: 0; height: auto; }
 }
+
+/* ---------- 节次：可改名的行与大课间横带 ----------
+   A row is either a lesson or a break. The break is one band across the week
+   because nothing can be scheduled into it, and both keep an editable name so
+   a school that calls 第 3 节 "英语走班" can say so. */
+.tw-tt-period-name {
+    width: 96px;
+    margin-bottom: 4px;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 3px 6px;
+    height: auto;
+}
+
+.tw-tt-break td {
+    padding: 6px 10px;
+    background: color-mix(in srgb, var(--tw-ink-2) 7%, transparent);
+    border-left: 0;
+    border-right: 0;
+}
+
+.tw-tt-break-name {
+    width: 120px;
+    height: auto;
+    padding: 3px 8px;
+    margin-right: 8px;
+    font-size: 12px;
+    font-weight: 800;
+    font-style: italic;
+}
+
+html.dark .tw-tt-break td { background: color-mix(in srgb, var(--tw-ink) 8%, transparent); }
+
+/* 行内「在此之后加大课间」：贴着时间输入，不撑高表头。 */
+.tw-tt-insert {
+    margin-left: 4px;
+    width: 22px;
+    height: 22px;
+    min-height: 22px;
+    padding: 0;
+    border-radius: 6px;
+    font-size: 10px;
+    opacity: 0.55;
+}
+
+.tw-tt-insert:hover { opacity: 1; }
+.tw-tt-break .tw-tt-insert { margin-left: auto; }

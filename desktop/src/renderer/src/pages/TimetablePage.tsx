@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarDays, Plus, Printer, Settings2, Trash2, X } from 'lucide-react'
+import { CalendarDays, Coffee, Plus, Printer, Settings2, Trash2, X } from 'lucide-react'
 import { t, tf } from '../i18n'
 import apiClient from '../api/client'
 import { useNavigate } from 'react-router-dom'
@@ -220,15 +220,81 @@ const CellDialog: React.FC<{
   )
 }
 
-/** The day's period times; removing one also removes that period's slots. */
+/** The day's period times; removing one also removes that period's slots.
+ *
+ * A row is either a lesson (`kind: 'period'`) or a break between lessons
+ * (`kind: 'break'`). They share one ordered list so the dialog reads top to
+ * bottom like the school day does, but only lessons take slots.
+ */
+/** A row in the dialog: the period plus the number it had when the dialog
+ *  opened, which is what lets 保存 tell the backend where each lesson went. */
+type PeriodDraft = TimetablePeriod & { oldIndex?: number }
+
 const PeriodsDialog: React.FC<{
   periods: TimetablePeriod[]
   onClose: () => void
-  onSave: (periods: TimetablePeriod[]) => void
+  /** 保存 commits the draft; nothing here touches the server before that. */
+  onSave: (periods: TimetablePeriod[], periodMap: Record<string, number>) => void
 }> = ({ periods, onClose, onSave }) => {
-  const [rows, setRows] = useState<TimetablePeriod[]>(periods.map((row) => ({ ...row })))
-  const set = (index: number, key: 'start' | 'end', value: string) =>
+  const [rows, setRows] = useState<PeriodDraft[]>(
+    periods.map((row) => ({ ...row, oldIndex: Number(row.index) }))
+  )
+  const set = (index: number, key: 'start' | 'end' | 'name', value: string) =>
     setRows((prev) => prev.map((row, i) => (i === index ? { ...row, [key]: value } : row)))
+
+  /** Insert a row below `at`, entirely in the draft.
+   *
+   * A lesson takes the next whole number and pushes everything after it up by
+   * one; a break slots into the gap with a fractional number and moves nothing.
+   * Both are instant, which is what "点加号没反应" was about: the old version
+   * awaited a save before it could redraw.
+   */
+  const insertAfter = (at: number, kind: 'period' | 'break') => {
+    setRows((prev) => {
+      const cur = Number(prev[at].index)
+      if (kind === 'break') {
+        const next = at + 1 < prev.length ? Number(prev[at + 1].index) : Math.floor(cur) + 1
+        const inGap = prev.filter((row) => Number(row.index) > cur && Number(row.index) < next).length
+        const step = (next - cur) / (inGap + 2)
+        return [...prev, { index: Number((cur + step).toFixed(2)), kind: 'break' as const, name: '', start: '', end: '' }]
+          .sort((a, b) => Number(a.index) - Number(b.index))
+      }
+      const shifted = prev.map((row) => {
+        if (Number(row.index) <= cur) return row
+        const moved = Number(row.index) + 1
+        return { ...row, index: Number(moved.toFixed(2)) }
+      })
+      return [...shifted, { index: Math.floor(cur) + 1, kind: 'period' as const, name: '', start: '', end: '' }]
+        .sort((a, b) => Number(a.index) - Number(b.index))
+    })
+  }
+
+  // Numbering counts lessons only, so a break never shifts 第 3 节 to 第 4 节.
+  const lessonCount = rows.filter((row) => (row.kind || 'period') === 'period').length
+
+  /** A new row goes after the last one, at a position no lesson can occupy. */
+  const append = (kind: 'period' | 'break') => {
+    setRows((prev) => {
+      const last = prev.reduce((max, row) => Math.max(max, Number(row.index) || 0), 0)
+      if (kind === 'period') {
+        return [...prev, { index: Math.floor(last) + 1, kind: 'period', name: '', start: '', end: '' }]
+      }
+      const after = Math.floor(last)
+      const nextLesson = prev
+        .map((row) => Number(row.index))
+        .filter((value) => Number.isFinite(value) && value > after)
+        .sort((a, b) => a - b)[0]
+      const stop = nextLesson === undefined ? after + 1 : nextLesson
+      return [...prev, {
+        index: Number(((after + stop) / 2).toFixed(2)),
+        kind: 'break',
+        name: '',
+        start: '',
+        end: '',
+      }]
+    })
+  }
+
   return (
     <Modal
       titleId="twb-periods-title"
@@ -243,10 +309,21 @@ const PeriodsDialog: React.FC<{
             type="button"
             className="twb-btn twb-btn-primary"
             onClick={() => {
-              const kept = rows
-                .filter((row) => row.start || row.end)
-                .sort((a, b) => a.index - b.index)
-              onSave(kept.length ? kept : DEFAULT_PERIODS)
+              // Keep every row, including one the teacher just inserted and has
+              // not given times yet. Dropping empty rows here is what made an
+              // inserted period disappear while the lessons below it had already
+              // been renumbered.
+              const kept = [...rows].sort((a, b) => a.index - b.index)
+              const periodMap: Record<string, number> = {}
+              kept.forEach((row) => {
+                if (row.oldIndex !== undefined) periodMap[String(row.oldIndex)] = Number(row.index)
+              })
+              onSave(
+                kept.map(({ oldIndex, ...row }) => row).length
+                  ? kept.map(({ oldIndex, ...row }) => row)
+                  : DEFAULT_PERIODS,
+                periodMap
+              )
             }}
           >
             {t('tw_save')}
@@ -257,46 +334,76 @@ const PeriodsDialog: React.FC<{
       <div className="twb-form-body">
         <p className="twb-hint">{t('tw_tt_periods_hint')}</p>
         <div className="twb-periods">
-          {rows.map((row, i) => (
-            <div className="twb-period-row" key={row.index}>
-              <span className="twb-period-no">{tf('tw_tt_period_n', { n: row.index })}</span>
-              <input
-                className="twb-input"
-                type="time"
-                value={row.start}
-                onChange={(e) => set(i, 'start', e.target.value)}
-              />
-              <span>–</span>
-              <input
-                className="twb-input"
-                type="time"
-                value={row.end}
-                onChange={(e) => set(i, 'end', e.target.value)}
-              />
-              <button
-                type="button"
-                className="twb-icon-btn is-danger"
-                aria-label={t('tw_delete')}
-                onClick={() => setRows((prev) => prev.filter((_, at) => at !== i))}
-              >
-                <Trash2 size={12} />
-              </button>
-            </div>
-          ))}
+          {rows.map((row, i) => {
+            const isBreak = (row.kind || 'period') === 'break'
+            return (
+              <div className={`twb-period-row${isBreak ? ' is-break' : ''}`} key={`${row.kind}-${row.index}`}>
+                <input
+                  className="twb-input twb-period-name"
+                  value={row.name || ''}
+                  placeholder={
+                    isBreak
+                      ? t('tw_tt_break_name')
+                      : tf('tw_tt_period_n', { n: row.index })
+                  }
+                  maxLength={12}
+                  aria-label={t('tw_tt_period_name')}
+                  onChange={(e) => set(i, 'name', e.target.value)}
+                />
+                <input
+                  className="twb-input"
+                  type="time"
+                  value={row.start}
+                  onChange={(e) => set(i, 'start', e.target.value)}
+                />
+                <span>–</span>
+                <input
+                  className="twb-input"
+                  type="time"
+                  value={row.end}
+                  onChange={(e) => set(i, 'end', e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="twb-icon-btn"
+                  aria-label={t('tw_tt_insert_period')}
+                  title={t('tw_tt_insert_period')}
+                  onClick={() => insertAfter(i, 'period')}
+                >
+                  <Plus size={12} />
+                </button>
+                <button
+                  type="button"
+                  className="twb-icon-btn"
+                  aria-label={t('tw_tt_insert_break')}
+                  title={t('tw_tt_insert_break')}
+                  onClick={() => insertAfter(i, 'break')}
+                >
+                  <Coffee size={12} />
+                </button>
+                <button
+                  type="button"
+                  className="twb-icon-btn is-danger"
+                  aria-label={t('tw_delete')}
+                  onClick={() => setRows((prev) => prev.filter((_, at) => at !== i))}
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            )
+          })}
         </div>
-        <button
-          type="button"
-          className="twb-btn"
-          onClick={() =>
-            setRows((prev) => [
-              ...prev,
-              { index: prev.reduce((max, row) => Math.max(max, row.index), 0) + 1, start: '', end: '' },
-            ])
-          }
-        >
-          <Plus size={14} />
-          <span>{t('tw_tt_add_period')}</span>
-        </button>
+        <div className="twb-period-add">
+          <button type="button" className="twb-btn" onClick={() => append('period')}>
+            <Plus size={14} />
+            <span>{t('tw_tt_add_period')}</span>
+          </button>
+          <button type="button" className="twb-btn" onClick={() => append('break')}>
+            <Coffee size={14} />
+            <span>{t('tw_tt_add_break_end')}</span>
+          </button>
+        </div>
+        <p className="twb-hint">{tf('tw_tt_lesson_count', { n: lessonCount })}</p>
       </div>
     </Modal>
   )
@@ -361,7 +468,11 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
   const overrideAt = (onDate: string, period: number, source: TeachingTimetable) =>
     onDate ? source.overrides.find((item) => item.date === onDate && item.period === period) : undefined
 
-  const save = async (next: TeachingTimetable, message: string) => {
+  const save = async (
+    next: TeachingTimetable,
+    message: string,
+    periodMap?: Record<string, number>
+  ) => {
     if (saving.current) return
     saving.current = true
     // A table that fell back to the built-in periods has never been saved;
@@ -370,7 +481,7 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
     setTable(payload)
     setStatus(message)
     try {
-      await apiClient.saveTeachingTimetable(payload)
+      await apiClient.saveTeachingTimetable(payload, periodMap)
       // §7.3: the table is what the lesson reminders are built from, so every
       // save re-lays them; the sync is idempotent. Report a failure rather
       // than letting the table look synced when it is not.
@@ -567,10 +678,27 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                         </tr>
                       </thead>
                       <tbody>
-                        {periods.map((period) => (
+                        {periods.map((period) => {
+                          if ((period.kind || 'period') === 'break') {
+                            const span = columns.length + 1
+                            return (
+                              <tr key={`break-${period.index}`} className="twb-tt-break">
+                                <td colSpan={span}>
+                                  <span className="twb-tt-break-name">
+                                    {period.name || t('tw_tt_break_name')}
+                                  </span>
+                                  <small>
+                                    {period.start || '—'}
+                                    {period.end ? `–${period.end}` : ''}
+                                  </small>
+                                </td>
+                              </tr>
+                            )
+                          }
+                          return (
                           <tr key={period.index}>
                             <th className="twb-tt-rowhead">
-                              <b>{period.index}</b>
+                              <b>{period.name || tf('tw_tt_period_n', { n: period.index })}</b>
                               <small>
                                 {period.start || '—'}
                                 {period.end ? `–${period.end}` : ''}
@@ -646,7 +774,8 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
                               )
                             })}
                           </tr>
-                        ))}
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -683,16 +812,12 @@ const TimetablePage: React.FC<TimetablePageProps> = ({ baseUrl }) => {
         <PeriodsDialog
           periods={periods}
           onClose={() => setPeriodsOpen(false)}
-          onSave={(next) => {
+          onSave={(next, periodMap) => {
             setPeriodsOpen(false)
-            const indexes = new Set(next.map((row) => row.index))
             void save(
-              {
-                ...table,
-                periods: next,
-                slots: table.slots.filter((slot) => indexes.has(slot.period)),
-              },
-              t('tw_tt_periods_saved')
+              { ...table, periods: next },
+              t('tw_tt_periods_saved'),
+              periodMap
             )
           }}
         />

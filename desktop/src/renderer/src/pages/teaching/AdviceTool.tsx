@@ -2,7 +2,7 @@
 // (design §3.4). The facts strip is the system's numbers; the model only adds
 // the judgement and the actions, and a follow-up carries the facts along.
 import React, { useEffect, useState } from 'react'
-import { ArrowUp, Check, ListTodo, Lightbulb, Sparkles, Square } from 'lucide-react'
+import { Check, ListTodo, Lightbulb, Sparkles, Square } from 'lucide-react'
 import { t, tf } from '../../i18n'
 import EmbeddedChat from '../../components/EmbeddedChat'
 import DeliverBar, { type DeliverStatus } from '../../components/teaching/DeliverBar'
@@ -10,7 +10,6 @@ import FactsStrip from '../../components/teaching/FactsStrip'
 import { ClassPicker } from '../../components/teaching/MaterialPicker'
 import { Skeleton, StartHint } from '../../components/teaching/states'
 import { DEMO_ACTIONS } from '../../components/teaching/demoData'
-import { useChatStore } from '../../store/chatStore'
 import { errorText } from '../../lib/teaching'
 import { extractJson, normalizeActions, type AdviceAction } from './drafts'
 import { ADVICE_FOCUS, ADVICE_RANGES, adviceFollowUp, advicePrompt } from './prompts'
@@ -24,7 +23,6 @@ const SESSION = sessionOf('advice')
 const AdviceTool: React.FC = () => {
   const source = useTeachingSource()
   const skill = useSkillRun(SESSION)
-  const send = useChatStore((s) => s.send)
 
   const [classId, setClassId] = useState('')
   const [unit, setUnit] = useState('')
@@ -42,7 +40,6 @@ const AdviceTool: React.FC = () => {
   }, [source.demo])
   const [adopted, setAdopted] = useState<Set<string>>(new Set())
   const [adopting, setAdopting] = useState('')
-  const [question, setQuestion] = useState('')
   const [status, setStatus] = useState<DeliverStatus>({ text: '' })
 
   const classes = useLoad(source.classes, [], `c${source.demo}`)
@@ -102,13 +99,6 @@ const AdviceTool: React.FC = () => {
     for (const action of actions) {
       if (!adopted.has(action.id)) await adopt(action)
     }
-  }
-
-  const ask = () => {
-    const text = question.trim()
-    if (!text || useChatStore.getState().sessions[SESSION]?.isStreaming) return
-    setQuestion('')
-    void send(SESSION, adviceFollowUp(text, facts.data.facts), [], text)
   }
 
   const shownStatus: DeliverStatus = skill.error
@@ -242,25 +232,14 @@ const AdviceTool: React.FC = () => {
             <span className="twt-muted">{t('twt_followup_hint')}</span>
           </div>
           <div className="twt-followup-body">
-            <EmbeddedChat sessionId={SESSION} />
-          </div>
-          <form
-            className="twt-followup-bar"
-            onSubmit={(e) => {
-              e.preventDefault()
-              ask()
-            }}
-          >
-            <input
-              className="twb-input twt-input"
-              value={question}
-              placeholder={t('tw_teach_input_ph')}
-              onChange={(e) => setQuestion(e.target.value)}
+            {/* The chat page's own composer; the班级事实 ride along with each
+                question so the answer stays on the numbers. */}
+            <EmbeddedChat
+              sessionId={SESSION}
+              composer
+              wrapMessage={(text) => adviceFollowUp(text, facts.data.facts)}
             />
-            <button type="submit" className="twb-icon-btn twt-send" aria-label={t('twt_send')} disabled={!question.trim()}>
-              <ArrowUp size={15} />
-            </button>
-          </form>
+          </div>
         </section>
       </div>
     </ToolFrame>

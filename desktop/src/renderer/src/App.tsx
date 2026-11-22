@@ -35,6 +35,7 @@ import TimetablePage from './pages/TimetablePage'
 import ProgressPage from './pages/ProgressPage'
 import HomeworkPage from './pages/HomeworkPage'
 import ScoresPage from './pages/ScoresPage'
+import VideoPage from './pages/VideoPage'
 import BoardPage from './pages/BoardPage'
 import TeachingPage from './pages/TeachingPage'
 import LogsPage from './pages/LogsPage'
@@ -345,6 +346,7 @@ const App: React.FC = () => {
             <Route path="/progress" element={<ProgressPage baseUrl={backend.baseUrl} />} />
             <Route path="/homework" element={<HomeworkPage baseUrl={backend.baseUrl} />} />
             <Route path="/scores" element={<ScoresPage baseUrl={backend.baseUrl} />} />
+            <Route path="/video" element={<VideoPage baseUrl={backend.baseUrl} />} />
             <Route path="/board" element={<BoardPage baseUrl={backend.baseUrl} />} />
             <Route path="/teaching" element={<TeachingPage />} />
             <Route path="/teaching/:tab" element={<TeachingPage />} />

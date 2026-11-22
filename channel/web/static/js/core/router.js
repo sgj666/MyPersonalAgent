@@ -30,6 +30,7 @@ const ROUTE_PATHS = {
     progress:  'progress',
     homework:  'homework',
     scores:    'scores',
+    video:     'video',
     artifacts: 'artifacts',
     agents:    'agents',
     config:    'settings',

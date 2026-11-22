@@ -247,9 +247,11 @@ function claimScheduledRunNotify(runId) {
 // different: it can fire into a session the user isn't currently viewing (or
 // while they're looking at another app/tab), so if we don't notify they have no
 // way to know it happened. This reuses the same popNotification() plumbing but
-// skips the focus gate. Still honours the user's "Task Notifications" toggle.
-function forceScheduledNotification(title, body, sid, agentId) {
-    if (!taskNotifyEnabled) return;
+// skips the focus gate. Still honours the user's "Task Notifications" toggle,
+// unless `always` is set — teaching reminders have their own on/off switches in
+// teaching settings, so the generic "task finished" toggle does not apply.
+function forceScheduledNotification(title, body, sid, agentId, always) {
+    if (!taskNotifyEnabled && !always) return;
     playNotifyBeep();
     if (document.hidden) {
         unreadCount += 1;

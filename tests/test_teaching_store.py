@@ -429,3 +429,170 @@ def test_unknown_progress_and_homework_ids_raise(tmp_path):
         store.list_exams("missing")
     with pytest.raises(KeyError):
         store.delete_exam("missing")
+
+
+# ---------------------------------------------------------------------------
+# Periods: custom names and breaks
+# ---------------------------------------------------------------------------
+
+def test_periods_keep_a_custom_name_and_a_break_between_lessons(tmp_path):
+    store = _store(tmp_path)
+    saved = store.save_timetable(periods=[
+        {"index": 1, "start": "08:00", "end": "08:45", "name": "早自习"},
+        {"index": 2, "start": "08:55", "end": "09:40", "name": ""},
+        {"index": 2.5, "kind": "break", "start": "09:40", "end": "10:10", "name": "大课间"},
+        {"index": 3, "start": "10:30", "end": "11:15"},
+    ])
+    rows = saved["periods"]
+    assert [row["index"] for row in rows] == [1, 2, 2.5, 3]
+    assert rows[0]["name"] == "早自习"
+    assert rows[2]["kind"] == "break" and rows[2]["name"] == "大课间"
+    # A period that never had a kind still reads back as one.
+    assert rows[1]["kind"] == "period" and rows[3]["kind"] == "period"
+
+
+def test_a_break_must_be_placed_between_whole_periods(tmp_path):
+    store = _store(tmp_path)
+    with pytest.raises(ValueError):
+        store.save_timetable(periods=[{"index": 2.5, "kind": "period", "start": "08:00"}])
+    with pytest.raises(ValueError):
+        store.save_timetable(periods=[{"index": 1, "kind": "nap", "start": "08:00"}])
+    with pytest.raises(ValueError):
+        store.save_timetable(periods=[{"index": 1, "name": "课堂上的一次很长的名字超过限制"}])
+
+
+def test_inserting_a_break_does_not_renumber_saved_lessons(tmp_path):
+    """Slots point at whole period numbers, so a 2.5 must not shift them."""
+    store = _store(tmp_path)
+    klass = _class(store)
+    store.save_timetable(
+        periods=[{"index": 1, "start": "08:00", "end": "08:45"},
+                 {"index": 2, "start": "08:55", "end": "09:40"},
+                 {"index": 3, "start": "10:30", "end": "11:15"}],
+        slots=[{"class_id": klass["id"], "weekday": 1, "period": 3,
+                "subject": "英语", "kind": "regular"}],
+    )
+    saved = store.save_timetable(periods=[
+        {"index": 1, "start": "08:00", "end": "08:45"},
+        {"index": 2, "start": "08:55", "end": "09:40"},
+        {"index": 2.5, "kind": "break", "name": "大课间", "start": "09:40", "end": "10:10"},
+        {"index": 3, "start": "10:30", "end": "11:15"},
+    ])
+    assert saved["slots"][0]["period"] == 3
+    assert [row["index"] for row in saved["periods"]] == [1, 2, 2.5, 3]
+
+
+# ---------------------------------------------------------------------------
+# Inserting a row anywhere in the week
+# ---------------------------------------------------------------------------
+
+def _week(store, klass):
+    return store.save_timetable(
+        periods=[
+            {"index": 1, "start": "08:00", "end": "08:45"},
+            {"index": 2, "start": "08:55", "end": "09:40"},
+            {"index": 2.5, "kind": "break", "name": "眼保健操",
+             "start": "09:40", "end": "09:45"},
+            {"index": 3, "start": "10:30", "end": "11:15"},
+        ],
+        slots=[{"class_id": klass["id"], "weekday": 1, "period": 3,
+                "subject": "英语", "kind": "regular"}],
+        overrides=[{"date": "2026-11-13", "period": 3, "class_id": klass["id"],
+                    "state": "cancelled"}],
+    )
+
+
+def test_inserting_a_period_shifts_lessons_and_breaks_together(tmp_path):
+    store = _store(tmp_path)
+    klass = _class(store)
+    _week(store, klass)
+
+    doc = store.insert_timetable_row(2, "period", name="午读", start="09:45", end="10:10")
+
+    assert [(row["index"], row["kind"], row["name"]) for row in doc["periods"]] == [
+        (1, "period", ""),
+        (2, "period", ""),
+        (3, "period", "午读"),
+        (3.5, "break", "眼保健操"),
+        (4, "period", ""),
+    ]
+    # The lesson and the cancellation stay on the same weekday at the same time.
+    assert doc["slots"][0]["period"] == 4
+    assert doc["overrides"][0]["period"] == 4
+
+
+def test_inserting_a_break_leaves_every_number_alone(tmp_path):
+    store = _store(tmp_path)
+    klass = _class(store)
+    _week(store, klass)
+
+    doc = store.insert_timetable_row(2, "break", name="大课间",
+                                     start="09:40", end="09:50")
+
+    assert [row["index"] for row in doc["periods"]] == [1, 2, 2.25, 2.5, 3]
+    assert doc["slots"][0]["period"] == 3
+
+
+def test_inserting_after_the_last_row_appends_a_new_period(tmp_path):
+    store = _store(tmp_path)
+    klass = _class(store)
+    _week(store, klass)
+
+    doc = store.insert_timetable_row(3, "period", start="13:30", end="14:15")
+
+    assert [row["index"] for row in doc["periods"]] == [1, 2, 2.5, 3, 4]
+    assert doc["slots"][0]["period"] == 3
+
+
+def test_inserting_refuses_a_break_that_has_no_room(tmp_path):
+    store = _store(tmp_path)
+    klass = _class(store)
+    _week(store, klass)
+    # Two breaks already crowd the gap down to hundredths.
+    for _ in range(40):
+        try:
+            store.insert_timetable_row(2, "break")
+        except ValueError:
+            break
+    with pytest.raises(ValueError):
+        store.insert_timetable_row(2, "break")
+
+
+def test_a_saved_period_map_moves_lessons_with_their_row(tmp_path):
+    """The dialog inserts locally; the map is how its draft reaches the lessons."""
+    store = _store(tmp_path)
+    klass = _class(store)
+    _week(store, klass)  # periods 1, 2, 2.5(break), 3 — slot+override on 3
+
+    # The teacher inserts a new period at 3, so the old row 3 becomes row 4.
+    saved = store.save_timetable(
+        periods=[
+            {"index": 1, "start": "08:00", "end": "08:45"},
+            {"index": 2, "start": "08:55", "end": "09:40"},
+            {"index": 2.5, "kind": "break", "name": "眼保健操",
+             "start": "09:40", "end": "09:45"},
+            {"index": 3, "start": "09:50", "end": "10:25"},
+            {"index": 4, "start": "10:30", "end": "11:15"},
+        ],
+        period_map={"1": 1, "2": 2, "2.5": 2.5, "3": 4},
+    )
+
+    assert [slot["period"] for slot in saved["slots"]] == [4]
+    assert [row["period"] for row in saved["overrides"]] == [4]
+
+
+def test_a_partial_period_map_does_not_drop_untouched_lessons(tmp_path):
+    store = _store(tmp_path)
+    klass = _class(store)
+    store.save_timetable(
+        periods=[{"index": 1, "start": "08:00", "end": "08:45"},
+                 {"index": 2, "start": "08:55", "end": "09:40"}],
+        slots=[{"class_id": klass["id"], "weekday": 1, "period": 1,
+                "subject": "英语", "kind": "regular"}],
+    )
+    saved = store.save_timetable(periods=[
+        {"index": 1, "start": "08:00", "end": "08:45"},
+        {"index": 2, "start": "08:55", "end": "09:40"},
+        {"index": 3, "start": "10:30", "end": "11:15"},
+    ], period_map={"2": 2})
+    assert [slot["period"] for slot in saved["slots"]] == [1]

@@ -144,6 +144,36 @@ function twTtRenderGrid() {
         .sort((a, b) => Number(a.index) - Number(b.index))
         .map(period => {
             const p = Number(period.index);
+            const isBreak = (period.kind || 'period') === 'break';
+            if (isBreak) {
+                // One band across the week: nothing can be scheduled into a
+                // break, and its name/times are edited in the same row.
+                const span = TW_TT_WEEKDAYS.length + 1;
+                return `<tr class="tw-tt-break">
+                    <td colspan="${span}">
+                        <input type="text" class="tw-input tw-tt-break-name" value="${twAcadAttr(period.name || '')}"
+                               placeholder="${twAcadAttr(t('tw_tt_break_name'))}" maxlength="12"
+                               data-period="${p}" aria-label="${twAcadAttr(t('tw_tt_period_name'))}"
+                               onchange="twTtNameChanged(this)">
+                        <span class="tw-tt-times">
+                            <input type="time" class="tw-input tw-input-time" value="${twAcadAttr(period.start || '')}"
+                                   data-period="${p}" data-edge="start" aria-label="${twAcadAttr(t('tw_tt_start'))}"
+                                   onchange="twTtTimeChanged(this)">
+                            <input type="time" class="tw-input tw-input-time" value="${twAcadAttr(period.end || '')}"
+                                   data-period="${p}" data-edge="end" aria-label="${twAcadAttr(t('tw_tt_end'))}"
+                                   onchange="twTtTimeChanged(this)">
+                        </span>
+                        <button type="button" class="tw-icon-btn tw-tt-insert" title="${twAcadAttr(t('tw_tt_insert_period'))}"
+                                aria-label="${twAcadAttr(t('tw_tt_insert_period'))}" onclick="twTtInsertRow(${p}, 'period')">
+                            <i class="fas fa-plus" aria-hidden="true"></i>
+                        </button>
+                        <button type="button" class="tw-icon-btn tw-tt-insert" title="${twAcadAttr(t('tw_tt_insert_break'))}"
+                                aria-label="${twAcadAttr(t('tw_tt_insert_break'))}" onclick="twTtInsertRow(${p}, 'break')">
+                            <i class="fas fa-mug-hot" aria-hidden="true"></i>
+                        </button>
+                    </td>
+                </tr>`;
+            }
             const cells = TW_TT_WEEKDAYS.map(w => {
                 const slot = twTtSlotAt(w, p);
                 const cls = slot ? twTtClassName(slot.class_id) : '';
@@ -176,7 +206,10 @@ function twTtRenderGrid() {
             }).join('');
             return `<tr>
                 <th class="tw-tt-period" scope="row">
-                    <span>${escapeHtml(t('tw_tt_period_n').replace('{n}', String(p)))}</span>
+                    <input type="text" class="tw-input tw-tt-period-name" value="${twAcadAttr(period.name || '')}"
+                           placeholder="${twAcadAttr(t('tw_tt_period_n').replace('{n}', String(p)))}" maxlength="12"
+                           data-period="${p}" aria-label="${twAcadAttr(t('tw_tt_period_name'))}"
+                           onchange="twTtNameChanged(this)">
                     <span class="tw-tt-times">
                         <input type="time" class="tw-input tw-input-time" value="${twAcadAttr(period.start || '')}"
                                data-period="${p}" data-edge="start" aria-label="${twAcadAttr(t('tw_tt_start'))}"
@@ -184,6 +217,14 @@ function twTtRenderGrid() {
                         <input type="time" class="tw-input tw-input-time" value="${twAcadAttr(period.end || '')}"
                                data-period="${p}" data-edge="end" aria-label="${twAcadAttr(t('tw_tt_end'))}"
                                onchange="twTtTimeChanged(this)">
+                        <button type="button" class="tw-icon-btn tw-tt-insert" title="${twAcadAttr(t('tw_tt_insert_period'))}"
+                                aria-label="${twAcadAttr(t('tw_tt_insert_period'))}" onclick="twTtInsertRow(${p}, 'period')">
+                            <i class="fas fa-plus" aria-hidden="true"></i>
+                        </button>
+                        <button type="button" class="tw-icon-btn tw-tt-insert" title="${twAcadAttr(t('tw_tt_insert_break'))}"
+                                aria-label="${twAcadAttr(t('tw_tt_insert_break'))}" onclick="twTtInsertRow(${p}, 'break')">
+                            <i class="fas fa-mug-hot" aria-hidden="true"></i>
+                        </button>
                     </span>
                 </th>${cells}
             </tr>`;
@@ -269,6 +310,63 @@ function twTtTimeChanged(input) {
     const period = twTtData.periods.find(p => Number(p.index) === Number(input.dataset.period));
     if (!period) return;
     period[input.dataset.edge === 'end' ? 'end' : 'start'] = input.value;
+    twTtSave();
+}
+
+/** Rename a period (or a break). An empty name means the default label. */
+function twTtNameChanged(input) {
+    const period = twTtData.periods.find(p => Number(p.index) === Number(input.dataset.period));
+    if (!period) return;
+    period.name = String(input.value || '').trim();
+    twTtSave();
+}
+
+/** Insert a period or a break after the given row.
+ *
+ * Both go through the backend: inserting a *period* has to renumber the rows
+ * and every slot/override that points at a period number, and a client that
+ * only renumbered its own rows would leave the saved lessons on the wrong
+ * periods. The response is the whole table, so the view just replaces it.
+ */
+async function twTtInsertRow(index, kind) {
+    twAcadStatus('timetable-status', t('tw_tt_saving'));
+    try {
+        const data = await twAcadJSON('/api/teaching/timetable/insert', 'POST', {
+            after: Number(index),
+            kind: kind,
+        });
+        twTtData = {
+            periods: data.periods || [],
+            slots: data.slots || [],
+            overrides: data.overrides || [],
+        };
+        twTtRender();
+        twAcadStatus('timetable-status', t('tw_tt_periods_saved'));
+    } catch (err) {
+        twAcadStatus('timetable-status', t('tw_save_failed').replace('{msg}', (err && err.message) || ''), true);
+    }
+}
+
+/** A break sits between two lessons, so its index is the midpoint between them. */
+function twTtAddBreak() {
+    const indexes = twTtData.periods.map(p => Number(p.index)).sort((a, b) => a - b);
+    if (!indexes.length) {
+        twTtAddPeriod();
+        return;
+    }
+    const last = indexes[indexes.length - 1];
+    const nextLesson = indexes.find(value => value > Math.floor(last));
+    const after = Math.floor(last);
+    const stop = nextLesson === undefined ? after + 1 : nextLesson;
+    twTtData.periods.push({
+        index: Number(((after + stop) / 2).toFixed(2)),
+        kind: 'break',
+        name: '',
+        start: '',
+        end: '',
+    });
+    twTtData.periods.sort((a, b) => Number(a.index) - Number(b.index));
+    twTtRender();
     twTtSave();
 }
 

@@ -78,3 +78,14 @@ websocket-client>=1.4.0
 python-telegram-bot
 slack_bolt
 discord.py
+
+# ---- video download -------------------------------------------------------
+# The download engine is a runtime dependency of the 视频下载 page and of the
+# `video_download` tool, so it has to be frozen into the bundle: a PyInstaller
+# onedir app has no pip, and the self-install path in runner.ensure_engine is
+# deliberately skipped when frozen.
+yt-dlp>=2026.10.21
+# Ships the static ffmpeg used to merge Bilibili's DASH streams. A user machine
+# may have no ffmpeg at all, and a Homebrew one can be broken (missing dylibs)
+# while still sitting on PATH.
+imageio-ffmpeg>=0.6.0

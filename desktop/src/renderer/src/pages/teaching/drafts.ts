@@ -49,6 +49,11 @@ export interface DeckSlide {
   id: string
   layout: DeckLayout
   title: string
+  /**
+   * A ppt-master page: the SVG file the skill wrote, workspace-relative. Set
+   * instead of layout/bullets — the page is drawn, not laid out.
+   */
+  svg_path?: string
   subtitle?: string
   bullets?: string[]
   columns?: DeckColumn[]
@@ -254,8 +259,12 @@ export function normalizeSlide(raw: unknown): DeckSlide | null {
   }
   if (raw.quote !== undefined) slide.quote = str(raw.quote)
   if (raw.notes !== undefined) slide.notes = str(raw.notes)
+  if (raw.svg_path !== undefined) slide.svg_path = str(raw.svg_path)
   return slide
 }
+
+/** A page drawn as an SVG file, so layout and bullet editing do not apply. */
+export const isSvgPage = (slide: DeckSlide): boolean => Boolean(slide.svg_path)
 
 /** A reply (or a saved draft) as a deck; null when it has no slides. */
 export function normalizeDeck(raw: unknown): DeckDraft | null {

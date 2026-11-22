@@ -225,10 +225,30 @@ class TeachingTimetableHandler:
         body = _body()
         agent_id = _request_agent_id(body)
         store = _store(agent_id)
-        fields = _payload(body, ("periods", "slots", "overrides"))
+        fields = _payload(body, ("periods", "slots", "overrides", "period_map"))
         saved = store.save_timetable(**fields)
         _auto_sync(store, agent_id, body.get("session_id"))
         return _ok(**saved)
+
+
+class TeachingTimetableInsertHandler:
+    """POST ``/api/teaching/timetable/insert``: add a period or a break anywhere.
+
+    Both clients need the same two operations and both need the renumbering that
+    comes with a period insert (slots and overrides point at period numbers), so
+    it lives here rather than in each client's copy of the table.
+    """
+
+    @_endpoint
+    def POST(self):
+        body = _body()
+        agent_id = _request_agent_id(body)
+        store = _store(agent_id)
+        fields = _payload(body, ("after", "kind", "name", "start", "end"))
+        _require(fields, "after")
+        doc = store.insert_timetable_row(**fields)
+        _auto_sync(store, agent_id, body.get("session_id"))
+        return _ok(**doc)
 
 
 class TeachingProgressHandler:
@@ -661,6 +681,7 @@ TEACHING_URLS = (
     ('/api/teaching/students', 'TeachingStudentsHandler'),
     ('/api/teaching/students/([^/]+)', 'TeachingStudentHandler'),
     ('/api/teaching/timetable', 'TeachingTimetableHandler'),
+    ('/api/teaching/timetable/insert', 'TeachingTimetableInsertHandler'),
     ('/api/teaching/progress', 'TeachingProgressHandler'),
     ('/api/teaching/homework', 'TeachingHomeworkHandler'),
     ('/api/teaching/homework/([^/]+)/records', 'TeachingHomeworkRecordsHandler'),

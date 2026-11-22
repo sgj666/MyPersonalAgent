@@ -1,4 +1,4 @@
-"""Teaching reminders: digest/lesson text and the scheduler sync.
+"""Teaching reminders: digest/lesson/overdue text and the scheduler sync.
 
 The text builders are pure functions over plain dicts, so the console can show
 exactly what the scheduler will send and a test can pin the wording without a
@@ -38,6 +38,10 @@ PREFIX = "[teaching]"
 DEFAULT_RECEIVER = "teaching-reminders"
 
 WEEKDAY_LABELS = ("周一", "周二", "周三", "周四", "周五", "周六", "周日")
+
+#: A notification that lists every overdue task would be unreadable, so the
+#: summary names the first few and counts the rest.
+MAX_OVERDUE_LINES = 8
 
 
 def weekday_label(weekday: int) -> str:
@@ -98,6 +102,55 @@ def build_lesson(minutes: int, period: int, start: str, class_name: str,
     if detail:
         lines.append(detail)
     return "\n".join(lines)
+
+
+def build_overdue(tasks: List[dict], today: Optional[date] = None) -> str:
+    """The overdue to-do summary; an empty string when nothing is overdue.
+
+    Fires once a day at a fixed time, so a task that slips past its deadline
+    later in the day is reported tomorrow. One predictable reminder beats a
+    stream of them, and there is nothing to say on a clean board.
+    """
+    if not tasks:
+        return ""
+    day = today or date.today()
+    lines = [f"待办已有 {len(tasks)} 项逾期："]
+    for task in tasks[:MAX_OVERDUE_LINES]:
+        try:
+            due = date.fromisoformat(str(task.get("due") or ""))
+            when = f"截止 {due.month}月{due.day}日，逾期 {max(1, (day - due).days)} 天"
+        except ValueError:
+            when = f"截止 {task.get('due') or '未知'}"
+        lines.append(f"· {task.get('title') or ''}（{when}）")
+    if len(tasks) > MAX_OVERDUE_LINES:
+        lines.append(f"…以及另外 {len(tasks) - MAX_OVERDUE_LINES} 项")
+    return "\n".join(lines)
+
+
+def overdue_for_today(agent_id: Optional[str] = None) -> List[dict]:
+    """Open board tasks whose due date has passed, read at delivery time.
+
+    Same rule as the board's own ``逾期 N 天`` chip: a task due today is not
+    overdue until the date rolls over, whatever its due time.
+    """
+    from agent.board import BoardStore
+    from common.runtime_identity import RuntimeIdentity
+    from common.state_dir import state_root
+
+    today = date.today().isoformat()
+    try:
+        board = BoardStore(str(state_root(RuntimeIdentity(agent_id=agent_id)) / "board.json"))
+        tasks = board.load_tasks()
+    except Exception as e:
+        logger.warning(f"[Teaching] cannot read the task board: {e}")
+        return []
+    overdue = [
+        {"title": task.get("title") or "", "due": task.get("due") or ""}
+        for task in tasks
+        if task.get("due") and task["due"] < today and task.get("status") != "done"
+    ]
+    overdue.sort(key=lambda task: task["due"])
+    return overdue
 
 
 def digest_for_today(agent_id: Optional[str] = None) -> str:
@@ -352,13 +405,31 @@ def sync(store, *, agent_id: Optional[str] = None, task_store=None,
                 owner,
                 f"{PREFIX} 早晨简报",
                 expression,
-                _action(target, type="teaching_digest"),
+                _action(target, type="teaching_digest",
+                        reminder=True, reminder_title="早晨简报"),
                 moment,
                 taken,
             ))
             created += 1
         else:
             logger.warning(f"[Teaching] invalid morning time: {morning['time']!r}")
+
+    overdue = settings["overdue"]
+    if overdue["enabled"]:
+        expression = digest_cron(overdue["time"])
+        if expression:
+            tasks.add_task(_task(
+                owner,
+                f"{PREFIX} 待办超时提醒",
+                expression,
+                _action(target, type="teaching_overdue",
+                        reminder=True, reminder_title="待办超时提醒"),
+                moment,
+                taken,
+            ))
+            created += 1
+        else:
+            logger.warning(f"[Teaching] invalid overdue time: {overdue['time']!r}")
 
     lesson = settings["lesson"]
     if lesson["enabled"]:
@@ -384,7 +455,8 @@ def sync(store, *, agent_id: Optional[str] = None, task_store=None,
                 f"{PREFIX} 课前提醒 {weekday_label(slot['weekday'])} "
                 f"{info['start']} {info['class_name']}",
                 expression,
-                _action(target, type="send_message", content=text),
+                _action(target, type="send_message", content=text,
+                        reminder=True, reminder_title="课前提醒"),
                 moment,
                 taken,
             ))
@@ -394,6 +466,7 @@ def sync(store, *, agent_id: Optional[str] = None, task_store=None,
     return {
         "scheduled": created,
         "digest": {"enabled": bool(morning["enabled"])},
+        "overdue": {"enabled": bool(overdue["enabled"])},
         "lesson": {"count": created_lessons},
     }
 
@@ -438,8 +511,10 @@ __all__ = [
     "auto_sync",
     "build_digest",
     "build_lesson",
+    "build_overdue",
     "digest_cron",
     "lesson_cron",
+    "overdue_for_today",
     "preview",
     "sync",
     "teacher_name",

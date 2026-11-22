@@ -991,6 +991,54 @@
   color: var(--twb-ink-2);
 }
 
+/* The row's name is editable: the label may be 早自习 or 大课间, not 第 3 节. */
+.twb-period-name {
+  width: 104px;
+  flex: 0 0 104px;
+  font-weight: 800;
+}
+
+.twb-period-row.is-break {
+  padding: 6px 8px;
+  margin: 2px -8px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--twb-ink-2) 8%, transparent);
+}
+
+.twb-period-row.is-break .twb-period-name {
+  font-style: italic;
+}
+
+.twb-period-add {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* A break is one band across the week, not a row of empty cells: nothing can be
+   scheduled into it, and editing its times belongs to the period dialog. */
+.twb-tt-break td {
+  padding: 6px 10px;
+  background: color-mix(in srgb, var(--twb-ink-2) 7%, transparent);
+  border-left: 0;
+  border-right: 0;
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--twb-ink-2);
+}
+
+.twb-tt-break-name {
+  margin-right: 8px;
+  letter-spacing: 0.02em;
+}
+
+.twb-tt-break small {
+  font-weight: 700;
+  opacity: 0.8;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- progress & stats ---------- */
 .twb-stats {
   display: grid;
@@ -1946,52 +1994,22 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
   padding-right: 10px;
 }
 
-.twb-embed-composer {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--twb-line);
-}
-
-.twb-embed-input {
-  flex: 1;
-  min-height: 38px;
-  max-height: 120px;
-  padding: 8px 10px;
-  border: 1px solid var(--twb-rim);
-  border-radius: 12px;
-  background: var(--twb-surface-2);
-  color: var(--twb-ink);
-  font: inherit;
-  font-size: 13px;
-  line-height: 1.5;
-  resize: vertical;
-}
-
-.twb-embed-input:focus {
-  outline: 2px solid var(--twb-accent);
-  outline-offset: 1px;
-}
-
-.twb-embed-send {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
+/* An embedded chat draws the chat page's own composer (attachments, `/`, `@`,
+   model chip, voice). Inside a card it drops the window-wide frame, the same
+   way the page assistant drawer does. */
+.twb-embed-input-bar {
   flex: none;
-  border: 1px solid var(--twb-rim);
-  border-radius: 12px;
-  background: var(--twb-accent);
-  color: #fff;
-  cursor: pointer;
+  margin-top: 10px;
 }
 
-.twb-embed-send:disabled {
-  opacity: 0.45;
-  cursor: default;
+.twb-embed-input-bar .composer-bar {
+  padding: 8px 0 0;
+  border-top: 1px solid var(--twb-line);
+  background: transparent;
+}
+
+.twb-embed-input-bar .composer-card {
+  max-width: none;
 }
 
 /* ---------- page AI assistant drawer ---------- */
@@ -3178,6 +3196,121 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
 .twt-rail,
 .twt-notes { overflow: auto; }
 
+/* 课件生成 is a conversation first: the Skill writes, the right side shows.
+   Two columns only — a slide rail beside them squeezed both; the page strip
+   inside the preview card does the same job with one row. */
+.twt-deck.is-chat {
+  grid-template-columns: minmax(340px, 440px) minmax(0, 1fr);
+}
+
+.twt-chat-span {
+  grid-column: 2;
+}
+
+/* Inside the two-column layout the first-run panel is a side note, not a
+   landing page: the mock slides made it taller than the window, which pushed
+   the 生成 button below the fold. */
+.twt-deck .twt-first-body {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.twt-deck .twt-first-mock {
+  display: none;
+}
+
+.twt-page-nav {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.twt-page-nav .twb-icon-btn:disabled,
+.twt-head-actions .twb-link:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.twt-page-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.twt-page-chip {
+  min-width: 26px;
+  height: 24px;
+  padding: 0 6px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--twb-ink-2);
+  background: var(--twb-surface-2);
+  border: 1px solid var(--twb-rim);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.twt-page-chip:hover {
+  color: var(--twb-accent-ink);
+}
+
+.twt-page-chip.is-on {
+  color: var(--twb-accent-ink);
+  background: var(--twb-accent-soft);
+  border-color: var(--twb-accent);
+}
+
+.twt-chat {
+  overflow: hidden;
+}
+
+.twt-chat-records {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.twt-chat-records-panel {
+  flex-shrink: 0;
+  max-height: 38%;
+  overflow: auto;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed var(--twb-line);
+}
+
+.twt-chat-embed {
+  flex: 1;
+  min-height: 0;
+}
+
+.twt-stage-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  flex-shrink: 0;
+}
+
+.twt-stage-notes-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* The notes keep a fixed box: the old column let the textarea grow, which
+   squeezed the slide preview down to its 180px floor. */
+.twt-stage-notes .twt-notes-text {
+  flex: 0 0 auto;
+  height: 96px;
+  min-height: 0;
+  resize: vertical;
+}
+
+.twt-stage-notes .twt-muted { margin: 0; }
+
 .twt-outline.is-rail .twt-row-main { padding: 6px 4px; }
 
 .twt-rail-item {
@@ -3203,7 +3336,18 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
   color: var(--twb-ink-3);
 }
 
-.twt-stage { overflow: hidden; }
+/* Scrolling here keeps the 讲稿 hint reachable on a short window instead of
+   letting the card clip it. */
+.twt-stage { overflow: auto; }
+
+/* The slide box takes its shape from the column width, and CardPreview scales
+   from that same width, so the page fills it exactly. */
+.twt-stage .twt-preview-box {
+  flex: 0 0 auto;
+  width: 100%;
+  aspect-ratio: 1280 / 720;
+  min-height: 0;
+}
 
 .twt-slide-edit {
   display: flex;
@@ -3755,24 +3899,11 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
 .twt-followup-body {
   display: flex;
   flex-direction: column;
-  height: 280px;
+  height: 340px;
   min-height: 0;
   overflow: hidden;
 }
 
-.twt-followup-bar {
-  display: flex;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-#twb-teaching .twt-send {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  color: #1f5a3d;
-  background: #d6f1e2;
-}
 
 /* ---------- schedule ---------- */
 .twt-schedule {
@@ -3861,6 +3992,7 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
 @media (max-width: 1240px) {
   .twt-plan { grid-template-columns: 230px minmax(0, 1fr); }
   .twt-deck { grid-template-columns: 190px minmax(0, 1fr) 230px; }
+  .twt-deck.is-chat { grid-template-columns: 320px minmax(0, 1fr); }
   .twt-card-page { grid-template-columns: minmax(0, 1fr) 300px; }
   .twt-dict { grid-template-columns: minmax(0, 1fr) 340px; }
   .twt-schedule { grid-template-columns: minmax(0, 1fr) 250px; }
@@ -3880,6 +4012,9 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
   }
   .twt-phone-shell { min-height: 520px; }
   .twt-stage .twt-preview-box { min-height: 260px; }
+  .twt-chat-span { grid-column: auto; }
+  .twt-chat { min-height: 420px; }
+  .twt-deck .twt-first-mock { display: flex; }
 }
 
 /* ---------- homework: first run + submission overview ---------- */

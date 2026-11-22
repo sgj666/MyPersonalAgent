@@ -2,6 +2,7 @@
 // the small formatting rules the five views share. No React, no network — a
 // page keeps only what is specific to it.
 import type {
+  ChatMessage,
   HomeworkKind,
   HomeworkState,
   TeachingStudentInput,
@@ -46,6 +47,21 @@ export const DEFAULT_PERIODS: TimetablePeriod[] = [
 ]
 
 export const errorText = (err: unknown): string => (err instanceof Error ? err.message : String(err))
+
+/** The text of a finished assistant turn: `content`, else its content steps. */
+export function replyText(message: ChatMessage): string {
+  if (message.content) return message.content
+  return (message.steps || [])
+    .filter((step) => step.type === 'content' && step.content)
+    .map((step) => step.content)
+    .join('\n')
+}
+
+/** `8月12日` for a stored timestamp or date string. */
+export function shortDate(value: string): string {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : `${date.getMonth() + 1}月${date.getDate()}日`
+}
 
 const pad2 = (n: number): string => String(n).padStart(2, '0')
 

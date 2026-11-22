@@ -399,6 +399,12 @@ def collect_message_artifacts(messages: List[Dict], workspace_root: str) -> List
                     data = _result_json(result["content"]) if result else None
                     path = (data.get("path") if isinstance(data, dict) else None) or args.get("path")
                     add(safe_build_artifact(str(path or ""), root), name)
+                elif name == "video_download":
+                    # Downloads report the saved file as JSON so the model can
+                    # quote the path; the file itself is the deliverable.
+                    data = _result_json(result["content"]) if result else None
+                    path = data.get("path") if isinstance(data, dict) else None
+                    add(safe_build_artifact(str(path or ""), root), name)
                 elif name == "send":
                     data = _result_json(result["content"]) if result else None
                     path = (data.get("path") if isinstance(data, dict) else None) or args.get("path")

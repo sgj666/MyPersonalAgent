@@ -133,6 +133,14 @@ hiddenimports += collect_submodules('openpyxl')
 hiddenimports += ['playwright', 'playwright.sync_api', 'playwright._impl']
 hiddenimports += collect_submodules('playwright')
 
+# Video download. yt-dlp imports its extractors through a generated list, so
+# static analysis finds almost none of them; without the whole package the
+# frozen backend answers "Unsupported URL" for every platform. imageio-ffmpeg
+# ships a static ffmpeg binary as package data, which is the only ffmpeg a
+# teacher's machine is guaranteed to have.
+hiddenimports += ['imageio_ffmpeg']
+hiddenimports += collect_submodules('yt_dlp')
+
 # --- Data files -----------------------------------------------------------
 # Runtime-read files/dirs that must travel with the executable. Paths are
 # (source, dest_dir_in_bundle).
@@ -170,6 +178,10 @@ datas += collect_data_files('pptx')
 # them as data or `playwright install` / launching fails in the frozen build.
 # include_py_files=True is required: the driver dir contains .py entrypoints.
 datas += collect_data_files('playwright', include_py_files=True)
+
+# imageio-ffmpeg's binaries/ dir holds the ffmpeg executable itself (not a
+# Python module), so it only travels as data.
+datas += collect_data_files('imageio_ffmpeg', include_py_files=True)
 
 # --- Excludes -------------------------------------------------------------
 # Keep the bundle lean: drop tests/docs and dev-only packages.

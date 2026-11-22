@@ -158,3 +158,20 @@ def test_exception_is_recorded_error_and_propagates(monkeypatch, one_agent):
     assert len(runs) == 1
     assert runs[0]["status"] == "error"
     assert "kaboom" in runs[0]["error"]
+
+
+def test_reminder_flag_is_recorded_for_the_clients(monkeypatch, one_agent):
+    """Teaching reminders are announced as themselves, so the run carries the
+    flag and title the clients read (see useSchedulerNotifyPoll / notify.js)."""
+    from agent.tools.scheduler import integration
+
+    monkeypatch.setattr(integration, "_is_channel_ready", lambda *a, **k: True)
+    monkeypatch.setattr(integration, "_execute_send_message", lambda *a, **k: True)
+
+    task = _task()
+    task["action"].update(reminder=True, reminder_title="课前提醒")
+    integration._run_scheduled_task(task, agent_bridge=object(), agent_id="default")
+
+    extras = get_conversation_store().list_runs(task_source="scheduler")[0]["extras"]
+    assert extras["reminder"] is True
+    assert extras["reminder_title"] == "课前提醒"

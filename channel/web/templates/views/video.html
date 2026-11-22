@@ -1,0 +1,248 @@
+                <!-- ====================================================== -->
+                <!-- VIEW: Video download                                     -->
+                <!-- ====================================================== -->
+                <div id="view-video" class="view tw-view">
+                    <div class="tw-scroll">
+                        <div class="tw-page">
+
+                            <header class="tw-page-head">
+                                <div>
+                                    <h1 data-i18n="tw_video_title">视频下载</h1>
+                                    <p data-i18n="tw_video_desc">粘贴抖音、小红书或 B 站的链接，无水印原片直接进「产出文件」。</p>
+                                </div>
+                                <div class="vd-head-right" id="vd-status-pills">
+                                    <span class="vd-pill" id="vd-pill-engine">
+                                        <i class="vd-dot"></i><span data-i18n="tw_video_loading">读取引擎状态…</span>
+                                    </span>
+                                </div>
+                            </header>
+
+                            <div class="vd-grid">
+                                <div class="vd-main">
+
+                                    <!-- 主舞台：六种状态共用一个卡片，不跳版式 -->
+                                    <section class="tw-card vd-stage" id="vd-stage" data-stage="idle"
+                                             aria-live="polite">
+
+                                        <div class="vd-zone vd-only-idle">
+                                            <div class="vd-drop" id="vd-drop">
+                                                <div class="vd-drop-top">
+                                                    <span class="vd-glyph" aria-hidden="true"><i class="fas fa-link"></i></span>
+                                                    <span class="vd-micro" data-i18n="tw_video_paste_label">链接 / 分享文案</span>
+                                                </div>
+                                                <textarea id="vd-url" rows="3" spellcheck="false"
+                                                          data-i18n-placeholder="tw_video_placeholder"
+                                                          placeholder="把链接或整段分享文案粘进来，比如：8.88 复制打开抖音，看看【某某的作品】…… https://v.douyin.com/iRxxxx/"></textarea>
+                                                <div class="vd-zone-bar">
+                                                    <div class="vd-plats">
+                                                        <span class="vd-plat vd-plat-douyin">抖音</span>
+                                                        <span class="vd-plat vd-plat-xhs">小红书</span>
+                                                        <span class="vd-plat vd-plat-bili">B 站</span>
+                                                    </div>
+                                                    <div class="vd-zone-acts">
+                                                        <button type="button" class="tw-btn" onclick="vdPasteFromClipboard()"
+                                                                data-i18n="tw_video_paste_btn">从剪贴板粘贴</button>
+                                                        <button type="button" class="tw-btn vd-btn-primary" id="vd-parse-btn"
+                                                                disabled onclick="vdParse()"
+                                                                data-i18n="tw_video_parse_btn">解析</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <p class="vd-kbd" data-i18n="tw_video_kbd_hint">Ctrl/⌘ V 粘贴　·　Ctrl/⌘ ↵ 解析　·　也可以直接把链接拖进来</p>
+                                            <p class="vd-engine-hint hidden" id="vd-engine-hint"></p>
+                                        </div>
+
+                                        <div class="vd-skel vd-only-probing" aria-busy="true">
+                                            <div class="vd-sk vd-sk-cover"></div>
+                                            <div class="vd-skel-lines">
+                                                <div class="vd-sk vd-sk-t1"></div>
+                                                <div class="vd-sk vd-sk-t2"></div>
+                                                <div class="vd-sk vd-sk-t3"></div>
+                                                <div class="vd-sk vd-sk-t4"></div>
+                                            </div>
+                                            <div class="vd-skel-foot">
+                                                <i class="vd-dot"></i><span data-i18n="tw_video_parsing">正在解析链接…</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="vd-media vd-only-ready">
+                                            <div class="vd-cover" id="vd-cover">
+                                                <span class="vd-cover-ph" aria-hidden="true"><i class="fas fa-play"></i></span>
+                                                <span class="vd-dur" id="vd-duration"></span>
+                                            </div>
+                                            <div class="vd-info">
+                                                <div class="vd-eyebrow">
+                                                    <span class="vd-plat" id="vd-platform-badge">—</span>
+                                                    <span id="vd-uploader"></span>
+                                                </div>
+                                                <h2 class="vd-title" id="vd-title"></h2>
+                                                <dl class="vd-specs">
+                                                    <div><dt data-i18n="tw_video_spec_res">分辨率</dt><dd id="vd-spec-res">—</dd></div>
+                                                    <div><dt data-i18n="tw_video_spec_size">大小</dt><dd id="vd-spec-size">—</dd></div>
+                                                    <div><dt data-i18n="tw_video_spec_duration">时长</dt><dd id="vd-spec-duration">—</dd></div>
+                                                    <div><dt data-i18n="tw_video_spec_watermark">水印</dt><dd id="vd-spec-watermark" data-i18n="tw_video_no">无</dd></div>
+                                                </dl>
+                                                <div class="vd-cta">
+                                                    <div class="vd-seg" role="group" aria-label="清晰度" id="vd-quality">
+                                                        <button type="button" data-quality="best" aria-pressed="true" data-i18n="tw_video_q_best">最高</button>
+                                                        <button type="button" data-quality="1080" aria-pressed="false">1080P</button>
+                                                        <button type="button" data-quality="720" aria-pressed="false">720P</button>
+                                                        <button type="button" data-quality="480" aria-pressed="false">480P</button>
+                                                    </div>
+                                                    <span class="vd-grow"></span>
+                                                    <button type="button" class="tw-btn vd-btn-primary vd-btn-lg" id="vd-download-btn"
+                                                            onclick="vdDownload()" data-i18n="tw_video_download">下载到工作台</button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="vd-busy vd-only-busy">
+                                            <div class="vd-busy-head">
+                                                <div class="vd-mini-thumb" aria-hidden="true"></div>
+                                                <div class="vd-busy-title">
+                                                    <div class="vd-eyebrow">
+                                                        <span class="vd-plat" id="vd-busy-badge">—</span>
+                                                        <span id="vd-busy-note" data-i18n="tw_video_original">原片直出 · 无水印</span>
+                                                    </div>
+                                                    <strong id="vd-busy-title"></strong>
+                                                </div>
+                                                <div class="vd-pct"><span id="vd-pct">0</span><small>%</small></div>
+                                            </div>
+                                            <div class="vd-meter"><i id="vd-bar" style="width:0%"></i></div>
+                                            <div class="vd-busy-foot">
+                                                <div class="vd-stats">
+                                                    <div><dt data-i18n="tw_video_downloaded">已下载</dt><dd id="vd-stat-done">—</dd></div>
+                                                    <div><dt data-i18n="tw_video_speed">速度</dt><dd id="vd-stat-speed">—</dd></div>
+                                                    <div><dt data-i18n="tw_video_eta">剩余</dt><dd id="vd-stat-eta">—</dd></div>
+                                                </div>
+                                                <button type="button" class="tw-btn tw-btn-sm" onclick="vdCancel()"
+                                                        data-i18n="tw_video_cancel">取消</button>
+                                            </div>
+                                        </div>
+
+                                        <div class="vd-done vd-only-done">
+                                            <video id="vd-player" class="vd-player" controls preload="metadata" playsinline></video>
+                                            <div class="vd-done-bar">
+                                                <div class="vd-done-file">
+                                                    <span class="vd-chip">MP4</span>
+                                                    <span class="vd-file-name" id="vd-file-name"></span>
+                                                    <span class="vd-file-dim" id="vd-file-dim"></span>
+                                                </div>
+                                                <div class="vd-done-acts">
+                                                    <button type="button" class="tw-btn tw-btn-sm vd-btn-lined" onclick="vdOpenFolder()"
+                                                            data-i18n="tw_video_open_folder">打开文件夹</button>
+                                                    <button type="button" class="tw-btn tw-btn-sm" onclick="vdCopyTitle()"
+                                                            data-i18n="tw_video_copy_title">复制标题</button>
+                                                    <button type="button" class="tw-btn tw-btn-sm" onclick="vdReset()"
+                                                            data-i18n="tw_video_again">再下一个</button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="vd-alert vd-only-error">
+                                            <div class="vd-alert-head">
+                                                <span class="vd-alert-ico" aria-hidden="true">!</span>
+                                                <div>
+                                                    <h3 id="vd-error-title">—</h3>
+                                                    <p id="vd-error-message"></p>
+                                                </div>
+                                            </div>
+                                            <div class="vd-alert-acts" id="vd-error-acts">
+                                                <button type="button" class="tw-btn tw-btn-sm vd-btn-primary" id="vd-error-login"
+                                                        onclick="vdErrorLogin()" data-i18n="tw_video_login_action">导入账号</button>
+                                                <button type="button" class="tw-btn tw-btn-sm" onclick="vdReset()"
+                                                        data-i18n="tw_video_change">换一条</button>
+                                                <button type="button" class="tw-btn tw-btn-sm" onclick="vdDownload()"
+                                                        data-i18n="tw_video_retry">重试</button>
+                                            </div>
+                                            <details class="vd-raw">
+                                                <summary data-i18n="tw_video_raw">引擎原始输出</summary>
+                                                <pre id="vd-error-detail"></pre>
+                                            </details>
+                                        </div>
+                                    </section>
+
+                                    <!-- 最近下载 -->
+                                    <section class="tw-card vd-recent">
+                                        <div class="tw-card-head">
+                                            <h2 data-i18n="tw_video_recent">最近下载</h2>
+                                            <button type="button" class="vd-link" onclick="navigateTo('artifacts')"
+                                                    data-i18n="tw_video_all">全部 →</button>
+                                        </div>
+                                        <div class="vd-recent-grid" id="vd-recent"></div>
+                                        <div class="vd-empty" id="vd-recent-empty">
+                                            <span class="ico" aria-hidden="true"><i class="fas fa-arrow-down"></i></span>
+                                            <span data-i18n="tw_video_empty_recent">还没有下载记录。粘一条链接，下完会出现在这里和「产出文件」。</span>
+                                        </div>
+                                    </section>
+                                </div>
+
+                                <aside class="vd-side">
+                                    <!-- 访问方式 -->
+                                    <section class="tw-card">
+                                        <h3 class="vd-side-title" data-i18n="tw_video_access">访问方式</h3>
+                                        <div class="vd-seg vd-seg-full" role="group" aria-label="访问方式" id="vd-mode">
+                                            <button type="button" data-mode="guest" aria-pressed="true" data-i18n="tw_video_guest">访客</button>
+                                            <button type="button" data-mode="account" aria-pressed="false" data-i18n="tw_video_account">账号</button>
+                                        </div>
+                                        <div class="vd-mode-note" id="vd-mode-note">
+                                            <span class="tick" aria-hidden="true">✓</span>
+                                            <span data-i18n="tw_video_guest_note">免登录。小红书、B 站直接抓取；抖音用本机浏览器渲染一次，不读你的登录信息。</span>
+                                        </div>
+                                        <ul class="vd-accounts" id="vd-accounts"></ul>
+                                    </section>
+
+                                    <!-- 平台支持 -->
+                                    <section class="tw-card">
+                                        <h3 class="vd-side-title" data-i18n="tw_video_support">平台支持</h3>
+                                        <div class="vd-support" id="vd-support">
+                                            <div class="vd-support-row">
+                                                <span class="vd-plat vd-plat-douyin">抖音</span>
+                                                <span class="vd-support-what" data-i18n="tw_video_s_douyin">无水印原片 · 需本机浏览器</span>
+                                                <span class="vd-ok" data-i18n="tw_video_no_login">免登录</span>
+                                            </div>
+                                            <div class="vd-support-row">
+                                                <span class="vd-plat vd-plat-xhs">小红书</span>
+                                                <span class="vd-support-what" data-i18n="tw_video_s_xhs">视频笔记 · 少数需登录</span>
+                                                <span class="vd-ok" data-i18n="tw_video_no_login">免登录</span>
+                                            </div>
+                                            <div class="vd-support-row">
+                                                <span class="vd-plat vd-plat-bili">B 站</span>
+                                                <span class="vd-support-what" data-i18n="tw_video_s_bili">720P 及以下</span>
+                                                <span class="vd-ok" data-i18n="tw_video_no_login">免登录</span>
+                                            </div>
+                                            <div class="vd-support-row">
+                                                <span class="vd-plat vd-plat-bili">B 站</span>
+                                                <span class="vd-support-what" data-i18n="tw_video_s_bili_hd">1080P 及以上 / 会员内容</span>
+                                                <span class="vd-ok vd-lock" data-i18n="tw_video_need_account">需账号</span>
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    <p class="vd-fineprint" data-i18n="tw_video_fineprint">
+                                        下载内容取自平台公开的无水印播放源，仅用于个人学习与备课。请勿二次发布到公开平台；账号 cookies 只保存在本机。
+                                    </p>
+                                </aside>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 登录浮层：B站二维码 / 其他平台浏览器窗口 -->
+                    <div class="vd-login hidden" id="vd-login" role="dialog" aria-modal="true" aria-labelledby="vd-login-title">
+                        <div class="vd-login-card">
+                            <button type="button" class="vd-login-close" onclick="vdLoginClose()" aria-label="关闭">✕</button>
+                            <h3 id="vd-login-title" data-i18n="tw_video_login_title">导入账号</h3>
+                            <p class="vd-login-sub" id="vd-login-sub"></p>
+                            <div class="vd-qr hidden" id="vd-login-qr-wrap">
+                                <img id="vd-login-qr" alt="登录二维码">
+                            </div>
+                            <p class="vd-login-state" id="vd-login-state" role="status"></p>
+                            <div class="vd-login-acts">
+                                <button type="button" class="tw-btn" onclick="vdLoginClose()" data-i18n="tw_video_login_cancel">取消</button>
+                                <button type="button" class="tw-btn vd-btn-primary" id="vd-login-retry" onclick="vdLoginStart()"
+                                        data-i18n="tw_video_login_refresh">刷新二维码</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+

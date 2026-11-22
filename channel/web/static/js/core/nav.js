@@ -15,6 +15,7 @@ const VIEW_META = {
     progress: { group: 'nav_teach',   page: 'menu_progress' },
     homework: { group: 'nav_teach',   page: 'menu_homework' },
     scores:   { group: 'nav_teach',   page: 'menu_scores' },
+    video:    { group: 'nav_teach',   page: 'menu_video' },
     chat:     { group: 'nav_chat',    page: 'menu_chat' },
     artifacts:{ group: 'nav_chat',    page: 'menu_artifacts', nav: 'chat' },
     agents:   { group: 'nav_manage',  page: 'menu_agents' },
@@ -210,6 +211,7 @@ function navigateTo(viewId, tab) {
     else if (viewId === 'progress') loadProgressView();
     else if (viewId === 'homework') loadHomeworkView();
     else if (viewId === 'scores') loadScoresView();
+    else if (viewId === 'video') loadVideoView();
     else if (viewId === 'config') { loadConfigView(); switchConfigTab(tab || 'basic'); }
     else if (viewId === 'skills') { resetSkillViewer(); loadSkillsView(); }
     else if (viewId === 'memory') {

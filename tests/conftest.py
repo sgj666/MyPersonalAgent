@@ -25,6 +25,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 # Redirecting agent_workspace is not enough: ~/.cow/.env, a restore target
 # without agent_workspace and every other "~" path resolve through the home
 # directory itself. Set before any test module is imported.
+# The video tool installs a missing yt-dlp on first use; a test that stumbles
+# into that path would reach pip over the network. Tests stub the engine
+# instead, and this makes sure an un-stubbed call cannot install anything.
+os.environ.setdefault("COW_SKIP_AUTO_INSTALL", "1")
 _FAKE_HOME = tempfile.mkdtemp(prefix="cow-tests-home-")
 for _name in ("HOME", "USERPROFILE"):
     os.environ[_name] = _FAKE_HOME

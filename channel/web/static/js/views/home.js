@@ -241,6 +241,7 @@ function twHomeSettingsOf(payload) {
     const root = payload || {};
     const src = root.settings && typeof root.settings === 'object' ? root.settings : root;
     const morning = src.morning && typeof src.morning === 'object' ? src.morning : {};
+    const overdue = src.overdue && typeof src.overdue === 'object' ? src.overdue : {};
     const lesson = src.lesson && typeof src.lesson === 'object' ? src.lesson : {};
     const minutes = Number(lesson.minutes);
     return {
@@ -248,6 +249,10 @@ function twHomeSettingsOf(payload) {
         morning: {
             enabled: morning.enabled !== false,
             time: /^\d{2}:\d{2}$/.test(String(morning.time || '')) ? String(morning.time) : '07:30',
+        },
+        overdue: {
+            enabled: overdue.enabled !== false,
+            time: /^\d{2}:\d{2}$/.test(String(overdue.time || '')) ? String(overdue.time) : '18:00',
         },
         lesson: {
             enabled: lesson.enabled !== false,
@@ -262,6 +267,9 @@ function twHomeToggleRemind() {
     const morning = document.getElementById('home-morning-enabled');
     const time = document.getElementById('home-morning-time');
     if (morning && time) time.disabled = !morning.checked;
+    const overdue = document.getElementById('home-overdue-enabled');
+    const overdueTime = document.getElementById('home-overdue-time');
+    if (overdue && overdueTime) overdueTime.disabled = !overdue.checked;
     const lesson = document.getElementById('home-lesson-enabled');
     const minutes = document.getElementById('home-lesson-minutes');
     if (lesson && minutes) minutes.disabled = !lesson.checked;
@@ -273,8 +281,12 @@ function twHomeRenderSettings(payload) {
     const time = document.getElementById('home-morning-time');
     const lesson = document.getElementById('home-lesson-enabled');
     const minutes = document.getElementById('home-lesson-minutes');
+    const overdueCheck = document.getElementById('home-overdue-enabled');
+    const overdueTime = document.getElementById('home-overdue-time');
     if (morning) morning.checked = twHomeSettings.morning.enabled;
     if (time) time.value = twHomeSettings.morning.time;
+    if (overdueCheck) overdueCheck.checked = twHomeSettings.overdue.enabled;
+    if (overdueTime) overdueTime.value = twHomeSettings.overdue.time;
     if (lesson) lesson.checked = twHomeSettings.lesson.enabled;
     if (minutes) minutes.value = String(twHomeSettings.lesson.minutes);
     twHomeToggleRemind();
@@ -311,14 +323,21 @@ async function twHomeSaveSettings(event) {
     if (event) event.preventDefault();
     const morningEl = document.getElementById('home-morning-enabled');
     const timeEl = document.getElementById('home-morning-time');
+    const overdueEl = document.getElementById('home-overdue-enabled');
+    const overdueTimeEl = document.getElementById('home-overdue-time');
     const lessonEl = document.getElementById('home-lesson-enabled');
     const minutesEl = document.getElementById('home-lesson-minutes');
     const time = (timeEl && timeEl.value) || '07:30';
+    const overdueTime = (overdueTimeEl && overdueTimeEl.value) || '18:00';
     const minutes = Number(minutesEl && minutesEl.value);
     const payload = {
         morning: {
             enabled: !!(morningEl && morningEl.checked),
             time: /^\d{2}:\d{2}$/.test(time) ? time : '07:30',
+        },
+        overdue: {
+            enabled: !!(overdueEl && overdueEl.checked),
+            time: /^\d{2}:\d{2}$/.test(overdueTime) ? overdueTime : '18:00',
         },
         lesson: {
             enabled: !!(lessonEl && lessonEl.checked),

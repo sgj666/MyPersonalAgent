@@ -142,6 +142,8 @@ class SchedulerRunsHandler:
                 run["channel_type"] = extras.get("channel_type", "")
                 run["instance_id"] = extras.get("instance_id", "")
                 run["trigger"] = extras.get("trigger", "")
+                run["reminder"] = bool(extras.get("reminder"))
+                run["reminder_title"] = extras.get("reminder_title", "")
                 run["output_preview"] = extras.get("output_preview", "")
             return json.dumps({"status": "success", "runs": runs}, ensure_ascii=False)
         except Exception as e:

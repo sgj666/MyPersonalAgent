@@ -273,6 +273,29 @@ def test_svg_pages_preview_as_the_exported_deck(tmp_path):
     assert 'http' not in html.replace('http://www.w3.org/2000/svg', '')
 
 
+def test_svg_path_pages_are_read_from_the_workspace(tmp_path):
+    """The file the skill wrote is the page: previewed and exported as-is."""
+    deck = svg_deck()
+    (tmp_path / 'svg_output').mkdir()
+    (tmp_path / 'svg_output' / '01.svg').write_text(SVG_PAGE, encoding='utf-8')
+    for slide in deck['slides']:
+        slide.pop('svg')
+        slide['svg_path'] = 'svg_output/01.svg'
+
+    html = (tmp_path / render_draft('deck', deck, formats=('html',), workspace=tmp_path)
+            ['files'][0]['rel']).read_text(encoding='utf-8')
+    assert html.count('class="slide"') == 2
+    assert 'Unit 3 课后作业说明' in html
+
+    # A page outside the workspace is refused, not read into the preview.
+    deck['slides'][0]['svg_path'] = '../outside.svg'
+    with pytest.raises(ValueError, match='路径'):
+        render_draft('deck', deck, formats=('html',), workspace=tmp_path)
+    deck['slides'][0]['svg_path'] = 'svg_output/missing.svg'
+    with pytest.raises(ValueError, match='找不到'):
+        render_draft('deck', deck, formats=('html',), workspace=tmp_path)
+
+
 def test_a_mixed_deck_is_rejected(tmp_path):
     deck = svg_deck()
     deck['slides'][1] = {'layout': 'bullets', 'title': '任务', 'bullets': ['抄写']}

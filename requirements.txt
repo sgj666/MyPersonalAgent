@@ -55,3 +55,8 @@ discord.py
 # for it only where it can be installed.
 web.py; python_version < "3.10"
 web.py>=0.76; python_version >= "3.10"
+
+# video_download: 抖音/小红书/B站取流引擎（子进程调用，兼容 3.10+）
+yt-dlp>=2026.10.21
+# video_download: B站 DASH 音视频合并与 mp4 封装，pip 自带各平台静态二进制
+imageio-ffmpeg>=0.6.0

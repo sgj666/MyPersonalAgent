@@ -1327,6 +1327,10 @@ export interface SchedulerRun {
   instance_id?: string
   // How the tick fired: 'scheduled' (timer) or 'manual' (run-now).
   trigger?: string
+  // A teaching reminder: the clients announce it as itself (reminder_title)
+  // instead of as a finished task.
+  reminder?: boolean
+  reminder_title?: string
   // Short, length-capped peek at what was delivered.
   output_preview?: string
 }
@@ -1489,7 +1493,12 @@ export interface TeachingStudentInput {
 }
 
 export interface TimetablePeriod {
+  /** Slot number for a lesson (whole), or the midpoint for a break (`2.5`). */
   index: number
+  /** `period` when omitted: data written before breaks existed has no kind. */
+  kind?: 'period' | 'break'
+  /** What the row is called; empty means "第 N 节" / "大课间". */
+  name?: string
   /** `HH:MM`, empty when the teacher has not set the time. */
   start: string
   end: string
@@ -1578,6 +1587,13 @@ export interface ReminderMorning {
   time: string
 }
 
+/** 待办超时提醒: one summary a day of tasks whose due date has passed. */
+export interface ReminderOverdue {
+  enabled: boolean
+  /** `HH:MM`. */
+  time: string
+}
+
 /** 课前提醒: one reminder per `mine` slot, `minutes` before it starts. */
 export interface ReminderLesson {
   enabled: boolean
@@ -1587,6 +1603,7 @@ export interface ReminderLesson {
 /** GET/PUT /api/teaching/settings (§7.1). */
 export interface TeachingSettings {
   morning: ReminderMorning
+  overdue: ReminderOverdue
   lesson: ReminderLesson
   /** Where reminders are delivered: `web`, or a bound channel's key. */
   channel: string

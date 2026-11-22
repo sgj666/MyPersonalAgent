@@ -19,6 +19,7 @@ from agent.teaching import TeachingStore
 from agent.teaching.reminders import (
     build_digest,
     build_lesson,
+    build_overdue,
     digest_cron,
     lesson_cron,
     preview,
@@ -147,6 +148,7 @@ def test_settings_defaults_merge_and_validation(tmp_path):
     store = _store(tmp_path)
     assert store.get_settings() == {
         "morning": {"enabled": True, "time": "07:30"},
+        "overdue": {"enabled": True, "time": "18:00"},
         "lesson": {"enabled": True, "minutes": 10},
         "channel": "web",
     }
@@ -154,16 +156,21 @@ def test_settings_defaults_merge_and_validation(tmp_path):
     saved = store.save_settings(lesson={"minutes": 15})
     assert saved["lesson"] == {"enabled": True, "minutes": 15}
     assert saved["morning"] == {"enabled": True, "time": "07:30"}
+    assert saved["overdue"] == {"enabled": True, "time": "18:00"}
     assert store.get_settings()["lesson"]["minutes"] == 15
 
     store.save_settings(morning={"enabled": False, "time": "06:45"},
+                        overdue={"enabled": False, "time": "20:15"},
                         channel="feishu")
     round_trip = store.get_settings()
     assert round_trip["morning"] == {"enabled": False, "time": "06:45"}
+    assert round_trip["overdue"] == {"enabled": False, "time": "20:15"}
     assert round_trip["channel"] == "feishu"
 
     for bad in ({"morning": {"time": "7:30"}},
                 {"morning": {"time": "24:00"}},
+                {"overdue": {"time": "7:30"}},
+                {"overdue": {"time": "24:00"}},
                 {"lesson": {"minutes": 0}},
                 {"lesson": {"minutes": 61}},
                 {"lesson": {"minutes": "10"}},
@@ -183,6 +190,7 @@ def test_damaged_settings_read_as_defaults(tmp_path):
     )
     assert store.get_settings() == {
         "morning": {"enabled": True, "time": "07:30"},
+        "overdue": {"enabled": True, "time": "18:00"},
         "lesson": {"enabled": True, "minutes": 10},
         "channel": "web",
     }
@@ -294,6 +302,30 @@ def test_lesson_text_with_and_without_topic_and_homework():
     )
 
 
+def test_overdue_text_lists_past_due_tasks_and_nothing_when_clean():
+    from datetime import date
+
+    assert build_overdue([]) == ""
+    assert build_overdue(
+        [{"title": "批改周测", "due": "2026-11-08"},
+         {"title": "Unit 3 课件", "due": "2026-11-09"}],
+        today=date(2026, 11, 10),
+    ) == (
+        "待办已有 2 项逾期：\n"
+        "· 批改周测（截止 11月8日，逾期 2 天）\n"
+        "· Unit 3 课件（截止 11月9日，逾期 1 天）"
+    )
+
+
+def test_overdue_summary_caps_the_list():
+    from datetime import date
+
+    tasks = [{"title": f"任务{i}", "due": "2026-11-09"} for i in range(10)]
+    lines = build_overdue(tasks, today=date(2026, 11, 10)).split("\n")
+    assert len(lines) == 10  # header + 8 rows + the remainder count
+    assert lines[-1] == "…以及另外 2 项"
+
+
 def test_cron_expressions_shift_before_midnight():
     assert digest_cron("07:30") == "30 7 * * *"
     assert digest_cron("23:59") == "59 23 * * *"
@@ -321,10 +353,10 @@ def test_sync_is_idempotent_and_removes_stale_marked_tasks(tmp_path):
 
     first = sync(store, agent_id="teacher-a", task_store=task_store,
                  receiver="session-1", now=now)
-    assert first == {"scheduled": 4, "digest": {"enabled": True},
-                     "lesson": {"count": 3}}
+    assert first == {"scheduled": 5, "digest": {"enabled": True},
+                     "overdue": {"enabled": True}, "lesson": {"count": 3}}
     tasks = _teaching_tasks(task_store, "teacher-a")
-    assert len(tasks) == 4
+    assert len(tasks) == 5
 
     digest = next(task for task in tasks
                   if task["name"] == "[teaching] 早晨简报")
@@ -332,6 +364,15 @@ def test_sync_is_idempotent_and_removes_stale_marked_tasks(tmp_path):
     assert digest["action"]["type"] == "teaching_digest"
     assert "content" not in digest["action"]
     assert digest["action"]["receiver"] == "session-1"
+    # The clients announce it as a reminder, not as a finished task.
+    assert digest["action"]["reminder"] is True
+    assert digest["action"]["reminder_title"] == "早晨简报"
+
+    overdue = next(task for task in tasks
+                   if task["name"] == "[teaching] 待办超时提醒")
+    assert overdue["schedule"] == {"type": "cron", "expression": "0 18 * * *"}
+    assert overdue["action"]["type"] == "teaching_overdue"
+    assert overdue["action"]["reminder_title"] == "待办超时提醒"
 
     monday = next(task for task in tasks if "周一" in task["name"])
     assert monday["schedule"] == {"type": "cron", "expression": "50 7 * * 1"}
@@ -351,7 +392,7 @@ def test_sync_is_idempotent_and_removes_stale_marked_tasks(tmp_path):
     second = sync(store, agent_id="teacher-a", task_store=task_store,
                   receiver="session-1", now=now)
     assert second == first
-    assert len(_teaching_tasks(task_store, "teacher-a")) == 4
+    assert len(_teaching_tasks(task_store, "teacher-a")) == 5
     assert task_store.get_task("stale1") is None
     assert task_store.get_task("other1") is not None
 
@@ -365,17 +406,24 @@ def test_sync_respects_disabled_reminders(tmp_path):
     store.save_settings(lesson={"enabled": False})
     result = sync(store, agent_id="teacher-a", task_store=task_store,
                   receiver="session-1", now=now)
-    assert result == {"scheduled": 1, "digest": {"enabled": True},
-                      "lesson": {"count": 0}}
+    assert result == {"scheduled": 2, "digest": {"enabled": True},
+                      "overdue": {"enabled": True}, "lesson": {"count": 0}}
     assert [task["name"] for task in _teaching_tasks(task_store, "teacher-a")] == [
         "[teaching] 早晨简报",
+        "[teaching] 待办超时提醒",
     ]
 
     store.save_settings(morning={"enabled": False})
     result = sync(store, agent_id="teacher-a", task_store=task_store,
                   receiver="session-1", now=now)
+    assert result == {"scheduled": 1, "digest": {"enabled": False},
+                      "overdue": {"enabled": True}, "lesson": {"count": 0}}
+
+    store.save_settings(overdue={"enabled": False})
+    result = sync(store, agent_id="teacher-a", task_store=task_store,
+                  receiver="session-1", now=now)
     assert result == {"scheduled": 0, "digest": {"enabled": False},
-                      "lesson": {"count": 0}}
+                      "overdue": {"enabled": False}, "lesson": {"count": 0}}
     assert _teaching_tasks(task_store, "teacher-a") == []
 
 
@@ -479,13 +527,14 @@ def test_sync_handler_rebuilds_tasks(tmp_path):
 
     assert response == {
         "status": "success",
-        "scheduled": 2,
+        "scheduled": 3,
         "digest": {"enabled": True},
+        "overdue": {"enabled": True},
         "lesson": {"count": 1},
     }
     tasks = list(task_store.load_tasks().values())
     assert {task["schedule"]["expression"] for task in tasks} == {
-        "30 7 * * *", "50 7 * * 1",
+        "30 7 * * *", "0 18 * * *", "50 7 * * 1",
     }
     assert all(task["action"]["receiver"] == "web-session" for task in tasks)
 
@@ -527,3 +576,35 @@ def test_teaching_digest_sends_text_computed_at_fire_time(monkeypatch):
     assert sent["type"] == "send_message"
     assert sent["content"] == "早上好。今天周三，1 节课。"
     assert task["action"].get("content") is None  # stored task stays text-free
+
+
+def test_teaching_overdue_sends_at_fire_time_and_stays_silent_on_a_clean_board(monkeypatch):
+    import agent.teaching.reminders as reminders
+    import agent.tools.scheduler.integration as integration
+
+    monkeypatch.setattr(
+        reminders, "overdue_for_today",
+        lambda agent_id=None: [{"title": "批改周测", "due": "2026-11-08"}],
+    )
+    monkeypatch.setattr(
+        reminders, "build_overdue", lambda tasks: f"逾期：{tasks[0]['title']}",
+    )
+    captured = {}
+
+    def fake_send(task, bridge, agent_id=None, output_sink=None):
+        captured["task"] = task
+        return True
+
+    monkeypatch.setattr(integration, "_execute_send_message", fake_send)
+    task = {"id": "t1", "action": {"receiver": "r", "channel_type": "web",
+                                   "receiver_name": "Web", "is_group": False}}
+    assert integration._execute_teaching_overdue(task, None, "t_1") is True
+    assert captured["task"]["action"]["content"] == "逾期：批改周测"
+
+    # A clean board has nothing to announce, so nothing is delivered and the
+    # clients never see an empty reminder notification.
+    monkeypatch.setattr(reminders, "overdue_for_today", lambda agent_id=None: [])
+    monkeypatch.setattr(reminders, "build_overdue", lambda tasks: "")
+    captured.clear()
+    assert integration._execute_teaching_overdue(task, None, "t_1") is True
+    assert captured == {}

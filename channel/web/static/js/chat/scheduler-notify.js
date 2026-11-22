@@ -97,6 +97,18 @@ function maybeNotifyScheduledRun(run) {
     // pushes, so this is the single source (no double-fire).
 
     const label = t('notify_task_done');
+    // A teaching reminder is announced as itself, not as a finished task, and
+    // its own switch in teaching settings already decided whether it runs.
+    if (run.reminder) {
+        const body = String(run.output_preview || '').trim();
+        // Nothing overdue means nothing to announce.
+        if (!body) return;
+        forceScheduledNotification(
+            run.reminder_title || run.task_name || t('tw_rem_title'),
+            body, sid, run.agent_id || '', true
+        );
+        return;
+    }
     const snippet = firstLineSnippet(run.output_preview || '');
     const title = run.task_name || sessionTitleOf(sid) || label;
     const body = snippet ? `${label}: ${snippet}` : label;

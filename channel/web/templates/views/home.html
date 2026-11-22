@@ -92,6 +92,20 @@
                                             </label>
                                         </div>
                                         <div class="tw-remind-pair">
+                                            <label class="tw-switch-row" for="home-overdue-enabled">
+                                                <span class="tw-switch-copy">
+                                                    <b data-i18n="tw_remind_overdue">待办超时提醒</b>
+                                                    <small data-i18n="tw_remind_overdue_hint">每天固定时间汇总已逾期的待办</small>
+                                                </span>
+                                                <input type="checkbox" id="home-overdue-enabled" class="tw-switch-input" onchange="twHomeToggleRemind()" checked>
+                                                <span class="tw-switch-track" aria-hidden="true"></span>
+                                            </label>
+                                            <label class="tw-field tw-remind-inline" for="home-overdue-time">
+                                                <span data-i18n="tw_remind_morning_time">发送时间</span>
+                                                <input id="home-overdue-time" class="tw-input tw-input-sm" type="time" value="18:00">
+                                            </label>
+                                        </div>
+                                        <div class="tw-remind-pair">
                                             <label class="tw-switch-row" for="home-lesson-enabled">
                                                 <span class="tw-switch-copy">
                                                     <b data-i18n="tw_remind_lesson">课前提醒</b>

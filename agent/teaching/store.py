@@ -69,14 +69,15 @@ MAX_PROFILE_TEXT = 40
 PROFILE_TEXT_FIELDS = ("textbook", "school")
 
 #: Reminder settings, written only when a teacher changes them. ``time`` is the
-#: local wall clock of the morning digest; ``minutes`` is how long before a
-#: lesson starts its reminder fires.
+#: local wall clock of the morning digest or the overdue summary; ``minutes`` is
+#: how long before a lesson starts its reminder fires.
 DEFAULT_SETTINGS = {
     "morning": {"enabled": True, "time": "07:30"},
+    "overdue": {"enabled": True, "time": "18:00"},
     "lesson": {"enabled": True, "minutes": 10},
     "channel": "web",
 }
-SETTINGS_KEYS = ("morning", "lesson", "channel")
+SETTINGS_KEYS = ("morning", "overdue", "lesson", "channel")
 MAX_CHANNEL = 20
 
 #: Slot types the timetable grid offers (正课/早读/辅导/晚自习/课后服务/教研/值班).
@@ -413,6 +414,26 @@ def _clean_exam(fields: dict) -> dict:
     return clean
 
 
+PERIOD_KINDS = ("period", "break")
+MAX_PERIOD_NAME = 12
+
+
+def _period_index(value, field: str) -> float:
+    """A period's slot number, or a break's fractional position.
+
+    Periods keep whole numbers because slots, overrides and reminders all point
+    at them (`slot["period"] == period["index"]`). A break gets the midpoint
+    between its neighbours (2.5 sits between period 2 and 3), so inserting one
+    never renumbers — and therefore never orphans — a saved lesson.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{field} must be a number")
+    number = float(value)
+    if number < 1:
+        raise ValueError(f"{field} must be at least 1")
+    return number
+
+
 def _clean_periods(value) -> List[dict]:
     if not isinstance(value, list):
         raise ValueError("periods must be a list")
@@ -421,16 +442,68 @@ def _clean_periods(value) -> List[dict]:
     for index, raw in enumerate(value, 1):
         if not isinstance(raw, dict):
             raise ValueError(f"periods[{index}] must be an object")
-        number = _int_field(raw.get("index"), f"periods[{index}].index", minimum=1)
+        kind = str(raw.get("kind") or "period").strip().lower()
+        if kind not in PERIOD_KINDS:
+            raise ValueError(f"periods[{index}].kind must be one of {PERIOD_KINDS}")
+        number = _period_index(raw.get("index"), f"periods[{index}].index")
+        if kind == "period" and not number.is_integer():
+            raise ValueError(f"periods[{index}].index must be a whole number for a period")
         if number in seen:
             raise ValueError(f"duplicate period index: {number}")
         seen.add(number)
         periods.append({
-            "index": number,
+            "index": int(number) if number.is_integer() else number,
+            "kind": kind,
+            "name": _text_field(raw.get("name"), f"periods[{index}].name",
+                                limit=MAX_PERIOD_NAME),
             "start": _text_field(raw.get("start"), f"periods[{index}].start"),
             "end": _text_field(raw.get("end"), f"periods[{index}].end"),
         })
     return periods
+
+
+def _apply_period_map(doc: dict, period_map) -> dict:
+    """Move every lesson to the row it belonged to before the dialog's edits."""
+    if not isinstance(period_map, dict):
+        raise ValueError("period_map must be an object")
+
+    mapping = {}
+    for old, new in period_map.items():
+        try:
+            mapping[float(old)] = float(new)
+        except (TypeError, ValueError):
+            raise ValueError(f"period_map has a non-numeric key: {old!r}")
+
+    existing = {float(row["index"]) for row in doc["periods"]}
+
+    def moved(period: float):
+        key = float(period)
+        if key in mapping:
+            return mapping[key]
+        # A partial map leaves the rows it does not name alone; only a period
+        # with no row left at all is dropped, so an incomplete map cannot wipe
+        # lessons by accident.
+        return key if key in existing else None
+
+    slots = []
+    for slot in doc["slots"]:
+        target = moved(slot["period"])
+        if target is None:
+            continue
+        slot["period"] = int(target) if float(target).is_integer() else target
+        slots.append(slot)
+
+    overrides = []
+    for override in doc["overrides"]:
+        target = moved(override["period"])
+        if target is None:
+            continue
+        override["period"] = int(target) if float(target).is_integer() else target
+        overrides.append(override)
+
+    doc["slots"] = slots
+    doc["overrides"] = overrides
+    return doc
 
 
 def _clean_slots(value, class_ids: set, taken_ids: set) -> List[dict]:
@@ -502,6 +575,7 @@ def default_settings() -> dict:
     """A fresh copy of the reminder defaults, safe for a caller to mutate."""
     return {
         "morning": dict(DEFAULT_SETTINGS["morning"]),
+        "overdue": dict(DEFAULT_SETTINGS["overdue"]),
         "lesson": dict(DEFAULT_SETTINGS["lesson"]),
         "channel": DEFAULT_SETTINGS["channel"],
     }
@@ -519,6 +593,13 @@ def _normalize_settings(raw) -> dict:
         time_text = _text(morning.get("time"))
         if _CLOCK_RE.match(time_text):
             settings["morning"]["time"] = time_text
+    overdue = raw.get("overdue")
+    if isinstance(overdue, dict):
+        if isinstance(overdue.get("enabled"), bool):
+            settings["overdue"]["enabled"] = overdue["enabled"]
+        time_text = _text(overdue.get("time"))
+        if _CLOCK_RE.match(time_text):
+            settings["overdue"]["time"] = time_text
     lesson = raw.get("lesson")
     if isinstance(lesson, dict):
         if isinstance(lesson.get("enabled"), bool):
@@ -539,6 +620,7 @@ def _clean_settings(fields: dict, current: dict) -> dict:
         raise ValueError(f"unknown field(s): {', '.join(sorted(unknown))}")
     clean = {
         "morning": dict(current["morning"]),
+        "overdue": dict(current["overdue"]),
         "lesson": dict(current["lesson"]),
         "channel": current["channel"],
     }
@@ -553,6 +635,17 @@ def _clean_settings(fields: dict, current: dict) -> dict:
             clean["morning"]["enabled"] = _bool_field(raw["enabled"], "morning.enabled")
         if "time" in raw:
             clean["morning"]["time"] = _clock_field(raw["time"], "morning.time")
+    if "overdue" in fields:
+        raw = fields["overdue"]
+        if not isinstance(raw, dict):
+            raise ValueError("overdue must be an object")
+        extra = set(raw) - {"enabled", "time"}
+        if extra:
+            raise ValueError(f"unknown overdue field(s): {', '.join(sorted(extra))}")
+        if "enabled" in raw:
+            clean["overdue"]["enabled"] = _bool_field(raw["enabled"], "overdue.enabled")
+        if "time" in raw:
+            clean["overdue"]["time"] = _clock_field(raw["time"], "overdue.time")
     if "lesson" in fields:
         raw = fields["lesson"]
         if not isinstance(raw, dict):
@@ -731,11 +824,14 @@ def _normalize_period(raw) -> Optional[dict]:
     if not isinstance(raw, dict):
         return None
     try:
-        index = _int_field(raw.get("index"), "index", minimum=1)
+        index = _period_index(raw.get("index"), "index")
     except ValueError:
         return None
+    kind = _text(raw.get("kind")).lower()
     return {
-        "index": index,
+        "index": int(index) if index.is_integer() else index,
+        "kind": kind if kind in PERIOD_KINDS else "period",
+        "name": _text(raw.get("name")),
         "start": _text(raw.get("start")),
         "end": _text(raw.get("end")),
     }
@@ -1397,13 +1493,21 @@ class TeachingStore:
         with self._locked("timetable"):
             return self._timetable_doc()
 
-    def save_timetable(self, periods=None, slots=None, overrides=None) -> dict:
+    def save_timetable(self, periods=None, slots=None, overrides=None,
+                       period_map=None) -> dict:
         """Replace the table; a group left out of the call is left as it was.
 
         PUT is not a licence to wipe a table because a client forgot a key, so
         only the groups actually supplied are replaced. A slot without an id
         gets one, and a duplicate id is reissued rather than silently aliasing
         another slot.
+
+        ``period_map`` maps each *old* period number to the number it now has
+        (``{"3": 4}`` after a period was inserted at 3). Lessons follow the row
+        they were scheduled in: a slot on the old period 3 lands on the new 4,
+        and one whose row was deleted is dropped — which is what "删除节次会同
+        时移除该节的固定课" promises. Without the map, a client that inserted a
+        row would silently detach every lesson after it.
         """
         with self._locked("timetable", "classes"):
             doc = self._timetable_for_save()
@@ -1421,6 +1525,8 @@ class TeachingStore:
                     slots, class_ids, {slot["id"] for slot in doc["slots"]})
             if overrides is not None:
                 doc["overrides"] = _clean_overrides(overrides, class_ids)
+            if period_map is not None:
+                doc = _apply_period_map(doc, period_map)
             if had_table and not (doc["periods"] or doc["slots"] or doc["overrides"]):
                 raise ValueError(
                     "a save would empty the whole timetable; clear it group by group")
@@ -1428,6 +1534,73 @@ class TeachingStore:
             logger.info(
                 "teaching: timetable saved (%d periods, %d slots, %d overrides)",
                 len(doc["periods"]), len(doc["slots"]), len(doc["overrides"]))
+            return doc
+
+    def insert_timetable_row(self, after: float, kind: str = "period",
+                             name: str = "", start: str = "", end: str = "") -> dict:
+        """Insert one row after the row at ``after``, keeping the table coherent.
+
+        Two very different operations share this entry point:
+
+        - **Break** (`kind="break"`): takes the midpoint between its neighbours
+          and changes nothing else. No lesson moves.
+        - **Period** (`kind="period"`): the new lesson takes the next whole
+          number, and every row after it — breaks included — shifts up by one.
+          Slots and overrides shift with them, so a lesson that was 第 3 节 is
+          still on the same weekday at the same time, now called 第 4 节.
+
+        That shift is why this is a server operation and not something each
+        client does to its own copy: half the table points at period numbers,
+        and a client that renumbered only the rows would leave every saved
+        lesson attached to the wrong period.
+        """
+        kind = (kind or "period").strip().lower()
+        if kind not in PERIOD_KINDS:
+            raise ValueError(f"kind must be one of {PERIOD_KINDS}")
+        at = _period_index(after, "after")
+        name = _text_field(name, "name", limit=MAX_PERIOD_NAME)
+        start = _text_field(start, "start")
+        end = _text_field(end, "end")
+
+        with self._locked("timetable"):
+            doc = self._timetable_for_save()
+            periods = doc["periods"]
+            higher = [row for row in periods if row["index"] > at]
+
+            if kind == "period":
+                # Everything at or after the new number moves up by one, so the
+                # number is free by construction — no collision check needed.
+                index = float(int(at // 1) + 1)
+                for row in higher:
+                    # Breaks carry a fractional index; truncating it to an int
+                    # would land a 2.5 break on the new 第 3 节.
+                    shifted = float(row["index"]) + 1
+                    row["index"] = int(shifted) if shifted.is_integer() else shifted
+                for slot in doc["slots"]:
+                    if slot["period"] > at:
+                        slot["period"] = int(slot["period"] + 1)
+                for override in doc["overrides"]:
+                    if override["period"] > at:
+                        override["period"] = int(override["period"] + 1)
+            else:
+                ceiling = higher[0]["index"] if higher else None
+                index = (at + (ceiling if ceiling is not None else at + 1)) / 2
+                index = float(round(index, 2))
+                while any(abs(row["index"] - index) < 1e-9 for row in periods):
+                    index = float(round(index + 0.01, 2))
+                if ceiling is not None and index >= ceiling:
+                    raise ValueError("no room left between these rows for another break")
+
+            periods.append({
+                "index": int(index) if float(index).is_integer() else index,
+                "kind": kind,
+                "name": name,
+                "start": start,
+                "end": end,
+            })
+            periods.sort(key=lambda row: row["index"])
+            self._write_doc("timetable", doc)
+            logger.info("teaching: inserted %s at %s after %s", kind, index, at)
             return doc
 
     # --- Reminder settings -------------------------------------------------

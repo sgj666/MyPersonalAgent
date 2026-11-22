@@ -75,6 +75,7 @@
     <link rel="stylesheet" href="/assets/css/board.css">
     <link rel="stylesheet" href="/assets/css/teaching.css">
     <link rel="stylesheet" href="/assets/css/teaching2.css">
+    <link rel="stylesheet" href="/assets/css/video.css">
     <!-- Legacy console pages (knowledge, agents, config, skills, memory,
          channels, chat): the same clay skin the teaching views wear. Every
          rule is scoped to `html:not(.dark) .view:not(.tw-view)`, so dark
@@ -180,6 +181,7 @@
 <!--#include templates/views/homework.html-->
 
 <!--#include templates/views/scores.html-->
+                <!--#include templates/views/video.html-->
 
 <!--#include templates/views/artifacts.html-->
 
@@ -306,6 +308,7 @@
     <script defer src="/assets/js/views/progress.js"></script>
     <script defer src="/assets/js/views/homework.js"></script>
     <script defer src="/assets/js/views/scores.js"></script>
+    <script defer src="/assets/js/views/video.js"></script>
 
     <!-- Last of the core layer rather than first, which is where it sat in
          console.js. It installs a window.fetch wrapper for 401 handling, and

@@ -71,6 +71,8 @@ function maybeNotify(run: {
   status?: string
   channel_type?: string
   task_name?: string
+  reminder?: boolean
+  reminder_title?: string
   output_preview?: string
 }): void {
   const sid = run.session_id
@@ -81,6 +83,9 @@ function maybeNotify(run: {
   if (channel && channel !== 'web') return
   // Skip failed runs — nothing was delivered to jump to.
   if (run.status && run.status !== 'done') return
+  const reminderTitle = run.reminder ? run.reminder_title || run.task_name || '' : ''
+  // A reminder with nothing to say (a clean board) is not an event.
+  if (reminderTitle && !(run.output_preview || '').trim()) return
   // Dedupe: a run can appear in two overlapping poll windows.
   const runId = run.run_id || ''
   if (runId) {
@@ -101,5 +106,5 @@ function maybeNotify(run: {
   // manual "run now": a scheduled execution should announce itself wherever the
   // user is. usePushPoll deliberately skips notifying for scheduler pushes so
   // this is the single source of scheduler notifications (no double-fire).
-  notifyScheduledRun(sid, run.task_name || '', run.output_preview || '')
+  notifyScheduledRun(sid, run.task_name || '', run.output_preview || '', reminderTitle)
 }

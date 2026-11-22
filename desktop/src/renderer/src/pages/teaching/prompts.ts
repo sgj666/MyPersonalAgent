@@ -44,6 +44,8 @@ export const planDraftPrompt = (p: PlanParams, rows: OutlineRow[]): string =>
   )
 
 export interface DeckParams {
+  /** The textbook the unit is from, so the cover and the meta name it. */
+  book: string
   unit: string
   plan_path: string
   theme: string
@@ -55,16 +57,18 @@ export interface DeckParams {
 export const deckOutlinePrompt = (p: DeckParams): string =>
   ask(
     'courseware-ppt',
-    { mode: 'outline', ...p },
-    '先只出页纲：按 deck JSON 契约输出一个 ```json 代码块（含每页 layout / 标题 / 要点 / notes），不要渲染文件。' +
+    p,
+    '按本技能 §6 一路做完：页纲写进 outline.md，每页画成 svg_output/ 里的 SVG，跑完 §7 的自检；' +
+      '最后只回一个 ```json 代码块（技能定义的 deck JSON：meta + slides[{title, svg_path, notes}]），不要解释文字。' +
       templateNote(p.template_path)
   )
 
 export const deckRedrawPrompt = (deck: DeckDraft, slide: DeckSlide, index: number): string =>
   ask(
     'courseware-ppt',
-    { mode: 'slide', index: index + 1, meta: deck.meta, theme: deck.theme, slide },
-    `只重写第 ${index + 1} 页，其它页不变；输出这一页的 slide JSON（一个 \`\`\`json 代码块，id 保持 ${slide.id}）。`
+    { index: index + 1, meta: deck.meta, theme: deck.theme, slide },
+    `只重写第 ${index + 1} 页：覆盖它原来那个 SVG 文件（文件名不变），其它页不动，跑一遍自检；` +
+      `回这一页的 slide JSON（一个 \`\`\`json 代码块，id 保持 ${slide.id}，含 title / svg_path / notes）。`
   )
 
 export interface CardParams {

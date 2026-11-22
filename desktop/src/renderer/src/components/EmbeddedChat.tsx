@@ -5,24 +5,41 @@
 // bubbles, tool steps and file cards, backed by a stable session id so the
 // exchange is saved and listed under 对话 like any other conversation.
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowUp, Square } from 'lucide-react'
+import React, { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import MessageBubble from './MessageBubble'
 import ChatTimeline from './ChatTimeline'
+import ChatInput from './ChatInput'
 import apiClient from '../api/client'
 import { useChatStore } from '../store/chatStore'
 import { sessionOwner, useSessionStore } from '../store/sessionStore'
-import { expandSkillSlash, loadSlashSkills } from '../lib/slashSkill'
+import { replyText } from '../lib/teaching'
+import type { Attachment } from '../types'
 import { getLang, t } from '../i18n'
 
 export interface EmbeddedChatProps {
   /** Stable per-surface id, e.g. `teach-plan` or `ai-classes`. */
   sessionId: string
   className?: string
-  /** Draw the narrow input bar under the timeline. */
+  /**
+   * Draw the chat page's own composer under the timeline — attachments,
+   * `/` commands, `@` files, model chip, voice. Same bar as 对话, so a page
+   * assistant and the chat page behave alike.
+   */
   composer?: boolean
-  /** Placeholder for that input. */
+  /** Placeholder for that composer (falls back to the chat page's own). */
   placeholder?: string
+  /**
+   * Wrap what the agent receives, leaving the transcript showing what was
+   * typed — how a page prepends the facts it owns to a follow-up question.
+   */
+  wrapMessage?: (message: string) => string
+  /**
+   * Called once when a streamed answer finishes, with its text — how a surface
+   * reads the JSON a Skill returned without owning the send. Not called for an
+   * errored turn, a cancellation, or restored history.
+   */
+  onReply?: (text: string) => void
 }
 
 // A fresh session only appears in the session list once the backend has its
@@ -74,7 +91,14 @@ function isPromptTitle(title: string, prompt: string): boolean {
   return current === prompt || (current.length >= 8 && prompt.startsWith(current))
 }
 
-const EmbeddedChat: React.FC<EmbeddedChatProps> = ({ sessionId, className, composer = false, placeholder }) => {
+const EmbeddedChat: React.FC<EmbeddedChatProps> = ({
+  sessionId,
+  className,
+  composer = false,
+  placeholder,
+  wrapMessage,
+  onReply,
+}) => {
   // The session object is the stable snapshot; deriving `[]` inside the
   // selector would hand useSyncExternalStore a fresh array every read.
   const session = useChatStore((s) => s.sessions[sessionId])
@@ -82,10 +106,11 @@ const EmbeddedChat: React.FC<EmbeddedChatProps> = ({ sessionId, className, compo
   const isStreaming = session?.isStreaming ?? false
   const send = useChatStore((s) => s.send)
   const cancel = useChatStore((s) => s.cancel)
+  const clearContext = useChatStore((s) => s.clearContext)
   const ensureSession = useChatStore((s) => s.ensureSession)
   const loadHistory = useChatStore((s) => s.loadHistory)
+  const navigate = useNavigate()
 
-  const [draft, setDraft] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
   const stickToBottomRef = useRef(true)
   const titledRef = useRef('')
@@ -160,6 +185,20 @@ const EmbeddedChat: React.FC<EmbeddedChatProps> = ({ sessionId, className, compo
     }
   }, [sessionId, firstPrompt])
 
+  // Hand a finished answer to the surface that asked for one. Only the
+  // true→false edge of `isStreaming` counts, so history loads stay silent.
+  const onReplyRef = useRef(onReply)
+  onReplyRef.current = onReply
+  const wasStreaming = useRef(false)
+  useEffect(() => {
+    const settled = wasStreaming.current && !isStreaming
+    wasStreaming.current = isStreaming
+    if (!settled || !onReplyRef.current) return
+    const last = [...messages].reverse().find((m) => m.role === 'assistant')
+    if (!last || last.error || last.isCancelled) return
+    onReplyRef.current(replyText(last))
+  }, [isStreaming, messages])
+
   // Count + last timestamp, plus how many questions have a persisted seq: a
   // sent question keeps the length unchanged when the backend assigns its seq,
   // and that is exactly when the navigator index gains the new turn.
@@ -190,25 +229,15 @@ const EmbeddedChat: React.FC<EmbeddedChatProps> = ({ sessionId, className, compo
     if (el && stickToBottomRef.current) el.scrollTop = el.scrollHeight
   }, [])
 
-  // Same contract as the chat page: `/skill-name …` expands into an
-  // instruction for the agent, and the transcript keeps what was typed.
-  const sendDraft = useCallback(async () => {
-    const text = draft.trim()
-    if (!text || isStreaming) return
-    setDraft('')
-    stickToBottomRef.current = true
-    const skills = text.startsWith('/') ? await loadSlashSkills() : []
-    const expanded = expandSkillSlash(text, skills)
-    await send(sessionId, expanded || text, [], expanded ? text : undefined)
-  }, [draft, isStreaming, send, sessionId])
-
-  // Only Enter sends; Escape and Shift+Enter leave the draft untouched.
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-      e.preventDefault()
-      void sendDraft()
-    }
-  }
+  // The composer hands over the message and its attachments; ChatInput has
+  // already expanded any `/skill-name` into the instruction the agent gets.
+  const handleSend = useCallback(
+    (message: string, attachments: Attachment[], display?: string) => {
+      stickToBottomRef.current = true
+      void send(sessionId, wrapMessage ? wrapMessage(message) : message, attachments, display ?? message)
+    },
+    [send, sessionId, wrapMessage]
+  )
 
   // Each message's turn: the seq of the question that opened it, for the file
   // cards it shows.
@@ -266,28 +295,17 @@ const EmbeddedChat: React.FC<EmbeddedChatProps> = ({ sessionId, className, compo
       </div>
 
       {composer && (
-        <div className="twb-embed-composer">
-          <textarea
-            className="twb-embed-input"
-            rows={1}
-            value={draft}
-            placeholder={placeholder || t('embed_input_ph')}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={handleKeyDown}
+        <div className="twb-embed-input-bar">
+          <ChatInput
+            sessionId={sessionId}
+            isStreaming={isStreaming}
+            hideNewChat
+            onSend={handleSend}
+            onNewChat={() => {}}
+            onStop={() => void cancel(sessionId)}
+            onClearContext={() => void clearContext(sessionId)}
+            onAdjustContext={() => navigate('/agents')}
           />
-          <button
-            type="button"
-            className="twb-embed-send"
-            title={isStreaming ? t('embed_stop') : t('embed_send')}
-            aria-label={isStreaming ? t('embed_stop') : t('embed_send')}
-            disabled={!isStreaming && !draft.trim()}
-            onClick={() => {
-              if (isStreaming) void cancel(sessionId)
-              else void sendDraft()
-            }}
-          >
-            {isStreaming ? <Square size={13} /> : <ArrowUp size={16} />}
-          </button>
         </div>
       )}
 

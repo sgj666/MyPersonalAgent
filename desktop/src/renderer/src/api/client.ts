@@ -268,6 +268,7 @@ const AUTH_TOKEN_KEY = 'cow_auth_token'
 /** §7.1's defaults, used until the store answers and for any field it omits. */
 export const DEFAULT_TEACHING_SETTINGS: TeachingSettings = {
   morning: { enabled: true, time: '07:30' },
+  overdue: { enabled: true, time: '18:00' },
   lesson: { enabled: true, minutes: 10 },
   channel: 'web',
 }
@@ -279,13 +280,20 @@ export const DEFAULT_TEACHING_SETTINGS: TeachingSettings = {
  */
 function normalizeTeachingSettings(raw: Partial<TeachingSettings> | null | undefined): TeachingSettings {
   const morning = raw?.morning
+  const overdue = raw?.overdue
   const lesson = raw?.lesson
   const time = typeof morning?.time === 'string' ? morning.time.trim() : ''
+  const overdueTime = typeof overdue?.time === 'string' ? overdue.time.trim() : ''
   const minutes = Number(lesson?.minutes)
   return {
     morning: {
       enabled: typeof morning?.enabled === 'boolean' ? morning.enabled : DEFAULT_TEACHING_SETTINGS.morning.enabled,
       time: /^\d{1,2}:\d{2}$/.test(time) ? time : DEFAULT_TEACHING_SETTINGS.morning.time,
+    },
+    overdue: {
+      enabled:
+        typeof overdue?.enabled === 'boolean' ? overdue.enabled : DEFAULT_TEACHING_SETTINGS.overdue.enabled,
+      time: /^\d{1,2}:\d{2}$/.test(overdueTime) ? overdueTime : DEFAULT_TEACHING_SETTINGS.overdue.time,
     },
     lesson: {
       enabled: typeof lesson?.enabled === 'boolean' ? lesson.enabled : DEFAULT_TEACHING_SETTINGS.lesson.enabled,
@@ -1739,8 +1747,17 @@ class ApiClient {
     }
   }
 
-  async saveTeachingTimetable(table: TeachingTimetable): Promise<void> {
-    await this.teachingCall('/api/teaching/timetable', 'PUT', table)
+  /** Save the whole table. `periodMap` maps each old period number to where the
+   *  dialog moved it, so lessons follow their row instead of a bare number. */
+  async saveTeachingTimetable(
+    table: TeachingTimetable,
+    periodMap?: Record<string, number>
+  ): Promise<void> {
+    await this.teachingCall(
+      '/api/teaching/timetable',
+      'PUT',
+      periodMap ? { ...table, period_map: periodMap } : table
+    )
   }
 
   // ----- progress -----
@@ -2254,6 +2271,111 @@ class ApiClient {
     })
   }
 
+
+  // ---------------------------------------------------------
+  // Video download (/api/video/*). Same shape as the console's page; the SSE
+  // download carries the auth token in the query string because EventSource
+  // cannot set an Authorization header.
+  // ---------------------------------------------------------
+
+  async getVideoStatus(): Promise<ApiResult & VideoStatus> {
+    return this.request('/api/video/status')
+  }
+
+  /** Insert a period or a break after the row at `after`; the backend renumbers. */
+  async insertTimetableRow(params: {
+    after: number
+    kind: 'period' | 'break'
+    name?: string
+    start?: string
+    end?: string
+  }): Promise<TeachingTimetable> {
+    const data = await this.teachingCall<ApiResult & TeachingTimetable>(
+      '/api/teaching/timetable/insert',
+      'POST',
+      params
+    )
+    return data
+  }
+
+  async probeVideo(url: string): Promise<ApiResult & VideoProbe> {
+    return this.unwrapVideo(await this.request<ApiResult & VideoProbe>('/api/video/probe?url=' + encodeURIComponent(url)))
+  }
+
+  createVideoStream(params: { url: string; quality?: string; source?: string; title?: string }): EventSource {
+    const query = new URLSearchParams()
+    query.set('url', params.url)
+    if (params.quality) query.set('quality', params.quality)
+    if (params.source) query.set('source', params.source)
+    if (params.title) query.set('title', params.title)
+    return new EventSource(this.withToken(`${this.baseUrl}/api/video/download?${query.toString()}`))
+  }
+
+  async cancelVideo(): Promise<ApiResult> {
+    return this.request('/api/video/cancel', { method: 'POST', body: '{}' })
+  }
+
+  async getRecentVideos(): Promise<ApiResult & { items: VideoItem[] }> {
+    return this.request('/api/video/recent')
+  }
+
+  async deleteVideo(path: string): Promise<ApiResult> {
+    return this.unwrapVideo(
+      await this.request('/api/video/delete', { method: 'POST', body: JSON.stringify({ path }) })
+    )
+  }
+
+  async videoLoginStart(platform: string): Promise<ApiResult & VideoLoginStart> {
+    return this.unwrapVideo(
+      await this.request<ApiResult & VideoLoginStart>('/api/video/login/start', { method: 'POST', body: JSON.stringify({ platform }) })
+    )
+  }
+
+  async videoLoginPoll(platform: string, key: string): Promise<ApiResult & VideoLoginPoll> {
+    const query = new URLSearchParams({ platform, key })
+    return this.unwrapVideo(await this.request<ApiResult & VideoLoginPoll>(`/api/video/login/poll?${query.toString()}`))
+  }
+
+  async videoLoginClose(platform: string): Promise<ApiResult> {
+    return this.request('/api/video/login/close', { method: 'POST', body: JSON.stringify({ platform }) })
+  }
+
+  async videoLogout(platform: string): Promise<ApiResult & VideoStatus> {
+    return this.unwrapVideo(
+      await this.request<ApiResult & VideoStatus>('/api/video/logout', { method: 'POST', body: JSON.stringify({ platform }) })
+    )
+  }
+
+  /** A platform cover, proxied by the backend (file:// pages cannot load it). */
+  getVideoThumbUrl(url: string): string {
+    return this.withToken(`${this.baseUrl}/api/video/thumb?url=${encodeURIComponent(url)}`)
+  }
+
+  /** First-frame thumbnail of a downloaded video, token included. */
+  getVideoPosterUrl(path: string): string {
+    return this.withToken(`${this.baseUrl}/api/video/poster?path=${encodeURIComponent(path)}`)
+  }
+
+  /** Absolute URL of a downloaded file, with the token the file endpoint wants. */
+  getVideoFileUrl(path: string): string {
+    return this.withToken(`${this.baseUrl}/api/file?path=${encodeURIComponent(path)}`)
+  }
+
+  async revealVideo(path: string): Promise<ApiResult> {
+    return this.request('/api/file/reveal', { method: 'POST', body: JSON.stringify({ path }) })
+  }
+
+  // The video endpoints answer 200 with status "error" plus a machine code, so
+  // the page can pick its copy instead of printing an English engine message.
+  private unwrapVideo<T extends ApiResult>(data: T): T {
+    if (data.status !== 'success') {
+      const error = new Error(data.message || 'video request failed') as Error & { code?: string }
+      error.code = (data as ApiResult & { code?: string }).code || 'unknown'
+      throw error
+    }
+    return data
+  }
+
   // ---------------------------------------------------------
   // Logs / version
   // ---------------------------------------------------------
@@ -2300,3 +2422,63 @@ class ApiClient {
 
 export const apiClient = new ApiClient()
 export default apiClient
+
+export interface VideoAccountState {
+  logged_in: boolean
+  cookies: number
+  session_cookie: string | null
+  method: 'qr' | 'browser'
+  label: string
+}
+
+export interface VideoStatus {
+  ytdlp: boolean
+  /** True while the backend is pip-installing a missing engine. */
+  installing?: boolean
+  install_error?: string
+  version: string | null
+  ffmpeg: string | null
+  browser: string | null
+  platforms: string[]
+  accounts: Record<string, VideoAccountState>
+}
+
+export interface VideoProbe {
+  platform: string
+  label: string
+  id: string
+  url: string
+  title: string
+  uploader?: string
+  duration?: number | null
+  thumbnail?: string | null
+  width?: number | null
+  height?: number | null
+  size?: number | null
+  via?: string
+  source?: string
+}
+
+export interface VideoItem {
+  name: string
+  path: string
+  size: number
+  mtime: number
+  /** Read off the file's `[id]` by the backend; '' when unknown. */
+  platform?: string
+}
+
+export interface VideoLoginStart {
+  platform: string
+  method: 'qr' | 'browser'
+  qr?: string
+  key?: string
+  expires_in?: number
+  already_open?: boolean
+}
+
+export interface VideoLoginPoll {
+  state: 'waiting' | 'scanned' | 'expired' | 'ok'
+  saved: number
+  message?: string
+}

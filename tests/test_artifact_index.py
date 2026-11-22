@@ -366,3 +366,15 @@ def test_history_cards_include_files_a_command_changed(tmp_path, monkeypatch):
     }]
     cards = sessions._artifacts_from_steps(steps, session_id="s1")
     assert [c["file_name"] for c in cards] == ["q4.html"]
+
+
+def test_a_downloaded_video_is_an_artifact(tmp_path):
+    video = _touch(tmp_path / "output" / "视频下载" / "a.mp4", "x")
+    messages = _tool_turn(
+        "video_download",
+        {"url": "https://v.douyin.com/x/"},
+        {"path": str(video), "title": "示例", "size": 1, "platform": "douyin"},
+    )
+    found = collect_message_artifacts(messages, str(tmp_path))
+    assert [(item["kind"], item["source"]) for item in found] == [("video", "video_download")]
+    assert found[0]["path"].endswith("a.mp4")

@@ -18,6 +18,7 @@ const MENU_BUILTINS = {
     progress:  { icon: 'fa-bars-progress',    label: 'menu_progress' },
     homework:  { icon: 'fa-clipboard-check',  label: 'menu_homework' },
     scores:    { icon: 'fa-chart-simple',     label: 'menu_scores' },
+    video:     { icon: 'fa-film',             label: 'menu_video' },
     chat:      { icon: 'fa-message',          label: 'menu_chat' },
     artifacts: { icon: 'fa-layer-group',      label: 'menu_artifacts' },
     agents:    { icon: 'fa-people-group',     label: 'menu_agents' },
@@ -43,7 +44,7 @@ const MENU_DEFAULT = [
     { id: 'daily', views: ['home'] },
     { id: 'chat',    views: ['chat', 'artifacts'] },
     { id: 'teach',   views: ['classes', 'timetable', 'progress', 'homework', 'scores',
-                             'teaching', 'board', 'knowledge'] },
+                             'video', 'teaching', 'board', 'knowledge'] },
     { id: 'manage',  views: ['agents', 'config', 'skills', 'memory', 'channels'] },
     { id: 'monitor', views: ['logs'] },
 ];

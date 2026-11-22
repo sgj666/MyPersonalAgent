@@ -706,6 +706,10 @@ def _record_scheduler_run(task: dict, agent_id: str, trigger: str = "scheduled")
                 # channel instance ran it (resolved to a friendly name client-side).
                 "instance_id": action.get("instance_id") or "",
                 "task_name": task.get("name", ""),
+                # A reminder is announced by the clients as itself, not as a
+                # finished task (see the notification text builders).
+                "reminder": bool(action.get("reminder")),
+                "reminder_title": action.get("reminder_title", ""),
                 "trigger": trigger,
             },
         )
@@ -787,6 +791,8 @@ def _run_scheduled_task(
             ok = _execute_agent_task(task, agent_bridge, agent_id, output_sink=sink)
         elif action_type == "teaching_digest":
             ok = _execute_teaching_digest(task, agent_bridge, agent_id, output_sink=sink)
+        elif action_type == "teaching_overdue":
+            ok = _execute_teaching_overdue(task, agent_bridge, agent_id, output_sink=sink)
         elif action_type == "send_message":
             ok = _execute_send_message(task, agent_bridge, agent_id, output_sink=sink)
         elif action_type == "tool_call":
@@ -972,6 +978,31 @@ def _execute_teaching_digest(
     except Exception as e:
         logger.error(f"[Scheduler] Task {task.get('id')}: teaching digest failed: {e}")
         return False
+    resolved = dict(task)
+    resolved["action"] = {
+        **task.get("action", {}), "type": "send_message", "content": text,
+    }
+    return _execute_send_message(resolved, agent_bridge, agent_id, output_sink=output_sink)
+
+
+def _execute_teaching_overdue(
+    task: dict, agent_bridge, agent_id: str = None, output_sink: dict = None
+) -> bool:
+    """Deliver the overdue to-do summary, computed at fire time.
+
+    A clean board delivers nothing: there is no notification worth showing and
+    no chat message worth leaving behind. The run still closes ``done`` with an
+    empty preview, which the clients treat as "nothing to announce".
+    """
+    try:
+        from agent.teaching.reminders import build_overdue, overdue_for_today
+
+        text = build_overdue(overdue_for_today(agent_id))
+    except Exception as e:
+        logger.error(f"[Scheduler] Task {task.get('id')}: overdue summary failed: {e}")
+        return False
+    if not text:
+        return True
     resolved = dict(task)
     resolved["action"] = {
         **task.get("action", {}), "type": "send_message", "content": text,

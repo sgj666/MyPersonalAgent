@@ -22,6 +22,20 @@ def workspace_path(workspace, relative):
     return path
 
 
+def svg_page_path(slide, number, root):
+    """The SVG file of one ppt-master page, contained to the workspace.
+
+    Both the preview and the export read pages from disk, so the check lives
+    here once: a path outside the workspace is refused, not followed.
+    """
+    path = workspace_path(root, slide.get('svg_path'))
+    if path.suffix.lower() != '.svg':
+        raise ValueError(f'第 {number} 页 svg_path 请指向 .svg 文件')
+    if not path.is_file():
+        raise ValueError(f'第 {number} 页 svg_path 找不到文件：{slide.get("svg_path")}')
+    return path
+
+
 def svg_pages(draft, root):
     """The ppt-master pages of a deck, or [] when it uses the geometry layouts.
 
@@ -39,12 +53,7 @@ def svg_pages(draft, root):
     for number, slide in enumerate(slides, 1):
         svg = slide.get('svg')
         if svg is None:
-            path = workspace_path(root, slide.get('svg_path'))
-            if path.suffix.lower() != '.svg':
-                raise ValueError(f'第 {number} 页 svg_path 请指向 .svg 文件')
-            if not path.is_file():
-                raise ValueError(f'第 {number} 页 svg_path 找不到文件：{slide.get("svg_path")}')
-            svg = path.read_text(encoding='utf-8')
+            svg = svg_page_path(slide, number, root).read_text(encoding='utf-8')
         name = f'{number:02d}_{slug_name(slide.get("title") or f"第{number}页")}.svg'
         pages.append((name, svg, slide.get('notes', '')))
     return pages
@@ -141,7 +150,7 @@ def render_draft(kind, draft, out_name=None, formats=None, a4=False, workspace=N
         else:
             if kind == 'deck':
                 from agent.teaching.render.deck_html import render_deck_html
-                result = render_deck_html(draft)
+                result = render_deck_html(draft, root)
             elif kind == 'dictation':
                 from agent.teaching.render.dictation_html import render_dictation_html
                 result = render_dictation_html(draft, audio=audio)

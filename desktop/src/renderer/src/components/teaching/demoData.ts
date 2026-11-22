@@ -193,7 +193,7 @@ export function demoDeckHtml(deck: DeckDraft): string {
       return `<section class="slide" data-slide="${i + 1}" data-layout="${slide.layout}"><span class="tag">${esc(slide.layout)}</span><h1>${esc(slide.title)}</h1>${slide.subtitle ? `<p class="sub">${esc(slide.subtitle)}</p>` : ''}<ul>${bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul><span class="no">${i + 1}</span></section>`
     })
     .join('')
-  return `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#f4efe9}.slide{box-sizing:border-box;width:1920px;height:1080px;padding:120px 160px;background:linear-gradient(135deg,#fffaf5,#e8f4ec);font-family:-apple-system,"PingFang SC",sans-serif;color:#3b3546;position:relative}.slide h1{font-size:88px;margin:40px 0 24px}.sub{font-size:44px;color:#6e6579}.slide ul{font-size:48px;line-height:1.7}.tag{font-size:28px;background:#d6f1e2;color:#1f5a3d;border-radius:20px;padding:6px 20px}.no{position:absolute;right:80px;bottom:60px;font-size:32px;color:#948c9c}</style></head><body>${slides}</body></html>`
+  return `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#f4efe9}.slide{box-sizing:border-box;width:1280px;height:720px;padding:80px 104px;background:linear-gradient(135deg,#fffaf5,#e8f4ec);font-family:-apple-system,"PingFang SC",sans-serif;color:#3b3546;position:relative}.slide h1{font-size:58px;margin:26px 0 16px}.sub{font-size:29px;color:#6e6579}.slide ul{font-size:32px;line-height:1.7}.tag{font-size:18px;background:#d6f1e2;color:#1f5a3d;border-radius:14px;padding:4px 14px}.no{position:absolute;right:52px;bottom:40px;font-size:21px;color:#948c9c}</style></head><body>${slides}</body></html>`
 }
 
 /** A stand-in 1080×1440 card preview. */

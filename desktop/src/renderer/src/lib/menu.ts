@@ -64,6 +64,7 @@ export const MENU_BUILTINS: Record<string, { path: string; labelKey: string; ico
   progress: { path: '/progress', labelKey: 'menu_progress', icon: ListChecks },
   homework: { path: '/homework', labelKey: 'menu_homework', icon: ClipboardList },
   scores: { path: '/scores', labelKey: 'menu_scores', icon: GraduationCap },
+  video: { path: '/video', labelKey: 'menu_video', icon: Film },
   board: { path: '/board', labelKey: 'menu_board', icon: KanbanSquare },
   teaching: { path: '/teaching', labelKey: 'menu_teaching', icon: PencilRuler },
   chat: { path: '/', labelKey: 'menu_chat', icon: MessageSquare },
@@ -127,7 +128,7 @@ export const MENU_DEFAULT: { id: string; views: string[] }[] = [
     // 作业 page is deliberately not in the rail any more: 教学工具 → 作业卡片 is
     // the way in, and two entries for the same job read as a conflict. It stays
     // registered in MENU_BUILTINS, so the menu editor can still add it back.
-    views: ['classes', 'timetable', 'progress', 'scores', 'teaching', 'board', 'knowledge'],
+    views: ['classes', 'timetable', 'progress', 'scores', 'video', 'teaching', 'board', 'knowledge'],
   },
   { id: 'manage', views: ['agents', 'config', 'skills', 'memory', 'channels'] },
   { id: 'monitor', views: ['logs'] },
