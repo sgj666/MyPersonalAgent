@@ -1144,6 +1144,22 @@
   color: var(--twb-urgent);
 }
 
+/* The subject filter reuses .twb-chip, but its "on" state must not read as
+   缺考 (the urgent orange above): selected columns are a view choice. */
+.twb-subject-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 2px;
+}
+
+.twb-subject-filter .twb-chip.is-on {
+  background: var(--twb-accent-soft);
+  border-color: var(--twb-accent);
+  color: var(--twb-ink);
+  font-weight: 700;
+}
+
 .twb-exam-item-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 92px 30px;

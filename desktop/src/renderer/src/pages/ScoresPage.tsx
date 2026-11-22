@@ -296,6 +296,8 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
     open: false,
     target: null,
   })
+  // 学科筛选：null = 全部（所有分项 + 总分），否则只显示选中的分项。
+  const [subjectKeys, setSubjectKeys] = useState<string[] | null>(null)
   const gridRef = useRef<HTMLDivElement>(null)
   const scoreToken = useRef(0)
   const studentToken = useRef(0)
@@ -342,6 +344,20 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
     const exam = exams.find((item) => item.id === selectedExamId)
     if (!exam) return
     setClassId((prev) => (exam.class_ids.includes(prev) ? prev : exam.class_ids[0] || ''))
+  }, [exams, selectedExamId])
+
+  // 默认只看这门考试教的学科：只教英语的老师录分时，不该横向滚过七列。
+  // 没有分项（只记总分）或学科名对不上分项时回到「全部」。
+  useEffect(() => {
+    const exam = exams.find((item) => item.id === selectedExamId)
+    if (!exam) {
+      setSubjectKeys(null)
+      return
+    }
+    const match = exam.items.find(
+      (item) => item.label === exam.subject || item.key === exam.subject,
+    )
+    setSubjectKeys(match ? [match.key] : null)
   }, [exams, selectedExamId])
 
   useEffect(() => {
@@ -409,9 +425,25 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
   }, [view, selectedExam, analysisKey])
 
   const itemColumns = selectedExam?.items || []
-  const columns = itemColumns.length
-    ? [...itemColumns.map((item) => item.key), Column.total]
-    : [Column.total]
+  const allItemKeys = itemColumns.map((item) => item.key)
+  // 「全部」画所有分项 + 总分；选了具体学科时只画那几列，没有意义的总分列收起。
+  const shownItems =
+    subjectKeys === null ? itemColumns : itemColumns.filter((item) => subjectKeys.includes(item.key))
+  const showTotal = subjectKeys === null
+  const columns = [...shownItems.map((item) => item.key), ...(showTotal ? [Column.total] : [])]
+
+  // 从「全部」点某一科 = 只看这一科；再从那里多选。取消到一列不剩、或选满，
+  // 都回到「全部」：表格不能没有列。
+  const toggleSubject = (key: string) => {
+    if (subjectKeys === null) {
+      setSubjectKeys([key])
+      return
+    }
+    const next = subjectKeys.includes(key)
+      ? subjectKeys.filter((item) => item !== key)
+      : [...subjectKeys, key]
+    setSubjectKeys(next.length === 0 || next.length === allItemKeys.length ? null : next)
+  }
 
   const isAbsent = (entry: ScoreEntry | undefined): boolean =>
     Boolean(entry) && entry!.total === null && !Object.values(entry!.items || {}).some((v) => v !== null)
@@ -723,22 +755,54 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
                         <PageError message={scoresError} onRetry={() => setSelectedExamId(selectedExam.id)} />
                       ) : students.length ? (
                         <>
+                          {itemColumns.length > 1 && (
+                            <div
+                              className="twb-subject-filter"
+                              role="group"
+                              aria-label={t('tw_sc_subject_filter')}
+                            >
+                              <button
+                                type="button"
+                                className={`twb-chip${subjectKeys === null ? ' is-on' : ''}`}
+                                aria-pressed={subjectKeys === null}
+                                onClick={() => setSubjectKeys(null)}
+                              >
+                                {t('tw_sc_all_subjects')}
+                              </button>
+                              {itemColumns.map((item) => {
+                                const on = subjectKeys !== null && subjectKeys.includes(item.key)
+                                return (
+                                  <button
+                                    key={item.key}
+                                    type="button"
+                                    className={`twb-chip${on ? ' is-on' : ''}`}
+                                    aria-pressed={on}
+                                    onClick={() => toggleSubject(item.key)}
+                                  >
+                                    {item.label}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          )}
                           <div className="twb-table-wrap" ref={gridRef}>
                             <table className="twb-table twb-score-table">
                               <thead>
                                 <tr>
                                   <th>{t('tw_st_no')}</th>
                                   <th>{t('tw_st_name')}</th>
-                                  {itemColumns.map((item) => (
+                                  {shownItems.map((item) => (
                                     <th key={item.key} className="is-num">
                                       {item.label}
                                       <small>/{item.full}</small>
                                     </th>
                                   ))}
-                                  <th className="is-num">
-                                    {t('tw_sc_total')}
-                                    <small>/{selectedExam.full_score}</small>
-                                  </th>
+                                  {showTotal && (
+                                    <th className="is-num">
+                                      {t('tw_sc_total')}
+                                      <small>/{selectedExam.full_score}</small>
+                                    </th>
+                                  )}
                                   <th>{t('tw_sc_absent')}</th>
                                 </tr>
                               </thead>
@@ -750,7 +814,7 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
                                     <tr key={student.id} className={absent ? 'is-absent' : ''}>
                                       <td className="is-num">{student.no}</td>
                                       <td>{student.name}</td>
-                                      {itemColumns.map((item, column) => (
+                                      {shownItems.map((item, column) => (
                                         <td key={item.key} className="is-num is-cell">
                                           <input
                                             className="twb-score-input"
@@ -766,23 +830,25 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
                                           />
                                         </td>
                                       ))}
-                                      <td className="is-num is-cell">
-                                        <input
-                                          className="twb-score-input twb-score-total"
-                                          type="number"
-                                          min={0}
-                                          max={selectedExam.full_score}
-                                          data-cell={`${row}-${columns.length - 1}`}
-                                          disabled={absent}
-                                          readOnly={itemColumns.length > 0}
-                                          value={cellValue(entry, Column.total)}
-                                          onChange={(e) =>
-                                            applyCell(student.id, Column.total, e.target.value)
-                                          }
-                                          onKeyDown={(e) => onCellKey(e, row, columns.length - 1)}
-                                          onPaste={(e) => onPasteAt(e, row, columns.length - 1)}
-                                        />
-                                      </td>
+                                      {showTotal && (
+                                        <td className="is-num is-cell">
+                                          <input
+                                            className="twb-score-input twb-score-total"
+                                            type="number"
+                                            min={0}
+                                            max={selectedExam.full_score}
+                                            data-cell={`${row}-${columns.length - 1}`}
+                                            disabled={absent}
+                                            readOnly={itemColumns.length > 0}
+                                            value={cellValue(entry, Column.total)}
+                                            onChange={(e) =>
+                                              applyCell(student.id, Column.total, e.target.value)
+                                            }
+                                            onKeyDown={(e) => onCellKey(e, row, columns.length - 1)}
+                                            onPaste={(e) => onPasteAt(e, row, columns.length - 1)}
+                                          />
+                                        </td>
+                                      )}
                                       <td>
                                         <button
                                           type="button"
