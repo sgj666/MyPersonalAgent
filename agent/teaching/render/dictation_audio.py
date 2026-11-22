@@ -105,7 +105,7 @@ def _clip(text, voice, cache_dir):
     return target.read_bytes()
 
 
-def build_audio(words, cache_dir, enabled=True):
+def build_audio(words, cache_dir, enabled=True, include_zh=True):
     """``{'en:visit': 'data:audio/mpeg;base64,…'}`` plus warnings.
 
     The key is ``<lang>:<text>``; the renderer looks it up per row.
@@ -124,10 +124,11 @@ def build_audio(words, cache_dir, enabled=True):
             continue
         if word.get('word'):
             wanted[('en', word['word'])] = True
-        for sense in word.get('senses') or []:
-            spoken = read_text(sense)
-            if spoken:
-                wanted[('zh', spoken)] = True
+        if include_zh:
+            for sense in word.get('senses') or []:
+                spoken = read_text(sense)
+                if spoken:
+                    wanted[('zh', spoken)] = True
 
     def load(item):
         lang, text = item

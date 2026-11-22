@@ -41,7 +41,7 @@ def test_the_player_holds_one_word_at_a_time_and_carries_both_audio_slots():
     assert 'v.' in html and '动词 参观；拜访' in html
     # The unselected word is on neither the player nor the print sheet.
     assert '野餐' not in html
-    assert '<body class="mode-zh">' in html
+    assert '<body class="kind-dictation mode-zh">' in html
     assert "mode: 'zh'" in html
 
 
@@ -60,7 +60,7 @@ def test_standard_audio_is_embedded_for_english_and_chinese():
 
 def test_english_opens_on_english_and_the_page_owns_the_switch():
     html = render_dictation_html(spec('en'))['html']
-    assert '<body class="mode-en">' in html
+    assert '<body class="kind-dictation mode-en">' in html
     assert "mode: 'en'" in html
     assert 'data-mode="zh"' in html and 'data-mode="en"' in html
     assert '听发音 · 写单词' in html
@@ -68,6 +68,37 @@ def test_english_opens_on_english_and_the_page_owns_the_switch():
     assert '自动听写' in html and 'id="interval"' in html and 'id="repeat"' in html
     assert 'id="countdown"' in html
     assert 'SpeechSynthesisUtterance' in html  # fallback when a clip is missing
+
+
+def test_translation_mode_shows_english_and_reveals_chinese():
+    draft = spec()
+    draft['meta'].update(kind='translation', title='Unit 3 英译汉')
+    html = render_dictation_html(draft)['html']
+    assert '<body class="kind-translation mode-zh">' in html
+    assert '英译汉' in html
+    # The player keeps one stage: English prompt, hidden Chinese answer.
+    assert 'id="prompt-trans"' in html and 'id="trans-word"' in html
+    assert 'id="reveal-hint"' in html and '点击显示中文答案' in html
+    # Auto check has its own two phases and an audio toggle.
+    assert 'id="think"' in html and 'id="hold"' in html and 'id="autoread"' in html
+    assert '思考' in html and '答案 ' in html
+    # The print sheet asks for English -> Chinese, not the word.
+    assert '<span class="p p-en">visit</span>' in html
+    assert 'class="print-hint">看英文，写出中文意思' in html
+    # The summary swaps the columns: English prompt, Chinese answer.
+    assert '英 译 汉 · 汇 总' in html
+    assert 'TRANSLATION' in html and 'tickTranslation' in html
+    meta = json.loads(re.search(r'id="dict-meta">(.*?)</script>', html, re.S).group(1))
+    assert meta['kind'] == 'translation'
+
+
+def test_a_legacy_draft_without_kind_stays_dictation():
+    draft = spec()
+    draft['meta'].pop('kind', None)
+    html = render_dictation_html(draft)['html']
+    assert '<body class="kind-dictation mode-zh">' in html
+    meta = json.loads(re.search(r'id="dict-meta">(.*?)</script>', html, re.S).group(1))
+    assert meta['kind'] == 'dictation'
 
 
 def test_a_player_is_offline_escaped_and_printable():
@@ -101,6 +132,19 @@ def test_reading_fixes_the_de_particle_but_not_di_nouns():
     assert read_text({'pos': 'n.', 'meaning': '土地'}) == '名词 土地'
     assert read_text({'pos': 'n.', 'meaning': '目的地'}) == '名词 目的地'
     assert read_text({'pos': 'n.', 'meaning': '高地'}) == '名词 高地'
+
+
+def test_translation_render_only_synthesizes_the_english_voice(tmp_path, monkeypatch):
+    from agent.teaching.render import dictation_audio
+
+    voices = []
+    monkeypatch.setattr(dictation_audio, '_clip',
+                        lambda text, voice, cache: voices.append(voice) or b'ID3')
+    draft = spec()
+    draft['meta']['kind'] = 'translation'
+    result = render_draft('dictation', draft, workspace=str(tmp_path), tts=True)
+    assert result['files'][0]['format'] == 'html'
+    assert voices and all('Aria' in voice for voice in voices)
 
 
 def test_render_draft_writes_one_html_file(tmp_path):

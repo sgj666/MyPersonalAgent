@@ -132,7 +132,10 @@ def render_draft(kind, draft, out_name=None, formats=None, a4=False, workspace=N
     if kind == 'dictation' and 'html' in formats:
         from agent.teaching.render.dictation_audio import build_audio
 
-        audio, audio_warnings = build_audio(draft['words'], root / 'tmp' / 'dictation-audio', enabled=tts)
+        audio, audio_warnings = build_audio(
+            draft['words'], root / 'tmp' / 'dictation-audio', enabled=tts,
+            include_zh=draft['meta'].get('kind') != 'translation',
+        )
     warnings, files = list(audio_warnings), []
     for fmt in formats:
         suffix = '.pptx' if fmt == 'pptx' else ('-a4.html' if fmt == 'a4' else '.html')

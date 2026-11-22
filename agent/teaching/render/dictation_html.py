@@ -63,9 +63,11 @@ def validate_dictation(draft):
     book = _text(meta.get('book'), 80)
     unit = _text(meta.get('unit'), 80)
     mode = 'en' if meta.get('mode') == 'en' else 'zh'
+    kind = 'translation' if meta.get('kind') == 'translation' else 'dictation'
     title = _text(meta.get('title'), 100) or ' '.join(p for p in (book, unit, '单词听写') if p)
     return {'version': 1, 'meta': {'title': title, 'book': book, 'unit': unit,
-                                   'date': _text(meta.get('date'), 20), 'mode': mode},
+                                   'date': _text(meta.get('date'), 20),
+                                   'kind': kind, 'mode': mode},
             'words': words}
 
 
@@ -121,6 +123,34 @@ body{margin:0;color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:an
 .prompt-zh.is-empty{font-size:clamp(28px,4.6vw,56px);color:var(--ink-3)}
 .prompt-en{display:flex;flex-direction:column;align-items:center;gap:16px}
 body.mode-zh .prompt-en,body.mode-en .prompt-zh{display:none}
+.trans-badge{display:none;align-items:center;height:34px;padding:0 14px;border-radius:999px;
+  font-size:12.5px;font-weight:800;letter-spacing:.08em;color:var(--accent);background:#fff;
+  border:1px solid rgba(47,107,79,.3)}
+body.kind-translation .trans-badge{display:inline-flex}
+body.kind-translation .switch{display:none}
+.prompt-trans{display:none;flex-direction:column;align-items:center;gap:clamp(10px,1.8vh,18px)}
+body.kind-translation .prompt-trans{display:flex}
+body.kind-translation .prompt-zh,
+body.kind-translation .prompt-en{display:none}
+.trans-word{font-family:var(--serif);font-size:clamp(54px,9vw,130px);line-height:1.08;font-weight:600;
+  letter-spacing:.01em;text-align:center;overflow-wrap:anywhere;max-width:940px}
+.trans-phon{display:flex;align-items:center;gap:12px;font-size:clamp(16px,2vw,26px);color:var(--ink-2);
+  letter-spacing:.04em}
+.say{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;padding:0;
+  color:var(--accent);background:var(--soft);border:1px solid var(--line);border-radius:999px;cursor:pointer}
+.say svg{width:18px;height:18px}
+.say:hover{border-color:rgba(47,107,79,.45)}
+.trans-hint{margin:0;font-size:13px;font-weight:600;letter-spacing:.14em;color:var(--ink-3)}
+.reveal-hint{margin-top:4px;padding:12px 22px;font:inherit;font-size:14px;font-weight:700;color:var(--accent);
+  background:rgba(47,107,79,.06);border:1px dashed rgba(47,107,79,.4);border-radius:999px;cursor:pointer}
+.reveal-hint:hover{background:rgba(47,107,79,.12)}
+.reveal-hint[hidden]{display:none}
+body.kind-dictation .reveal-hint,
+body.kind-dictation .prompt-trans{display:none}
+body.kind-translation .replay{display:none}
+.only-translation{display:none}
+body.kind-translation .only-translation{display:flex}
+body.kind-translation .only-dictation{display:none}
 .big-say{width:clamp(112px,15vw,170px);height:clamp(112px,15vw,170px);border-radius:999px;cursor:pointer;
   display:flex;align-items:center;justify-content:center;color:var(--accent);
   border:1px solid rgba(47,107,79,.35);background:radial-gradient(circle at 50% 34%,#fff,#e9f0e9);
@@ -136,6 +166,11 @@ body.mode-zh .prompt-en,body.mode-en .prompt-zh{display:none}
 .a-senses[hidden]{display:none}
 .a-senses .a-sense{margin:0}
 .a-senses b{margin-right:6px;font-family:var(--sans);font-size:12px;font-weight:800;color:var(--gold)}
+body.kind-translation .a-senses{font-family:var(--serif);font-size:clamp(32px,5.4vw,74px);
+  line-height:1.2;color:var(--ink);gap:10px;margin-top:0}
+body.kind-translation .a-senses b{font-size:clamp(14px,1.7vw,22px);margin-right:14px;color:var(--gold)}
+body.kind-translation .a-word,
+body.kind-translation .a-phon{display:none}
 .replay{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:rgba(255,255,255,.7);
   color:var(--ink-2);font:inherit;font-size:12.5px;font-weight:600;padding:8px 16px;border-radius:999px;cursor:pointer;
   white-space:nowrap}
@@ -219,7 +254,10 @@ body.mode-zh .prompt-en,body.mode-en .prompt-zh{display:none}
   .print-sheet .ans{display:none;margin-top:3px;font-size:12px;font-weight:700;color:#2f6b4f}
   body.mode-en .print-sheet .p-zh{display:none}
   body.mode-zh .print-sheet .p-en{display:none}
+  body.kind-translation .print-sheet .p-zh{display:none}
+  body.kind-translation .print-sheet .p-en{display:block}
   body.answers-on .print-sheet .ans{display:block}
+  .print-hint{margin:6px 0 0;font-size:12px;color:#666}
 }
 """
 
@@ -235,7 +273,12 @@ PLAYER = """
 (function () {
   var DATA = JSON.parse(document.getElementById('dict-data').textContent);
   var META = JSON.parse(document.getElementById('dict-meta').textContent);
-  var state = { i: 0, mode: 'MODE', answer: false, auto: false, interval: 6, repeat: 2, order: [] };
+  var KIND = META.kind || 'dictation';
+  var TRANSLATION = KIND === 'translation';
+  var state = {
+    i: 0, mode: 'MODE', answer: false, auto: false,
+    interval: 6, repeat: 2, think: 8, hold: 5, autoRead: true, order: []
+  };
   var token = 0, audioEl = null, timer = null;
   var $ = function (id) { return document.getElementById(id); };
   var stage = $('stage'), counter = $('counter'), bar = $('bar'), label = $('label');
@@ -243,15 +286,24 @@ PLAYER = """
   var aWord = $('a-word'), aPhon = $('a-phon'), aSenses = $('a-senses');
   var countdownEl = $('countdown'), autoBtn = $('auto'), answerBtn = $('answer-btn');
   var replayBtn = $('replay'), bigSay = $('big-say');
+  var promptTrans = $('prompt-trans'), transWord = $('trans-word'), transPhon = $('trans-phon');
+  var transSay = $('trans-say'), revealHint = $('reveal-hint'), transHint = $('trans-hint');
+  var keyHint = $('key-hint'), settingsTitle = $('settings-title');
+  var doneTitle = $('done-title'), doneEyebrow = $('done-eyebrow'), doneQuestion = $('done-question');
+  var summaryTitle = $('summary-title'), summaryEyebrow = $('summary-eyebrow'), summaryBack = $('summary-back');
 
   try {
     var saved = JSON.parse(localStorage.getItem('dictation-player') || '{}');
-    ['interval', 'repeat'].forEach(function (key) {
+    ['interval', 'repeat', 'think', 'hold'].forEach(function (key) {
       if (saved[key]) state[key] = saved[key];
     });
+    if (saved.autoRead === false) state.autoRead = false;
     if (saved.mode === 'zh' || saved.mode === 'en') state.mode = saved.mode;
     $('interval').value = String(state.interval);
     $('repeat').value = String(state.repeat);
+    $('think').value = String(state.think);
+    $('hold').value = String(state.hold);
+    $('autoread').checked = state.autoRead;
   } catch (_) { /* private mode: keep defaults */ }
 
   function buildOrder() {
@@ -273,32 +325,62 @@ PLAYER = """
     counter.textContent = (state.i + 1) + ' / ' + total;
     bar.style.width = (((state.i + 1) / total) * 100) + '%';
     label.textContent = '第 ' + (state.i + 1) + ' 题';
-    renderPrompt(word);
-    aWord.textContent = word.word;
-    aPhon.textContent = word.phonetic || '';
-    aPhon.hidden = !word.phonetic;
-    aSenses.innerHTML = '';
-    word.senses.forEach(function (sense) {
-      var line = document.createElement('p');
-      line.className = 'a-sense';
-      if (sense.pos) {
-        var pos = document.createElement('b');
-        pos.textContent = sense.pos;
-        line.appendChild(pos);
-      }
-      line.appendChild(document.createTextNode(sense.meaning || '—'));
-      aSenses.appendChild(line);
-    });
-    aSenses.hidden = state.mode === 'zh' || !word.senses.length;
-    answer.hidden = !state.answer;
-    answerBtn.textContent = state.answer ? '隐藏答案' : '显示答案';
+
+    document.body.classList.toggle('kind-translation', TRANSLATION);
+    document.body.classList.toggle('kind-dictation', !TRANSLATION);
     document.body.classList.toggle('mode-zh', state.mode === 'zh');
     document.body.classList.toggle('mode-en', state.mode === 'en');
+
+    if (TRANSLATION) {
+      transWord.textContent = word.word;
+      transPhon.textContent = word.phonetic || '';
+      transPhon.hidden = !word.phonetic;
+      aWord.hidden = true;
+      aPhon.hidden = true;
+      aSenses.hidden = false;
+      aSenses.innerHTML = '';
+      word.senses.forEach(function (sense) {
+        var line = document.createElement('p');
+        line.className = 'a-sense';
+        if (sense.pos) {
+          var pos = document.createElement('b');
+          pos.textContent = sense.pos;
+          line.appendChild(pos);
+        }
+        line.appendChild(document.createTextNode(sense.meaning || '—'));
+        aSenses.appendChild(line);
+      });
+      if (!word.senses.length) aSenses.textContent = '（未填中文释义）';
+      revealHint.hidden = state.answer;
+      transHint.hidden = state.answer;
+      document.getElementById('mode-tag').textContent = '英译汉';
+    } else {
+      renderPrompt(word);
+      aWord.hidden = false;
+      aWord.textContent = word.word;
+      aPhon.textContent = word.phonetic || '';
+      aPhon.hidden = !word.phonetic;
+      aSenses.innerHTML = '';
+      word.senses.forEach(function (sense) {
+        var line = document.createElement('p');
+        line.className = 'a-sense';
+        if (sense.pos) {
+          var pos = document.createElement('b');
+          pos.textContent = sense.pos;
+          line.appendChild(pos);
+        }
+        line.appendChild(document.createTextNode(sense.meaning || '—'));
+        aSenses.appendChild(line);
+      });
+      aSenses.hidden = state.mode === 'zh' || !word.senses.length;
+      document.getElementById('mode-tag').textContent = state.mode === 'zh' ? '中文听写' : '英文听写';
+    }
+    answer.hidden = !state.answer;
+    answerBtn.textContent = state.answer ? '隐藏答案' : '显示答案';
     document.body.classList.toggle('answers-on', state.answer);
     document.querySelectorAll('.mode-btn').forEach(function (btn) {
       btn.classList.toggle('on', btn.getAttribute('data-mode') === state.mode);
     });
-    document.getElementById('mode-tag').textContent = state.mode === 'zh' ? '中文听写' : '英文听写';
     updateAutoButton();
   }
 
@@ -329,8 +411,10 @@ PLAYER = """
   }
 
   function updateAutoButton() {
-    autoBtn.innerHTML = (state.auto ? ICON_PAUSE : ICON_PLAY) + '<span>' +
-      (state.auto ? '暂停' : state.i > 0 || state.answer ? '继续自动听写' : '自动听写') + '</span>';
+    var label = state.auto ? '暂停' : '自动听写';
+    if (!state.auto && TRANSLATION) label = '自动检查';
+    else if (!state.auto && (state.i > 0 || state.answer)) label = '继续自动听写';
+    autoBtn.innerHTML = (state.auto ? ICON_PAUSE : ICON_PLAY) + '<span>' + label + '</span>';
   }
 
   var ICON_PLAY = document.getElementById('icon-play').innerHTML;
@@ -373,6 +457,10 @@ PLAYER = """
 
   function playOnce(done) {
     var word = item();
+    if (TRANSLATION) {
+      playClip(word.enAudio, word.word, 'en-US', done);
+      return;
+    }
     if (state.mode === 'en') {
       playClip(word.enAudio, word.word, 'en-US', done);
       return;
@@ -413,6 +501,51 @@ PLAYER = """
     playRepeats(1, function () {});
   }
 
+  /** Manual navigation: dictation always reads; translation follows the audio setting. */
+  function playOnNavigate() {
+    if (TRANSLATION && !state.autoRead) return;
+    playCurrent();
+  }
+
+  /** A countdown that runs a named phase: "思考 8 秒" or "答案 5 秒". */
+  function phaseCountdown(seconds, label, done) {
+    var mine = token;
+    var left = seconds;
+    countdownEl.hidden = false;
+    (function step() {
+      if (mine !== token || !state.auto) return;
+      countdownEl.textContent = left > 0 ? label + ' ' + left + ' 秒' : '';
+      if (left <= 0) { countdownEl.hidden = true; done(); return; }
+      left -= 1;
+      timer = setTimeout(step, 1000);
+    })();
+  }
+
+  /** 英译汉: think time, reveal the Chinese, hold it, then advance. */
+  function tickTranslation() {
+    var mine = token;
+    state.answer = false;
+    render();
+    var start = function () {
+      if (mine !== token || !state.auto) return;
+      phaseCountdown(state.think, '思考', function () {
+        if (mine !== token || !state.auto) return;
+        state.answer = true;
+        render();
+        phaseCountdown(state.hold, '答案', function () {
+          if (mine !== token || !state.auto) return;
+          advance(true);
+        });
+      });
+    };
+    if (state.autoRead) {
+      var word = item();
+      playClip(word.enAudio, word.word, 'en-US', start);
+    } else {
+      start();
+    }
+  }
+
   function countdown(seconds) {
     var mine = token;
     var left = seconds;
@@ -429,6 +562,7 @@ PLAYER = """
   function tick() {
     stopAudio();
     if (!state.auto) return;
+    if (TRANSLATION) { tickTranslation(); return; }
     var mine = token;
     playRepeats(state.repeat, function () {
       if (mine !== token || !state.auto) return;
@@ -445,7 +579,7 @@ PLAYER = """
     state.i += 1;
     state.answer = false;
     render();
-    if (state.auto) tick(); else playCurrent();
+    if (state.auto) tick(); else playOnNavigate();
   }
 
   function back() {
@@ -453,7 +587,7 @@ PLAYER = """
     if (state.i > 0) state.i -= 1;
     state.answer = false;
     render();
-    playCurrent();
+    playOnNavigate();
   }
 
   function stopAuto() {
@@ -509,7 +643,7 @@ PLAYER = """
     state.i = next;
     state.answer = false;
     render();
-    playCurrent();
+    playOnNavigate();
   }
 
   $('next').addEventListener('click', function () { go(1); });
@@ -517,8 +651,13 @@ PLAYER = """
   $('auto').addEventListener('click', toggleAuto);
   replayBtn.addEventListener('click', playCurrent);
   bigSay.addEventListener('click', playCurrent);
+  transSay.addEventListener('click', playCurrent);
   answerBtn.addEventListener('click', function () {
     state.answer = !state.answer;
+    render();
+  });
+  revealHint.addEventListener('click', function () {
+    state.answer = true;
     render();
   });
   document.querySelectorAll('.mode-btn').forEach(function (btn) {
@@ -532,6 +671,18 @@ PLAYER = """
   });
   $('repeat').addEventListener('change', function (e) {
     state.repeat = Number(e.target.value) || 1;
+    persist();
+  });
+  $('think').addEventListener('change', function (e) {
+    state.think = Number(e.target.value) || 8;
+    persist();
+  });
+  $('hold').addEventListener('change', function (e) {
+    state.hold = Number(e.target.value) || 5;
+    persist();
+  });
+  $('autoread').addEventListener('change', function (e) {
+    state.autoRead = e.target.checked;
     persist();
   });
   $('shuffle').addEventListener('change', function () {
@@ -602,8 +753,10 @@ PLAYER = """
     var pages = buildSummaryPages();
     state.summaryUrls = pages.map(function (canvas) { return canvas.toDataURL('image/png'); });
     state.summaryPage = 0;
-    $('summary-title').textContent = '听写汇总 · 共 ' + state.order.length + ' 词';
-    $('summary-note').textContent = '按听写顺序排列；内容超出一页会自动分页。';
+    $('summary-title').textContent = (TRANSLATION ? '英译汉汇总' : '听写汇总') + ' · 共 ' + state.order.length + ' 词';
+    $('summary-eyebrow').textContent = TRANSLATION ? '英译汉汇总' : '听写汇总';
+    $('summary-back').textContent = TRANSLATION ? '返回检查' : '返回听写';
+    $('summary-note').textContent = (TRANSLATION ? '按检查顺序排列' : '按听写顺序排列') + '；内容超出一页会自动分页。';
     $('summary').hidden = false;
     showSummaryPage(0);
     // This runs from the teacher's click, so the browser lets the summary take
@@ -664,6 +817,28 @@ PLAYER = """
   function summaryRows(ctx) {
     return state.order.map(function (dataIndex, index) {
       var word = DATA[dataIndex];
+      if (TRANSLATION) {
+        summaryFont(ctx, 60, 700, SERIF);
+        var prompt = [{ pos: '', lines: wrapText(ctx, word.word, 760) }];
+        summaryFont(ctx, 60, 600, SERIF);
+        var answer = [];
+        word.senses.forEach(function (sense) {
+          answer.push({ pos: sense.pos || '', lines: wrapText(ctx, sense.meaning || '—', 700) });
+        });
+        if (!answer.length) answer = [{ pos: '', lines: ['（未填中文释义）'] }];
+        var promptHeight = prompt[0].lines.length * 70 + (word.phonetic ? 38 : 0) + 6;
+        var answerHeight = answer.reduce(function (sum, sense) {
+          return sum + Math.max(1, sense.lines.length) * 70 + 6;
+        }, 0);
+        return {
+          no: index + 1,
+          prompt: prompt,
+          answer: answer,
+          phonetic: word.phonetic || '',
+          senses: [],
+          height: Math.max(promptHeight, answerHeight) + 12
+        };
+      }
       var prompt = [];
       if (state.mode === 'zh') {
         if (!word.senses.length) prompt = [{ pos: '', lines: ['（未填中文释义）'] }];
@@ -680,7 +855,7 @@ PLAYER = """
       if (state.mode === 'en') {
         summaryFont(ctx, 32, 400, SANS);
         word.senses.forEach(function (sense) {
-          var text = (sense.pos ? sense.pos + '   ' : '') + (sense.meaning || '');
+          var text = (sense.pos ? sense.pos + '　' : '') + (sense.meaning || '');
           senses = senses.concat(wrapText(ctx, text, 740));
         });
       }
@@ -721,6 +896,34 @@ PLAYER = """
     ctx.fillStyle = '#9aa0a6';
     summaryFont(ctx, 34, 700, SANS);
     ctx.fillText(String(row.no).padStart(2, '0'), x, y + 6);
+
+    if (TRANSLATION) {
+      ctx.fillStyle = '#20242a';
+      summaryFont(ctx, 60, 700, SERIF);
+      row.prompt[0].lines.forEach(function (line, i) {
+        ctx.fillText(line, x + 186, y + i * 70);
+      });
+      if (row.phonetic) {
+        ctx.fillStyle = '#6b7078';
+        summaryFont(ctx, 32, 400, SANS);
+        ctx.fillText(row.phonetic, x + 186, y + row.prompt[0].lines.length * 70 + 6);
+      }
+      var ay = y;
+      row.answer.forEach(function (sense) {
+        if (sense.pos) {
+          ctx.fillStyle = '#b08a4a';
+          summaryFont(ctx, 34, 700, SANS);
+          ctx.fillText(sense.pos, x + 990, ay + 10);
+        }
+        ctx.fillStyle = '#2f6b4f';
+        summaryFont(ctx, 60, 600, SERIF);
+        sense.lines.forEach(function (line, i) {
+          ctx.fillText(line, x + 1070, ay + i * 70);
+        });
+        ay += Math.max(1, sense.lines.length) * 70 + 6;
+      });
+      return;
+    }
 
     var py = y;
     row.prompt.forEach(function (sense) {
@@ -765,7 +968,7 @@ PLAYER = """
 
     ctx.fillStyle = '#b08a4a';
     summaryFont(ctx, 20, 700, SANS);
-    ctx.fillText('单 词 听 写 · 汇 总', PAGE_PAD, 54);
+    ctx.fillText(TRANSLATION ? '英 译 汉 · 汇 总' : '单 词 听 写 · 汇 总', PAGE_PAD, 54);
     ctx.fillStyle = '#20242a';
     summaryFont(ctx, 60, 700, SERIF);
     ctx.fillText(document.title, PAGE_PAD, 110);
@@ -803,6 +1006,9 @@ PLAYER = """
       var saved = JSON.parse(localStorage.getItem('dictation-player') || '{}');
       saved.interval = state.interval;
       saved.repeat = state.repeat;
+      saved.think = state.think;
+      saved.hold = state.hold;
+      saved.autoRead = state.autoRead;
       saved.mode = state.mode;
       localStorage.setItem('dictation-player', JSON.stringify(saved));
     } catch (_) {}
@@ -815,6 +1021,20 @@ PLAYER = """
       if (e.key === 'ArrowRight') { e.preventDefault(); showSummaryPage(state.summaryPage + 1); }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); showSummaryPage(state.summaryPage - 1); }
       else if (e.key === 'Escape') { $('summary').hidden = true; }
+      return;
+    }
+    if (TRANSLATION) {
+      if (e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); go(1); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); back(); }
+      else if (e.key === ' ') {
+        if (tag === 'button') return;
+        e.preventDefault();
+        state.answer = !state.answer;
+        render();
+      } else if (e.key === 'r' || e.key === 'R') { playCurrent(); }
+      else if (e.key === 'a' || e.key === 'A') { state.answer = !state.answer; render(); }
+      else if (e.key === 'f' || e.key === 'F') { $('fullscreen').click(); }
+      else if (e.key === 'Escape') { $('settings').hidden = true; }
       return;
     }
     if (e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); go(1); }
@@ -854,7 +1074,8 @@ def render_dictation_html(draft, audio=None):
     warnings = []
     missing_meaning = sum(1 for word in words if not any(s['meaning'] for s in word['senses']))
     if missing_meaning:
-        warnings.append(f'{missing_meaning} 个单词没有中文释义，中文听写会留空')
+        warnings.append(f'{missing_meaning} 个单词没有中文释义，中文听写和英译汉会留空')
+    kind = meta['kind']
     mode = meta['mode']
     subtitle = ' · '.join(part for part in (meta['book'], meta['unit']) if part)
 
@@ -872,25 +1093,38 @@ def render_dictation_html(draft, audio=None):
                      'senses': senses, 'enAudio': audio.get('en:' + word['word'], '')})
     payload = json.dumps(data, ensure_ascii=False).replace('<', '\\u003c').replace('>', '\\u003e')
     meta_payload = json.dumps({'title': meta['title'], 'book': meta['book'], 'unit': meta['unit'],
-                               'date': meta['date'], 'mode': mode},
+                               'date': meta['date'], 'kind': kind, 'mode': mode},
                               ensure_ascii=False).replace('<', '\\u003c').replace('>', '\\u003e')
 
     def sense_line(sense):
         return ' '.join(part for part in (sense['pos'], sense['meaning']) if part)
 
-    print_rows = ''.join(
-        f'<li><span class="no">{number}</span><span class="cell">'
-        f'<span class="p p-zh">{"<br>".join(escape(sense_line(s)) for s in word["senses"]) or "（未填中文释义）"}</span>'
-        f'<span class="p p-en"></span><span class="line"></span>'
-        f'<span class="ans">{escape(word["word"])}'
-        f'{" " + escape(word["phonetic"]) if word["phonetic"] else ""}'
-        f'{"；" + escape("；".join(sense_line(s) for s in word["senses"])) if word["senses"] else ""}</span></span></li>'
-        for number, word in enumerate(words, 1))
+    def print_row(number, word):
+        chinese = '<br>'.join(escape(sense_line(s)) for s in word['senses']) or '（未填中文释义）'
+        chinese_line = '；'.join(sense_line(s) for s in word['senses']) or '（未填中文释义）'
+        if kind == 'translation':
+            # English is the question; the Chinese senses are the answer.
+            answer = f'<span class="ans">{escape(chinese_line)}</span>'
+            prompt = f'<span class="p p-en">{escape(word["word"])}</span>'
+        else:
+            answer = (f'<span class="ans">{escape(word["word"])}'
+                      f'{" " + escape(word["phonetic"]) if word["phonetic"] else ""}'
+                      f'{"；" + escape(chinese_line) if word["senses"] else ""}</span>')
+            prompt = '<span class="p p-en"></span>'
+        return (f'<li><span class="no">{number}</span><span class="cell">'
+                f'<span class="p p-zh">{chinese}</span>{prompt}'
+                f'<span class="line"></span>{answer}</span></li>')
+
+    print_rows = ''.join(print_row(number, word) for number, word in enumerate(words, 1))
 
     settings = ''.join(f'<option value="{value}">{label}</option>'
                        for value, label in ((4, '4 秒'), (6, '6 秒'), (8, '8 秒'), (10, '10 秒'), (15, '15 秒')))
     repeats = ''.join(f'<option value="{value}">{label}</option>'
                       for value, label in ((1, '1 遍'), (2, '2 遍'), (3, '3 遍')))
+    thinks = ''.join(f'<option value="{value}">{label}</option>'
+                     for value, label in ((5, '5 秒'), (8, '8 秒'), (12, '12 秒'), (20, '20 秒')))
+    holds = ''.join(f'<option value="{value}">{label}</option>'
+                    for value, label in ((3, '3 秒'), (5, '5 秒'), (10, '10 秒')))
 
     html = f"""<!DOCTYPE html>
 <html lang="zh-CN">
@@ -900,15 +1134,16 @@ def render_dictation_html(draft, audio=None):
 <title>{escape(meta['title'])}</title>
 <style>{CSS}</style>
 </head>
-<body class="mode-{mode}">
+<body class="kind-{kind} mode-{mode}">
 <div class="app">
   <header class="top">
     <div>
-      <span class="eyebrow">单词听写</span>
+      <span class="eyebrow">{'英译汉' if kind == 'translation' else '单词听写'}</span>
       <h1>{escape(meta['title'])}</h1>
       <p class="sub">{escape(subtitle)}{' · ' + escape(meta['date']) if meta['date'] else ''} · 共 {len(words)} 词</p>
     </div>
     <div class="top-right">
+      <span class="trans-badge">英译汉</span>
       <div class="switch" role="group" aria-label="听写模式">
         <button type="button" class="mode-btn" data-mode="zh">中文听写</button>
         <button type="button" class="mode-btn" data-mode="en">英文听写</button>
@@ -922,7 +1157,7 @@ def render_dictation_html(draft, audio=None):
     <div class="progress">
       <span id="counter">1 / {len(words)}</span>
       <div class="track"><i id="bar"></i></div>
-      <span id="mode-tag">单词听写</span>
+      <span id="mode-tag">{'英译汉' if kind == 'translation' else '单词听写'}</span>
     </div>
     <section class="word-card">
       <p class="kicker" id="label">第 1 题</p>
@@ -931,6 +1166,15 @@ def render_dictation_html(draft, audio=None):
         <button type="button" class="big-say" id="big-say" aria-label="播放发音">{ICONS['speaker']}</button>
         <p class="en-hint">听发音 · 写单词</p>
       </div>
+      <div class="prompt prompt-trans" id="prompt-trans">
+        <div class="trans-word" id="trans-word"></div>
+        <div class="trans-phon">
+          <span id="trans-phon"></span>
+          <button type="button" class="say" id="trans-say" aria-label="播放发音">{ICONS['speaker']}</button>
+        </div>
+        <p class="trans-hint" id="trans-hint">先想一想它的中文意思</p>
+      </div>
+      <button type="button" class="reveal-hint" id="reveal-hint">想好了？点击显示中文答案</button>
       <div class="answer" id="answer" hidden>
         <p class="a-word" id="a-word"></p>
         <p class="a-phon" id="a-phon"></p>
@@ -939,7 +1183,7 @@ def render_dictation_html(draft, audio=None):
       <button type="button" class="replay" id="replay">{ICONS['speaker']}<span>重听</span></button>
     </section>
     <p class="countdown" id="countdown" hidden></p>
-    <p class="hint">→ 下一题 · ← 上一题 · 空格重听 · A 显示答案 · F 全屏</p>
+    <p class="hint" id="key-hint">{'→ 下一题 · ← 上一题 · 空格显示答案 · R 重听 · F 全屏' if kind == 'translation' else '→ 下一题 · ← 上一题 · 空格重听 · A 显示答案 · F 全屏'}</p>
   </main>
 
   <footer class="controls">
@@ -952,35 +1196,38 @@ def render_dictation_html(draft, audio=None):
   </footer>
 
   <div class="settings" id="settings" hidden>
-    <h2>自动听写</h2>
-    <label>间隔 <select id="interval">{settings}</select></label>
-    <label>每词朗读 <select id="repeat">{repeats}</select></label>
+    <h2 id="settings-title">{'自动检查' if kind == 'translation' else '自动听写'}</h2>
+    <label class="only-dictation">间隔 <select id="interval">{settings}</select></label>
+    <label class="only-dictation">每词朗读 <select id="repeat">{repeats}</select></label>
+    <label class="only-translation">思考时间 <select id="think">{thinks}</select></label>
+    <label class="only-translation">答案停留 <select id="hold">{holds}</select></label>
+    <label class="only-translation">自动朗读 <input type="checkbox" id="autoread" checked></label>
     <label>打乱顺序 <input type="checkbox" id="shuffle"></label>
     <p class="note" id="audio-note"></p>
     <button type="button" class="close" id="close-settings">完成</button>
   </div>
 
   <div class="done" id="done" hidden>
-    <span class="eyebrow">完整听完</span>
-    <h2>听写完成</h2>
+    <span class="eyebrow" id="done-eyebrow">{'完整检查' if kind == 'translation' else '完整听完'}</span>
+    <h2 id="done-title">{'检查完成' if kind == 'translation' else '听写完成'}</h2>
     <p id="done-count"></p>
-    <p>要查看本次听写内容与答案吗？</p>
+    <p id="done-question">{'要查看本次检查的英文与中文答案吗？' if kind == 'translation' else '要查看本次听写内容与答案吗？'}</p>
     <div class="controls" style="width:auto">
       <button type="button" class="ctrl" id="restart">回到第一题</button>
-      <button type="button" class="ctrl" id="done-restart">再听一遍</button>
-      <button type="button" class="ctrl primary" id="summary-open">查看听写汇总</button>
+      <button type="button" class="ctrl" id="done-restart">{'再检查一遍' if kind == 'translation' else '再听一遍'}</button>
+      <button type="button" class="ctrl primary" id="summary-open">{'查看检查汇总' if kind == 'translation' else '查看听写汇总'}</button>
     </div>
   </div>
 
   <section class="summary" id="summary" hidden>
     <header class="summary-head">
       <div>
-        <span class="eyebrow">听写汇总</span>
-        <h2 id="summary-title">听写汇总</h2>
-        <p id="summary-note">按听写顺序排列，可保存为图片；内容超出一页会自动分页。</p>
+        <span class="eyebrow" id="summary-eyebrow">{'英译汉汇总' if kind == 'translation' else '听写汇总'}</span>
+        <h2 id="summary-title">{'英译汉汇总' if kind == 'translation' else '听写汇总'}</h2>
+        <p id="summary-note">{'按检查顺序排列，可保存为图片；内容超出一页会自动分页。' if kind == 'translation' else '按听写顺序排列，可保存为图片；内容超出一页会自动分页。'}</p>
       </div>
       <div class="summary-actions">
-        <button type="button" class="ctrl" id="summary-back">返回听写</button>
+        <button type="button" class="ctrl" id="summary-back">{'返回检查' if kind == 'translation' else '返回听写'}</button>
         <button type="button" class="ctrl" id="summary-save-one">保存本页</button>
         <button type="button" class="ctrl primary" id="summary-save">保存全部图片</button>
         <button type="button" class="icon-btn" id="summary-full" aria-label="全屏">{ICONS['full']}</button>
@@ -1002,6 +1249,7 @@ def render_dictation_html(draft, audio=None):
   <div class="head">
     <h1>{escape(meta['title'])}</h1>
     <p>{escape(subtitle)} · 共 {len(words)} 词</p>
+    {f'<p class="print-hint">看英文，写出中文意思。</p>' if kind == 'translation' else ''}
   </div>
   <ol>{print_rows}</ol>
 </section>
