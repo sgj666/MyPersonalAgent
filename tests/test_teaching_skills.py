@@ -35,6 +35,7 @@ REQUIRED_TEXT = {
     "homework-summary": ["weak_points", "summary"],
     "teaching-advice": ["facts", "actions"],
     "teaching-plan": ["weeks", "artifacts/教学工具/plan/"],
+    "word-dictation": ["artifacts/教学工具/dictation/", "words", "senses", "meaning"],
 }
 
 # Rendering moved out of the skills (the backend owns it), so a skill that
