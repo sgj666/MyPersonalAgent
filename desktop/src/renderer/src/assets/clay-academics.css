@@ -1847,6 +1847,7 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
 .twb-tool-emblem.is-card { background: #e3effb; }
 .twb-tool-emblem.is-advice { background: #fff2cc; }
 .twb-tool-emblem.is-schedule { background: #ece6fb; }
+.twb-tool-emblem.is-dictation { background: #ffe4d2; }
 
 @media (max-width: 1000px) {
   #twb-teaching .twb-teach-grid {
@@ -3374,6 +3375,139 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
 
 .twt-phone { overflow: hidden; }
 
+/* ---------- dictation ---------- */
+.twt-dict {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  gap: 14px;
+  height: 100%;
+  min-height: 460px;
+}
+
+.twt-dict-left {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+}
+
+.twt-dict-left > .twt-card { flex-shrink: 0; }
+.twt-dict-bar-actions,
+.twt-dict-head-tools { display: flex; align-items: center; gap: 10px; }
+
+.twt-dict-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--twb-ink-2);
+  cursor: pointer;
+}
+
+.twt-dict-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.twt-dict-row {
+  display: grid;
+  grid-template-columns: 18px 22px minmax(0, 0.9fr) minmax(0, 1.2fr);
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px;
+  border-radius: 10px;
+}
+
+.twt-dict-row:hover { background: var(--twb-surface-2); }
+.twt-dict-row.is-off { opacity: 0.45; }
+
+.twt-dict-no {
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+  color: var(--twb-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.twt-dict-row .twt-input { height: 34px; font-size: 13px; }
+
+.twt-dict-preview {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.twt-dict-sheet {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--twb-surface-2);
+  border: 1px solid var(--twb-line);
+  border-radius: 18px;
+}
+
+.twt-dict-frame { width: 100%; height: 100%; border: 0; background: #fff; }
+.twt-dict-empty { margin: auto; padding: 24px; text-align: center; }
+.twt-dict-hint { margin-top: 8px; }
+
+.twt-dict-history-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.twt-dict-history-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px dashed var(--twb-line);
+}
+
+.twt-dict-history-list li:last-child { border-bottom: 0; }
+
+.twt-dict-history-open {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 4px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--twb-ink);
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.twt-dict-history-open:hover { color: var(--twb-accent-ink); }
+
+.twt-dict-history-title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.twt-dict-history-when { flex: none; font-size: 11.5px; color: var(--twb-ink-3); }
+.twt-dict-paste-actions { display: flex; gap: 8px; margin-top: 10px; }
+
 .twt-phone-shell {
   display: flex;
   flex: 1;
@@ -3660,6 +3794,7 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
   .twt-plan { grid-template-columns: 230px minmax(0, 1fr); }
   .twt-deck { grid-template-columns: 190px minmax(0, 1fr) 230px; }
   .twt-card-page { grid-template-columns: minmax(0, 1fr) 300px; }
+  .twt-dict { grid-template-columns: minmax(0, 1fr) 340px; }
   .twt-schedule { grid-template-columns: minmax(0, 1fr) 250px; }
   .twt-head p { display: none; }
 }
@@ -3670,6 +3805,7 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
   .twt-plan,
   .twt-deck,
   .twt-card-page,
+  .twt-dict,
   .twt-schedule {
     grid-template-columns: minmax(0, 1fr);
     height: auto;
@@ -3928,7 +4064,8 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
   flex-direction: column;
   gap: 20px;
   padding: 26px 28px 24px;
-  max-width: 980px;
+  /* Fills the body: a 980px cap left half the window empty on a laptop. */
+  height: 100%;
 }
 
 .twt-first-head {
@@ -3967,9 +4104,12 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
 
 .twt-first-body {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(260px, .7fr);
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 300px);
   gap: 24px;
   align-items: start;
+  /* Steps stay at the top, the 生成 button stays on the bottom edge. */
+  flex: 1;
+  min-height: 0;
 }
 
 .twt-first-steps {
@@ -4031,6 +4171,7 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
   flex-direction: column;
   gap: 10px;
   /* Capped so three 16:9 mocks plus the steps still fit a 900px window. */
+  width: 100%;
   max-width: 300px;
   justify-self: end;
 }
@@ -4145,21 +4286,66 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
   gap: 4px;
 }
 
-/* A rank is 1-3 characters. width:1% + nowrap is the classic "shrink to content"
-   hint: without it the column soaks up the width the subject filter freed and
-   the number drifts away from its header. */
-.twb-rank-col,
-.twb-rank-cell {
-  width: 1%;
+/* One alignment policy for the entry grid: everything reads from the left, so
+   headers sit directly above the values they describe. Column widths are fixed
+   except the name, which absorbs the slack -- otherwise a filtered view leaves
+   a wide empty gutter at the right edge. */
+.twb-score-table th,
+.twb-score-table td,
+.twb-score-table .is-num {
+  text-align: left;
+}
+
+.twb-score-table .twb-sort {
+  justify-content: flex-start;
   white-space: nowrap;
 }
 
-/* The 缺考 toggle is a fixed-width button: let it collapse to content so the
-   slack goes to the score columns instead of an empty gutter at the edge. */
-.twb-score-table th:last-child,
-.twb-score-table td:last-child {
-  width: 1%;
+.twb-score-table .twb-score-input {
+  text-align: left;
+}
+
+.twb-score-table .twb-col-no {
+  width: 72px;
+}
+
+.twb-score-table .twb-col-rank {
+  width: 76px;
   white-space: nowrap;
+}
+
+.twb-score-table .twb-col-name {
+  min-width: 100px;
+}
+
+/* Minimums, not fixed widths: with all eight subjects on screen the columns
+   have to share ~1200px, and hard widths squeezed the name down to 50px. */
+.twb-score-table .twb-col-score,
+.twb-score-table .twb-col-total {
+  min-width: 84px;
+}
+
+.twb-score-table .twb-col-absent {
+  width: 92px;
+  white-space: nowrap;
+}
+
+/* Sorting must be visible before it is used: an idle ⇅ on every numeric header,
+   the active arrow in accent. */
+.twb-score-table .twb-sort-mark {
+  color: var(--twb-ink-3);
+  opacity: 0.45;
+  font-size: 11px;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.twb-score-table .twb-sort-mark.is-active {
+  color: var(--twb-accent);
+  opacity: 1;
+}
+
+.twb-score-table th:hover .twb-sort-mark {
+  opacity: 0.95;
 }
 
 .twb-rank-cell {
@@ -4170,4 +4356,133 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
 
 .twb-sort-mark {
   color: var(--twb-accent);
+}
+
+/* ---------- AI 成绩分析报告 ----------
+   A report card that must read as the centrepiece of the analysis tab: warm
+   clay surface, an accent glow bleeding in from the corner, and room for the
+   model's Markdown. */
+.twb-report {
+  position: relative;
+  margin: 2px 0 18px;
+  padding: 18px 20px 14px;
+  border: 1px solid var(--twb-rim);
+  border-radius: 20px;
+  overflow: hidden;
+  background:
+    radial-gradient(640px 200px at 6% -40%, color-mix(in srgb, var(--twb-accent) 22%, transparent), transparent 70%),
+    linear-gradient(180deg, var(--twb-surface-2), var(--twb-surface) 62%);
+  box-shadow: var(--twb-shadow-sm);
+}
+
+.twb-report::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--twb-accent), transparent 85%);
+}
+
+.twb-report-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.twb-report-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.twb-report-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  background: var(--twb-accent-soft);
+  border: 1px solid var(--twb-accent);
+  color: var(--twb-ink);
+}
+
+.twb-report-title h3 {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: var(--twb-ink);
+}
+
+.twb-report-meta {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--twb-ink-3);
+  white-space: nowrap;
+}
+
+.twb-report-body {
+  margin-top: 8px;
+}
+
+.twb-report-body .msg-content h2 {
+  margin: 18px 0 6px;
+  padding-left: 10px;
+  border-left: 3px solid var(--twb-accent);
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--twb-ink);
+}
+
+.twb-report-body .msg-content p,
+.twb-report-body .msg-content li {
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--twb-ink-2);
+}
+
+.twb-report-body .msg-content strong {
+  color: var(--twb-ink);
+}
+
+.twb-report-empty {
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--twb-ink-3);
+}
+
+/* Skeleton: the model takes ~20-60s, so the card shows it is working. */
+.twb-report-skeleton {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.twb-report-skeleton span {
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--twb-surface-2), var(--twb-rim), var(--twb-surface-2));
+  background-size: 200% 100%;
+  animation: twb-shimmer 1.4s ease-in-out infinite;
+}
+
+.twb-report-skeleton span:nth-child(1) { width: 92%; }
+.twb-report-skeleton span:nth-child(2) { width: 74%; }
+.twb-report-skeleton span:nth-child(3) { width: 86%; }
+.twb-report-skeleton span:nth-child(4) { width: 48%; }
+
+.twb-report-skeleton p {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--twb-ink-3);
+}
+
+@keyframes twb-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }

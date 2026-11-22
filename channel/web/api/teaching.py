@@ -397,6 +397,36 @@ class TeachingAnalysisHandler:
         return _ok(**store.analysis(exam_id, class_id=class_id))
 
 
+class TeachingReportHandler:
+    """GET/POST ``/api/teaching/exam/report?exam_id=`` -- the AI 成绩分析.
+
+    GET returns the stored report (``report: null`` when none was generated);
+    POST regenerates it from the exam's current scores and stores the result.
+    """
+
+    @_endpoint
+    def GET(self):
+        params = web.input(exam_id='', agent_id='')
+        exam_id = (params.exam_id or '').strip()
+        if not exam_id:
+            raise ValueError("exam_id is required")
+        store = _store(_request_agent_id(params))
+        from agent.teaching import report as teaching_report
+
+        return _ok(report=teaching_report.load(store, exam_id))
+
+    @_endpoint
+    def POST(self):
+        body = _body()
+        exam_id = str(body.get("exam_id") or "").strip()
+        if not exam_id:
+            raise ValueError("exam_id is required")
+        store = _store(_request_agent_id(body))
+        from agent.teaching import report as teaching_report
+
+        return _ok(report=teaching_report.generate(store, exam_id))
+
+
 class TeachingTodayHandler:
     """GET ``/api/teaching/today?date=YYYY-MM-DD``."""
 
@@ -590,7 +620,7 @@ class TeachingDraftsHandler:
 
         params = web.input(kind='', limit='10', agent_id='')
         if params.kind not in KINDS:
-            raise ValueError('kind 请改为 deck/card/plan/advice')
+            raise ValueError('kind 请改为 deck/card/dictation/plan/advice')
         try:
             limit = int(params.limit)
         except (ValueError, TypeError):
@@ -633,6 +663,7 @@ TEACHING_URLS = (
     ('/api/teaching/exams', 'TeachingExamsHandler'),
     ('/api/teaching/scores/([^/]+)', 'TeachingScoresHandler'),
     ('/api/teaching/analysis', 'TeachingAnalysisHandler'),
+    ('/api/teaching/exam/report', 'TeachingReportHandler'),
     ('/api/teaching/today', 'TeachingTodayHandler'),
     ('/api/teaching/settings', 'TeachingSettingsHandler'),
     ('/api/teaching/profile', 'TeachingProfileHandler'),
@@ -654,6 +685,7 @@ __all__ = [
     "TeachingHomeworkRecordsHandler",
     "TeachingProfileHandler",
     "TeachingProgressHandler",
+    "TeachingReportHandler",
     "TeachingRemindersPreviewHandler",
     "TeachingRemindersSyncHandler",
     "TeachingScoresHandler",

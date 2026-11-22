@@ -65,6 +65,7 @@ import type {
   ExamFields,
   ScoreEntry,
   TeachingAnalysis,
+  TeachingReport,
   TeachingToday,
   TeachingSettings,
   TeachingGreeting,
@@ -90,7 +91,7 @@ export interface TeachingSuggestions {
 // ----- teaching tools (docs/plans/teaching-tools-implementation.md §4) -----
 
 /** The draft kinds the render/draft/recent endpoints accept (§4.2, §4.5). */
-export type TeachingDraftKind = 'deck' | 'card' | 'plan' | 'advice'
+export type TeachingDraftKind = 'deck' | 'card' | 'dictation' | 'plan' | 'advice'
 
 /** One file POST /api/teaching/render wrote. */
 export interface TeachingRenderFile {
@@ -104,7 +105,7 @@ export interface TeachingRenderFile {
 }
 
 export interface TeachingRenderRequest {
-  kind: 'deck' | 'card'
+  kind: 'deck' | 'card' | 'dictation'
   /** Wins over `draft_path` when both are sent. */
   draft?: unknown
   draft_path?: string
@@ -1840,6 +1841,23 @@ class ApiClient {
    * exam's classes, which is what makes the parallel-class comparison (§4)
    * available; a single class passed in narrows it to that class.
    */
+  async getTeachingReport(examId: string): Promise<TeachingReport | null> {
+    const data = await this.teachingCall<ApiResult & { report?: TeachingReport | null }>(
+      `/api/teaching/exam/report?exam_id=${encodeURIComponent(examId)}`
+    )
+    return data.report ?? null
+  }
+
+  /** (Re)generate the report: the model runs on the backend, ~20-60s. */
+  async generateTeachingReport(examId: string): Promise<TeachingReport | null> {
+    const data = await this.teachingCall<ApiResult & { report?: TeachingReport | null }>(
+      '/api/teaching/exam/report',
+      'POST',
+      { exam_id: examId }
+    )
+    return data.report ?? null
+  }
+
   async getTeachingAnalysis(examId: string, classId?: string): Promise<TeachingAnalysis> {
     const qs = new URLSearchParams({ exam_id: examId })
     if (classId) qs.set('class_id', classId)

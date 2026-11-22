@@ -1810,6 +1810,25 @@ export interface AnalysisStudentRow {
 }
 
 /** GET /api/teaching/analysis?exam_id=&class_id= */
+/** 每场考试绑定的 AI 成绩分析报告（Markdown + 生成时的数据快照）。 */
+export interface TeachingReport {
+  exam_id: string
+  /** ISO timestamp of the last generation. */
+  generated_at: string
+  /** false when the model failed: `markdown` is empty, `facts` still valid. */
+  ok: boolean
+  markdown: string
+  /** The numbers the report was written from (for the KPI cards). */
+  facts?: {
+    overall?: Record<string, number | null>
+    top?: { rank: number; name: string; class?: string; total: number }[]
+    critical?: { name: string; total: number; gap: number; kind: string }[]
+    trend?: { name: string; average: number; scored: number }[]
+    items?: { label: string; full: number; average: number | null; rate: number | null }[]
+    [key: string]: unknown
+  }
+}
+
 export interface TeachingAnalysis {
   summary: AnalysisSummary
   by_class: AnalysisClassRow[]

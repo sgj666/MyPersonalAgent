@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ChartLine, GraduationCap, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { ChartLine, GraduationCap, Loader2, Pencil, Plus, RefreshCw, Sparkles, Trash2 } from 'lucide-react'
 import { t, tf } from '../i18n'
 import apiClient from '../api/client'
 import { askConfirm } from '../store/confirmStore'
@@ -14,6 +14,7 @@ import {
 } from '../lib/teaching'
 import { Empty, Loading, Modal, PageError, Status } from './teachingShared'
 import AiAssistButton from '../components/AiAssistButton'
+import Markdown from '../components/Markdown'
 import type {
   AnalysisTrendPoint,
   ExamFields,
@@ -22,6 +23,7 @@ import type {
   TeachingAnalysis,
   TeachingClass,
   TeachingExam,
+  TeachingReport,
   TeachingStudent,
 } from '../types'
 
@@ -301,6 +303,11 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
   // 表头排序：默认按学号升序，数字列可点。缺考/未录的格子永远排在最后。
   const [sortKey, setSortKey] = useState('no')
   const [sortAsc, setSortAsc] = useState(true)
+  // 每场考试一份 AI 分析报告，跟着考试走（切换考试即换）。
+  const [report, setReport] = useState<TeachingReport | null>(null)
+  const [reportKey, setReportKey] = useState('')
+  const [reportGenerating, setReportGenerating] = useState(false)
+  const [reportError, setReportError] = useState('')
   const gridRef = useRef<HTMLDivElement>(null)
   const scoreToken = useRef(0)
   const studentToken = useRef(0)
@@ -309,6 +316,9 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
 
   const pickExam = (exam: TeachingExam | undefined) => {
     setSelectedExamId(exam?.id || '')
+    setReport(null)
+    setReportKey('')
+    setReportError('')
     setClassId(exam?.class_ids[0] || '')
     setAnalysis(null)
     setAnalysisKey('')
@@ -427,6 +437,42 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
     }
   }, [view, selectedExam, analysisKey])
 
+  // 打开分析页时才去取报告；没有就显示「生成」入口，不自动调模型。
+  useEffect(() => {
+    if (view !== 'analysis' || !selectedExam) return
+    if (reportKey === selectedExam.id) return
+    let cancelled = false
+    apiClient
+      .getTeachingReport(selectedExam.id)
+      .then((stored) => {
+        if (cancelled) return
+        setReport(stored)
+        setReportKey(selectedExam.id)
+      })
+      .catch(() => {
+        if (!cancelled) setReportKey(selectedExam.id)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [view, selectedExam, reportKey])
+
+  const generateReport = async () => {
+    if (!selectedExam || reportGenerating) return
+    setReportGenerating(true)
+    setReportError('')
+    try {
+      const next = await apiClient.generateTeachingReport(selectedExam.id)
+      setReport(next)
+      setReportKey(selectedExam.id)
+      if (!next?.ok) setReportError(t('tw_an_ai_failed'))
+    } catch (err) {
+      setReportError(errorText(err))
+    } finally {
+      setReportGenerating(false)
+    }
+  }
+
   const itemColumns = selectedExam?.items || []
   const allItemKeys = itemColumns.map((item) => item.key)
   // 「全部」画所有分项 + 总分；选了具体学科时只画那几列，没有意义的总分列收起。
@@ -507,12 +553,23 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
   }, [students, sortKey, sortAsc, scores, rankByStudent])
 
   // 表头按钮：同一列再点一次反向。
-  const sortHeader = (key: string, label: React.ReactNode) => (
-    <button type="button" className="twb-sort" onClick={() => toggleSort(key)}>
-      {label}
-      {sortKey === key && <span className="twb-sort-mark">{sortAsc ? '↑' : '↓'}</span>}
-    </button>
-  )
+  const sortHeader = (key: string, label: React.ReactNode) => {
+    const active = sortKey === key
+    return (
+      <button
+        type="button"
+        className="twb-sort"
+        aria-pressed={active}
+        title={t('tw_sc_sort_hint')}
+        onClick={() => toggleSort(key)}
+      >
+        {label}
+        <span className={`twb-sort-mark${active ? ' is-active' : ''}`}>
+          {active ? (sortAsc ? '↑' : '↓') : '↕'}
+        </span>
+      </button>
+    )
+  }
 
   const isAbsent = (entry: ScoreEntry | undefined): boolean =>
     Boolean(entry) && entry!.total === null && !Object.values(entry!.items || {}).some((v) => v !== null)
@@ -837,22 +894,22 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
                           <table className="twb-table twb-score-table">
                             <thead>
                               <tr>
-                                <th>{sortHeader('no', t('tw_st_no'))}</th>
-                                <th>{sortHeader('name', t('tw_st_name'))}</th>
-                                <th className="is-num twb-rank-col">{sortHeader('rank', t('tw_sc_rank'))}</th>
+                                <th className="twb-col-no">{sortHeader('no', t('tw_st_no'))}</th>
+                                <th className="twb-col-name">{sortHeader('name', t('tw_st_name'))}</th>
+                                <th className="twb-col-rank">{sortHeader('rank', t('tw_sc_rank'))}</th>
                                 {shownItems.map((item) => (
-                                  <th key={item.key} className="is-num">
+                                  <th key={item.key} className="twb-col-score">
                                     {sortHeader(item.key, item.label)}
                                     <small>/{item.full}</small>
                                   </th>
                                 ))}
                                 {showTotal && (
-                                  <th className="is-num">
+                                  <th className="twb-col-total">
                                     {sortHeader(Column.total, t('tw_sc_total'))}
                                     <small>/{selectedExam.full_score}</small>
                                   </th>
                                 )}
-                                <th>{t('tw_sc_absent')}</th>
+                                <th className="twb-col-absent">{t('tw_sc_absent')}</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -944,6 +1001,54 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
                     />
                   ) : analysis ? (
                     <div className="twb-analysis">
+                      {/* 报告与这场考试绑定：切换考试即有自己的一份，可随时重新生成。
+                          数字由后端算好，模型只负责写解读，所以卡片里的统计与下表一致。 */}
+                      <section className="twb-report" aria-labelledby="twb-report-title">
+                        <div className="twb-report-head">
+                          <div className="twb-report-title">
+                            <span className="twb-report-icon">
+                              <Sparkles size={15} />
+                            </span>
+                            <h3 id="twb-report-title">{t('tw_an_ai_title')}</h3>
+                            {report?.generated_at && !reportGenerating && (
+                              <span className="twb-report-meta">
+                                {tf('tw_an_ai_updated', {
+                                  t: report.generated_at.replace('T', ' ').slice(0, 16),
+                                })}
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            className="twb-btn twb-btn-primary"
+                            disabled={reportGenerating}
+                            onClick={() => void generateReport()}
+                          >
+                            {reportGenerating ? (
+                              <Loader2 size={14} className="twb-spin" />
+                            ) : (
+                              <Sparkles size={14} />
+                            )}
+                            <span>
+                              {report?.markdown ? t('tw_an_ai_regenerate') : t('tw_an_ai_generate')}
+                            </span>
+                          </button>
+                        </div>
+
+                        {reportGenerating ? (
+                          <div className="twb-report-skeleton" aria-busy="true">
+                            <span /><span /><span /><span />
+                            <p>{t('tw_an_ai_generating')}</p>
+                          </div>
+                        ) : report?.markdown ? (
+                          <div className="twb-report-body">
+                            <Markdown content={report.markdown} />
+                          </div>
+                        ) : (
+                          <p className="twb-report-empty">{reportError || t('tw_an_ai_empty')}</p>
+                        )}
+                      </section>
+
                       <div className="twb-stats">
                         <div className="twb-stat">
                           <span>{t('tw_an_count')}</span>
