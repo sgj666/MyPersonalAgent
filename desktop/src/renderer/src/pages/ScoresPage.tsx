@@ -236,41 +236,129 @@ const ExamDialog: React.FC<{
   )
 }
 
-/** 学生历次趋势: a small inline line over the student's totals. */
-const TrendChart: React.FC<{ points: AnalysisTrendPoint[] }> = ({ points }) => {
-  const values = points
-    .map((point) => point.total)
-    .filter((value): value is number => value !== null && Number.isFinite(value))
-  if (values.length < 2) {
-    return <span className="twb-trend-empty">{points.length ? wholeText(values[0]) : '—'}</span>
-  }
-  const width = 120
-  const height = 30
-  const pad = 4
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const span = max - min || 1
-  const coords = points.map((point, index) => {
-    if (point.total === null) return ''
-    const x = pad + (index * (width - pad * 2)) / (points.length - 1)
-    const y = height - pad - ((point.total - min) / span) * (height - pad * 2)
-    return `${x.toFixed(1)},${y.toFixed(1)}`
-  })
+/** 报告里的图表：全部用后端算好的 facts 画，前端不做任何统计。 */
+const num = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null
+
+/** Two decimals of a rate, so 40.43% does not read as 40.4% next to the prose. */
+const percentExact = (value: number | null): string =>
+  value === null ? '—' : `${Number(value.toFixed(2))}%`
+
+const ReportVisuals: React.FC<{ facts?: TeachingReport['facts'] }> = ({ facts }) => {
+  if (!facts) return null
+  const overall = (facts.overall || {}) as Record<string, number | null>
+  const items = (facts.items || []) as NonNullable<TeachingReport['facts']>['items'] & object[]
+  const bands = (facts.distribution || []) as { label: string; count: number }[]
+  const trend = (facts.trend || []) as { name: string; average: number }[]
+  const top = (facts.top || []) as { rank: number; name: string; total: number }[]
+
+  const kpi = (label: string, value: string, hint?: string) => (
+    <div className="twb-kpi" key={label}>
+      <span>{label}</span>
+      <b>{value}</b>
+      {hint && <small>{hint}</small>}
+    </div>
+  )
+
+  const bandMax = Math.max(1, ...bands.map((band) => band.count))
+
   return (
-    <svg className="twb-trend" width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img">
-      <polyline points={coords.join(' ')} fill="none" stroke="var(--twb-accent)" strokeWidth={2} />
-      {coords.map((coord, index) =>
-        coord ? (
-          <circle
-            key={`${index}-${coord}`}
-            cx={coord.split(',')[0]}
-            cy={coord.split(',')[1]}
-            r={2.5}
-            fill="var(--twb-accent)"
-          />
-        ) : null
+    <div className="twb-visuals">
+      <div className="twb-kpis">
+        {kpi(t('tw_an_count'), wholeText(num(overall.scored) ?? 0), tf('tw_an_absent_n', { n: num(overall.absent) ?? 0 }))}
+        {kpi(t('tw_an_average'), numberText(num(overall.average), 2))}
+        {kpi('最高 / 最低', `${numberText(num(overall.max), 2)} / ${numberText(num(overall.min), 2)}`)}
+        {kpi(t('tw_an_pass'), percentExact(num(overall.pass_rate)))}
+        {kpi(t('tw_an_excellent'), percentExact(num(overall.excellent_rate)))}
+        {kpi(t('tw_an_stddev'), numberText(num(overall.stddev), 2))}
+      </div>
+
+      {(bands.length > 0 || items.length > 0) && (
+        <div className="twb-visual-row">
+          {bands.length > 0 && (
+            <section className="twb-vpanel">
+              <h4>{t('tw_an_bands')}</h4>
+              <div className="twb-bands">
+                {bands.map((band, index) => (
+                  <div className="twb-band" key={band.label}>
+                    <span className="twb-band-label">{band.label}</span>
+                    <div className="twb-band-track">
+                      <i
+                        style={{ width: `${Math.round((band.count / bandMax) * 100)}%` }}
+                        data-tone={index === 0 ? 'low' : index >= bands.length - 1 ? 'high' : 'mid'}
+                      />
+                    </div>
+                    <b>{band.count}</b>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {items.length > 0 && (
+            <section className="twb-vpanel">
+              <h4>{t('tw_an_rate')}</h4>
+              <div className="twb-bands">
+                {items.map((item) => {
+                  const rate = num(item.rate) ?? 0
+                  return (
+                    <div className="twb-band" key={item.label}>
+                      <span className="twb-band-label">{item.label}</span>
+                      <div className="twb-band-track">
+                        <i
+                          style={{ width: `${Math.max(2, Math.min(100, rate))}%` }}
+                          data-tone={rate >= 80 ? 'high' : rate >= 55 ? 'mid' : 'low'}
+                        />
+                      </div>
+                      <b>{percentExact(num(item.rate))}</b>
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+          )}
+        </div>
       )}
-    </svg>
+
+      {(trend.length > 1 || top.length > 0) && (
+        <div className="twb-visual-row">
+          {trend.length > 1 && (
+            <section className="twb-vpanel">
+              <h4>{t('tw_an_trend')}</h4>
+              <div className="twb-trend">
+                {trend.map((point) => {
+                  const peak = Math.max(...trend.map((row) => row.average), 1)
+                  return (
+                    <div className="twb-trend-col" key={point.name}>
+                      <b>{numberText(point.average)}</b>
+                      <div className="twb-trend-bar">
+                        <i style={{ height: `${Math.max(6, (point.average / peak) * 100)}%` }} />
+                      </div>
+                      <span>{point.name}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+          )}
+
+          {top.length > 0 && (
+            <section className="twb-vpanel">
+              <h4>{t('tw_an_top')}</h4>
+              <ol className="twb-podium">
+                {top.slice(0, 5).map((row) => (
+                  <li key={`${row.rank}-${row.name}`} data-rank={row.rank}>
+                    <span className="twb-podium-rank">{row.rank}</span>
+                    <span className="twb-podium-name">{row.name}</span>
+                    <b>{numberText(num(row.total))}</b>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -290,10 +378,6 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
   const [status, setStatus] = useState('')
   const [saving, setSaving] = useState(false)
   const [view, setView] = useState<'entry' | 'analysis'>('entry')
-  const [analysis, setAnalysis] = useState<TeachingAnalysis | null>(null)
-  const [analysisKey, setAnalysisKey] = useState('')
-  const [analysisLoading, setAnalysisLoading] = useState(false)
-  const [analysisError, setAnalysisError] = useState('')
   const [dialog, setDialog] = useState<{ open: boolean; target: TeachingExam | null }>({
     open: false,
     target: null,
@@ -321,8 +405,6 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
     setReportKey('')
     setReportError('')
     setClassId(exam?.class_ids[0] || '')
-    setAnalysis(null)
-    setAnalysisKey('')
     setView('entry')
   }
 
@@ -411,32 +493,6 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
       })
   }, [classId])
 
-  // The report spans every class of the exam, so the parallel-class table is
-  // real rather than a single row of the class the entry grid happens to show.
-  useEffect(() => {
-    if (view !== 'analysis' || !selectedExam) return
-    const key = selectedExam.id
-    if (analysisKey === key) return
-    let cancelled = false
-    setAnalysisLoading(true)
-    setAnalysisError('')
-    apiClient
-      .getTeachingAnalysis(selectedExam.id)
-      .then((data) => {
-        if (cancelled) return
-        setAnalysis(data)
-        setAnalysisKey(key)
-      })
-      .catch((err) => {
-        if (!cancelled) setAnalysisError(errorText(err))
-      })
-      .finally(() => {
-        if (!cancelled) setAnalysisLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [view, selectedExam, analysisKey])
 
   // 打开分析页时才去取报告；没有就显示「生成」入口，不自动调模型。
   useEffect(() => {
@@ -684,7 +740,7 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
     try {
       await apiClient.saveTeachingScores(selectedExam.id, payload)
       setStatus(tf('tw_sc_saved', { n: Object.keys(payload).length }))
-      setAnalysisKey('')
+      // 分数变了：旧报告留在页面上，但下次进分析页会读到的是它自己那份。
     } catch (err) {
       setStatus(tf('tw_save_failed', { msg: errorText(err) }))
     } finally {
@@ -993,20 +1049,10 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
                     ) : (
                       <Empty icon={GraduationCap} text={t('tw_sc_no_students')} />
                     )
-                  ) : analysisLoading ? (
-                    <Loading />
-                  ) : analysisError ? (
-                    <PageError
-                      message={analysisError}
-                      onRetry={() => {
-                        setAnalysis(null)
-                        setAnalysisKey('')
-                      }}
-                    />
-                  ) : analysis ? (
+                  ) : (
                     <div className="twb-analysis">
-                      {/* 报告与这场考试绑定：切换考试即有自己的一份，可随时重新生成。
-                          数字由后端算好，模型只负责写解读，所以卡片里的统计与下表一致。 */}
+                      {/* 分析页就是这份 AI 报告：数字由后端算、前端只负责画图，
+                          模型写解读。报告与考试绑定，可随时重新生成。 */}
                       <section className="twb-report" aria-labelledby="twb-report-title">
                         <div className="twb-report-head">
                           <div className="twb-report-title">
@@ -1045,188 +1091,19 @@ const ScoresPage: React.FC<ScoresPageProps> = ({ baseUrl }) => {
                             <p>{t('tw_an_ai_generating')}</p>
                           </div>
                         ) : report?.markdown ? (
-                          <div className="twb-report-body">
-                            <Markdown content={report.markdown} />
-                          </div>
+                          <>
+                            <ReportVisuals facts={report.facts} />
+                            <div className="twb-report-body">
+                              <Markdown content={report.markdown} />
+                            </div>
+                          </>
                         ) : (
                           <p className="twb-report-empty">{reportError || t('tw_an_ai_empty')}</p>
                         )}
                       </section>
-
-                      <div className="twb-stats">
-                        <div className="twb-stat">
-                          <span>{t('tw_an_count')}</span>
-                          <b>{analysis.summary.scored}</b>
-                          <small>{tf('tw_an_absent_n', { n: analysis.summary.absent })}</small>
-                        </div>
-                        <div className="twb-stat">
-                          <span>{t('tw_an_average')}</span>
-                          <b>{numberText(analysis.summary.average)}</b>
-                        </div>
-                        <div className="twb-stat">
-                          <span>{t('tw_an_pass')}</span>
-                          <b>{percentText(analysis.summary.pass_rate)}</b>
-                        </div>
-                        <div className="twb-stat">
-                          <span>{t('tw_an_excellent')}</span>
-                          <b>{percentText(analysis.summary.excellent_rate)}</b>
-                        </div>
-                        <div className="twb-stat">
-                          <span>{t('tw_an_stddev')}</span>
-                          <b>{numberText(analysis.summary.stddev, 2)}</b>
-                        </div>
-                      </div>
-
-                      {analysis.by_class.length > 1 && (
-                        <div className="twb-an-block">
-                          <h3>{t('tw_an_by_class')}</h3>
-                          <table className="twb-table">
-                            <thead>
-                              <tr>
-                                <th>{t('tw_an_class')}</th>
-                                <th className="is-num">{t('tw_an_count')}</th>
-                                <th className="is-num">{t('tw_an_average')}</th>
-                                <th className="is-num">{t('tw_an_pass')}</th>
-                                <th className="is-num">{t('tw_an_excellent')}</th>
-                                <th className="is-num">{t('tw_an_stddev')}</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {analysis.by_class.map((row) => (
-                                <tr key={row.class_id}>
-                                  <td>{row.class_name}</td>
-                                  <td className="is-num">{row.students}</td>
-                                  <td className="is-num">{numberText(row.average)}</td>
-                                  <td className="is-num">{percentText(row.pass_rate)}</td>
-                                  <td className="is-num">{percentText(row.excellent_rate)}</td>
-                                  <td className="is-num">{numberText(row.stddev, 2)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-
-                      {analysis.items.length > 0 && (
-                        <div className="twb-an-block">
-                          <h3>{t('tw_an_items')}</h3>
-                          <table className="twb-table">
-                            <thead>
-                              <tr>
-                                <th>{t('tw_sc_item_label')}</th>
-                                <th className="is-num">{t('tw_an_full')}</th>
-                                <th className="is-num">{t('tw_an_average')}</th>
-                                <th>{t('tw_an_rate')}</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {analysis.items.map((item) => (
-                                <tr key={item.key}>
-                                  <td>{item.label}</td>
-                                  <td className="is-num">{wholeText(item.full)}</td>
-                                  <td className="is-num">{numberText(item.average)}</td>
-                                  <td>
-                                    <div className="twb-progress-bar">
-                                      <i style={{ width: `${Math.round(Math.min(100, item.rate ?? 0))}%` }} />
-                                    </div>
-                                    <small className="twb-hint">{percentText(item.rate)}</small>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-
-                      <div className="twb-an-block">
-                        <h3>{t('tw_an_critical')}</h3>
-                        {analysis.critical.length ? (
-                          <ul className="twb-critical">
-                            {analysis.critical.map((row) => (
-                              <li key={row.student_id}>
-                                <b>{row.name}</b>
-                                <span>
-                                  {row.class_name}
-                                  {' · '}
-                                  {wholeText(row.total)}
-                                  {' · '}
-                                  {tf('tw_an_gap', { n: numberText(row.gap) })}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="twb-hint">{t('tw_an_no_critical')}</p>
-                        )}
-                      </div>
-
-                      <div className="twb-an-block">
-                        <h3>{t('tw_an_trend')}</h3>
-                        {analysis.students.length ? (
-                          <div className="twb-table-wrap">
-                            <table className="twb-table">
-                              <thead>
-                                <tr>
-                                  <th>{t('tw_st_name')}</th>
-                                  <th>{t('tw_an_class')}</th>
-                                  <th>{t('tw_an_trend')}</th>
-                                  <th className="is-num">{t('tw_sc_total')}</th>
-                                  <th className="is-num">{t('tw_an_delta')}</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {analysis.students.map((student) => {
-                                  // The backend sends each student's whole
-                                  // subject series; compare the last two
-                                  // sittings that produced a total.
-                                  const scored = student.exams.filter(
-                                    (point) => point.total !== null
-                                  )
-                                  const first = scored[scored.length - 2]
-                                  const second = scored[scored.length - 1]
-                                  const delta =
-                                    first && second && first.total !== null && second.total !== null
-                                      ? second.total - first.total
-                                      : null
-                                  return (
-                                    <tr key={student.student_id}>
-                                      <td>{student.name}</td>
-                                      <td>{student.class_name}</td>
-                                      <td>
-                                        <TrendChart points={student.exams} />
-                                      </td>
-                                      <td className="is-num">{wholeText(student.total)}</td>
-                                      <td className="is-num">
-                                        {delta === null
-                                          ? '—'
-                                          : `${delta > 0 ? '+' : ''}${numberText(delta)}`}
-                                      </td>
-                                    </tr>
-                                  )
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        ) : (
-                          <p className="twb-hint">{t('tw_an_no_students')}</p>
-                        )}
-                      </div>
-
-                      <button
-                        type="button"
-                        className="twb-btn"
-                        onClick={() => {
-                          setAnalysis(null)
-                          setAnalysisKey('')
-                        }}
-                      >
-                        <RefreshCw size={14} />
-                        <span>{t('tw_an_refresh')}</span>
-                      </button>
                     </div>
-                  ) : (
-                    <Empty icon={ChartLine} text={t('tw_an_empty')} />
                   )}
+
                 </>
               )}
           </section>

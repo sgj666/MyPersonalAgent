@@ -89,8 +89,12 @@ def test_facts_come_from_the_analysis_not_the_model():
     # 缺考的学生不进排名，但仍在「后几名」里以 None 出现时会被过滤掉。
     assert all(row["name"] != "王一冉" for row in digest["top"])
 
+    # 分数段：低于低分线 468 / 及格 546 / 优秀 702
+    assert [row["count"] for row in digest["distribution"]] == [0, 0, 3, 0]
+
     facts = report_mod._facts_text(digest)
     assert "416.93" in facts
+    assert "分数段人数" in facts
     assert "九年级9班" in facts
     assert "陈建昊" in facts
 

@@ -112,7 +112,33 @@ def _digest(analysis: dict) -> dict:
                     "scored": len(totals),
                 })
 
+    # 四个分数段（低于低分线 / 低分~及格 / 及格~优秀 / 优秀以上），用现成的线
+    # 切，老师看的就是这几档，不需要再引入新的口径。
+    low_line = summary.get("low_line")
+    pass_line = summary.get("pass_line")
+    excellent_line = summary.get("excellent_line")
+    bands = [
+        {"label": f"低于低分线", "count": 0},
+        {"label": "低分线~及格线", "count": 0},
+        {"label": "及格线~优秀线", "count": 0},
+        {"label": "优秀线以上", "count": 0},
+    ]
+    if all(isinstance(v, (int, float)) for v in (low_line, pass_line, excellent_line)):
+        for row in scored:
+            total = row.get("total")
+            if total is None:
+                continue
+            if total < low_line:
+                bands[0]["count"] += 1
+            elif total < pass_line:
+                bands[1]["count"] += 1
+            elif total < excellent_line:
+                bands[2]["count"] += 1
+            else:
+                bands[3]["count"] += 1
+
     return {
+        "distribution": bands,
         "exam": {
             "name": summary.get("name") or "",
             "subject": summary.get("subject") or "",
@@ -227,6 +253,10 @@ def _facts_text(digest: dict) -> str:
     if digest["trend"]:
         lines.append("历次考试均分：" + "、".join(
             f"{row['name']} {_num(row['average'])}" for row in digest["trend"]
+        ))
+    if digest.get("distribution"):
+        lines.append("分数段人数：" + "、".join(
+            f"{row['label']} {row['count']} 人" for row in digest["distribution"]
         ))
     return "\n".join(lines)
 

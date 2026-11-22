@@ -3396,6 +3396,9 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
 .twt-dict-left > .twt-card { flex-shrink: 0; }
 .twt-dict-bar-actions,
 .twt-dict-head-tools { display: flex; align-items: center; gap: 10px; }
+.twt-select { cursor: pointer; }
+.twt-pick-custom { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.twt-pick-custom .twt-input { flex: 1; min-width: 0; }
 
 .twt-dict-all {
   display: inline-flex;
@@ -4490,4 +4493,217 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
 @keyframes twb-shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+/* ---------- 报告里的图表 ----------
+   Everything below is drawn from the facts the backend computed, so the page is
+   a designed report rather than a wall of prose. */
+.twb-visuals {
+  margin: 14px 0 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.twb-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 10px;
+}
+
+.twb-kpi {
+  position: relative;
+  padding: 11px 13px 10px;
+  border-radius: 14px;
+  border: 1px solid var(--twb-line);
+  background: linear-gradient(180deg, var(--twb-surface), var(--twb-surface-2));
+  box-shadow: var(--twb-shadow-sm);
+}
+
+.twb-kpi span {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--twb-ink-3);
+}
+
+.twb-kpi b {
+  display: block;
+  margin-top: 4px;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--twb-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.twb-kpi small {
+  font-size: 11px;
+  color: var(--twb-ink-3);
+}
+
+.twb-visual-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.twb-vpanel {
+  padding: 12px 14px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--twb-line);
+  background: color-mix(in srgb, var(--twb-surface) 92%, var(--twb-accent-soft));
+}
+
+.twb-vpanel h4 {
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--twb-ink-2);
+}
+
+/* 分数段 / 分项得分率：一条一条的横向条 */
+.twb-bands {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.twb-band {
+  display: grid;
+  grid-template-columns: minmax(96px, 132px) 1fr 48px;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--twb-ink-2);
+}
+
+.twb-band-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.twb-band-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--twb-line);
+  overflow: hidden;
+}
+
+.twb-band-track i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--twb-accent);
+}
+
+.twb-band-track i[data-tone='low'] {
+  background: var(--twb-urgent);
+}
+
+.twb-band-track i[data-tone='mid'] {
+  background: color-mix(in srgb, var(--twb-accent) 62%, var(--twb-urgent));
+}
+
+.twb-band b {
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--twb-ink);
+}
+
+/* 历次均分：竖条 */
+.twb-trend {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  min-height: 96px;
+}
+
+.twb-trend-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--twb-ink-3);
+}
+
+.twb-trend-col b {
+  font-size: 12px;
+  color: var(--twb-ink);
+}
+
+.twb-trend-bar {
+  width: 100%;
+  height: 56px;
+  display: flex;
+  align-items: flex-end;
+  border-radius: 8px;
+  background: var(--twb-line);
+  overflow: hidden;
+}
+
+.twb-trend-bar i {
+  display: block;
+  width: 100%;
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(180deg, var(--twb-accent), color-mix(in srgb, var(--twb-accent) 55%, transparent));
+}
+
+/* 排名前列 */
+.twb-podium {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.twb-podium li {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--twb-surface);
+  border: 1px solid var(--twb-line);
+  font-size: 13px;
+}
+
+.twb-podium-rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #fff;
+  background: var(--twb-ink-3);
+}
+
+.twb-podium li[data-rank='1'] .twb-podium-rank { background: #c9a227; }
+.twb-podium li[data-rank='2'] .twb-podium-rank { background: #9aa4ae; }
+.twb-podium li[data-rank='3'] .twb-podium-rank { background: #b9744a; }
+
+.twb-podium-name {
+  font-weight: 700;
+  color: var(--twb-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.twb-podium b {
+  font-variant-numeric: tabular-nums;
+  color: var(--twb-ink-2);
 }
