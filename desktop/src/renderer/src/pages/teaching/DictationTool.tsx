@@ -352,28 +352,9 @@ const DictationTool: React.FC = () => {
   }
 
   const bar = (
-    <>
-      <BarField label={t('twt_dict_book')} grow>
-        <SelectOrType
-          id="twt-dict-book"
-          label={t('twt_dict_book')}
-          value={book}
-          choices={books}
-          placeholder={t('twt_dict_book_ph')}
-          onChange={setBook}
-        />
-      </BarField>
-      <BarField label={t('twt_unit')} grow>
-        <SelectOrType
-          id="twt-dict-unit"
-          label={t('twt_unit')}
-          value={unit}
-          choices={units}
-          placeholder={t('twt_unit_ph')}
-          onChange={setUnit}
-        />
-      </BarField>
-      <BarField label={t('twt_dict_kind')}>
+    <div className="twt-dict-bar">
+      <div className="twt-dict-mode-row">
+        <span className="twt-mode-kicker">{t('twt_dict_kind')}</span>
         <div className="twt-mode-switch" role="radiogroup" aria-label={t('twt_dict_kind')}>
           {DICTATION_KINDS.map((value) => (
             <button
@@ -392,33 +373,56 @@ const DictationTool: React.FC = () => {
             </button>
           ))}
         </div>
-      </BarField>
-      <BarField label={t('twt_dict_title')} grow>
-        <input
-          id="twt-dict-title"
-          className="twb-input twt-input"
-          value={title}
-          placeholder={t('twt_dict_title_ph')}
-          onChange={(e) => setTitle(e.target.value)}
-          onBlur={() => {
-            if (!title.trim()) setTitle(defaultTitle())
-          }}
-        />
-      </BarField>
-      <BarField label={t('twt_dict_words')}>
-        <span className="twt-dict-bar-actions">
-          <span className="twt-count">{tf('twt_dict_selected', { n: chosen.length, total: filledWords.length })}</span>
-          <button
-            type="button"
-            className="twb-btn twb-btn-primary"
-            onClick={skill.running ? skill.cancel : () => generate()}
-          >
-            {skill.running ? <Square size={14} /> : <Sparkles size={14} />}
-            <span>{skill.running ? t('tw_teach_stop') : filledWords.length ? t('twt_dict_regen') : t('twt_dict_generate')}</span>
-          </button>
-        </span>
-      </BarField>
-    </>
+        <span className="twt-mode-tip">{t(`twt_dict_kind_hint_${kind}`)}</span>
+      </div>
+      <div className="twt-dict-form-row">
+        <BarField label={t('twt_dict_book')} grow>
+          <SelectOrType
+            id="twt-dict-book"
+            label={t('twt_dict_book')}
+            value={book}
+            choices={books}
+            placeholder={t('twt_dict_book_ph')}
+            onChange={setBook}
+          />
+        </BarField>
+        <BarField label={t('twt_unit')} grow>
+          <SelectOrType
+            id="twt-dict-unit"
+            label={t('twt_unit')}
+            value={unit}
+            choices={units}
+            placeholder={t('twt_unit_ph')}
+            onChange={setUnit}
+          />
+        </BarField>
+        <BarField label={t('twt_dict_title')} grow>
+          <input
+            id="twt-dict-title"
+            className="twb-input twt-input"
+            value={title}
+            placeholder={t('twt_dict_title_ph')}
+            onChange={(e) => setTitle(e.target.value)}
+            onBlur={() => {
+              if (!title.trim()) setTitle(defaultTitle())
+            }}
+          />
+        </BarField>
+        <BarField label={t('twt_dict_words')}>
+          <span className="twt-dict-bar-actions">
+            <span className="twt-count">{tf('twt_dict_selected', { n: chosen.length, total: filledWords.length })}</span>
+            <button
+              type="button"
+              className="twb-btn twb-btn-primary"
+              onClick={skill.running ? skill.cancel : () => generate()}
+            >
+              {skill.running ? <Square size={14} /> : <Sparkles size={14} />}
+              <span>{skill.running ? t('tw_teach_stop') : filledWords.length ? t('twt_dict_regen') : t('twt_dict_generate')}</span>
+            </button>
+          </span>
+        </BarField>
+      </div>
+    </div>
   )
 
   const shownStatus: DeliverStatus = skill.error

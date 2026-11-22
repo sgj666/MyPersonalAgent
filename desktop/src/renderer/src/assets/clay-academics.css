@@ -3540,6 +3540,33 @@ html.dark #twb-home .twb-metric-c .twb-metric-label {
 .twt-dict-left > .twt-card { flex-shrink: 0; }
 .twt-dict-bar-actions,
 .twt-dict-head-tools { display: flex; align-items: center; gap: 10px; }
+.twt-dict-bar { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+.twt-dict-mode-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  background: var(--twb-accent-soft);
+  border: 1px solid rgba(82, 162, 119, 0.25);
+  border-radius: 18px;
+}
+.twt-mode-kicker {
+  flex: none;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: var(--twb-ink-2);
+}
+.twt-mode-tip { margin-left: auto; font-size: 12.5px; font-weight: 600; color: var(--twb-ink-2); opacity: 0.85; white-space: nowrap; }
+.twt-dict-form-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px 14px;
+  flex-wrap: wrap;
+}
+.twt-dict-form-row .twt-bar-field.is-grow { flex: 1 1 200px; }
+
 .twt-mode-switch {
   display: flex;
   gap: 6px;
