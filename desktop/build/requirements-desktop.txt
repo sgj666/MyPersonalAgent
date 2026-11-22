@@ -51,6 +51,7 @@ tiktoken>=0.3.2
 # ---- voice (TTS/ASR) — kept per product decision ----
 pydub>=0.25.1
 gTTS>=2.3.1
+edge-tts>=7.0.0
 
 # ---- document parsing (web_fetch / knowledge) ----
 # pdfminer.six is what the knowledge base imports PDFs with; without it a

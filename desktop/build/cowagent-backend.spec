@@ -65,6 +65,10 @@ for _sub in ('api', 'core'):
 hiddenimports += collect_submodules('agent.tools')
 hiddenimports += collect_submodules('models')
 hiddenimports += collect_submodules('voice')
+# edge-tts is imported inside the dictation audio builder; collect it so the
+# frozen backend can synthesize standard pronunciation.
+hiddenimports += ['edge_tts']
+hiddenimports += collect_submodules('edge_tts')
 hiddenimports += collect_submodules('bridge')
 
 # Plugin framework + plugins. WebChannel -> ChatChannel imports
