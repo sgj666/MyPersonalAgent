@@ -327,6 +327,10 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
   // differ (an older cache may also still be ordered that way).
   const mottoText = greeting?.motto || mottoLines[0] || ''
 
+  // The backend answers "换一句" instantly by rotating the day's lines and, when
+  // those lines are only the offline pool (or hours old), starts a model
+  // generation in the background. `warming` says to keep watching: the hero
+  // swaps to the model's line as soon as it lands.
   const changeMotto = async () => {
     if (mottoBusy) return
     setMottoBusy(true)
@@ -335,11 +339,28 @@ const HomePage: React.FC<HomePageProps> = ({ baseUrl }) => {
       // already on screen and stop after eight seconds.
       const timeout = new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 8000))
       const fresh = await Promise.race([apiClient.getTeachingGreeting(true), timeout])
-      if (fresh) setGreeting(fresh)
+      if (!fresh) return
+      setGreeting(fresh)
+      if (fresh.warming) await waitForModelMotto(fresh.motto)
     } catch {
       // Keep the line already on screen; the next load asks again.
     } finally {
       setMottoBusy(false)
+    }
+  }
+
+  // Poll until the background generation replaces the line (or we give up,
+  // leaving the rotated line in place -- it is still a valid answer).
+  const waitForModelMotto = async (before: string) => {
+    for (let attempt = 0; attempt < 18; attempt++) {
+      await new Promise((resolve) => window.setTimeout(resolve, 3000))
+      const next = await apiClient.getTeachingGreeting().catch(() => null)
+      if (!next) continue
+      if (next.motto && next.motto !== before) {
+        setGreeting(next)
+        return
+      }
+      if (!next.warming) return
     }
   }
   const counts = board?.counts

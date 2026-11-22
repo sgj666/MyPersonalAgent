@@ -922,6 +922,11 @@ def _normalize_score_rows(raw) -> Dict[str, dict]:
     return rows
 
 
+def _now_ts() -> int:
+    """Epoch seconds, for the motto cache's "how old is this set" stamp."""
+    return int(datetime.now().timestamp())
+
+
 class TeachingStore:
     """CRUD over one tenant's ``teaching/`` documents.
 
@@ -1462,23 +1467,39 @@ class TeachingStore:
             return {**profile}
 
     def get_daily_motto(self) -> dict:
-        """Today's cached motto, if one was written: ``{date, text}``."""
+        """Today's cached motto: ``{date, text, motives, source, saved_at}``.
+
+        ``source`` is ``"model"`` when a model wrote the set and ``"fallback"``
+        when it is the offline pool, so the home page can tell "rotate through
+        today's three" apart from "nothing real was generated yet".
+        """
         with self._locked("motto"):
             doc = self._read_doc("motto")
         raw = doc.get("motives")
         motives = [str(item) for item in raw if isinstance(item, str)] if isinstance(raw, list) else []
+        saved_at = doc.get("saved_at")
         return {
             "date": _text(doc.get("date")),
             "text": _text(doc.get("text")),
             "motives": motives,
+            "source": _text(doc.get("source")),
+            "saved_at": float(saved_at) if isinstance(saved_at, (int, float)) else 0.0,
+            # How many times 换一句 rotated this set: once it comes back to the
+            # first line, the teacher has seen them all and wants new ones.
+            "spins": int(doc.get("spins") or 0),
         }
 
     def save_daily_motto(self, day: str, text: str,
-                         motives: Optional[List[str]] = None) -> None:
+                         motives: Optional[List[str]] = None,
+                         source: str = "", spins: int = 0) -> None:
         """Overwrite the motto cache; the first line plus its rotation."""
-        payload = {"date": _text(day), "text": _text(text)}
+        payload = {"date": _text(day), "text": _text(text), "saved_at": _now_ts()}
+        if spins:
+            payload["spins"] = int(spins)
         if motives:
             payload["motives"] = [_text(item) for item in motives][:3]
+        if source:
+            payload["source"] = _text(source)
         with self._locked("motto"):
             path = self._path("motto")
             path.parent.mkdir(parents=True, exist_ok=True)

@@ -1619,6 +1619,8 @@ export interface TeachingGreeting {
   /** `YYYY-MM-DD`. */
   date: string
   cached: boolean
+  /** A model set is being written right now; re-read shortly to get it. */
+  warming?: boolean
 }
 
 /** GET /api/teaching/reminders/preview: the two bodies as they will read. */

@@ -239,13 +239,57 @@ def _motto_prompt(profile: dict, day: date, lessons: List[dict]) -> str:
     ])
 
 
-def _warm_motto_async(store, profile: dict, day: date, day_iso: str,
-                      lessons: List[dict]) -> None:
-    """Generate the day's three lines off the request path.
+#: A model generation runs at most once per day at a time, and not again within
+#: this many seconds -- "换一句" may be pressed repeatedly, and each press must
+#: not spawn another 40-second provider call.
+WARM_COOLDOWN = 60.0
+#: Sets older than this are regenerated even if a model wrote them: the point of
+#: pressing the button is to get something that is not the same three lines.
+WARM_MAX_AGE = 300
+_warm_running: set = set()
+_warm_last: dict = {}
+_warm_lock = threading.Lock()
 
-    The reply is written straight into the cache, so whichever "换一句" comes
-    next rotates through the model's lines instead of the fallback pool.
+
+def _motto_needs_model(cached: dict, day_iso: str) -> bool:
+    """Is today's cached set worth replacing with a fresh model answer?"""
+    if cached.get("date") != day_iso or not cached.get("text"):
+        return True
+    if cached.get("source") != "model":
+        return True
+    # Every line has been on screen at least once: the teacher is asking for
+    # something new, not for the first line again.
+    lines = [item for item in (cached.get("motives") or []) if item]
+    if len(lines) > 1 and int(cached.get("spins") or 0) >= len(lines):
+        return True
+    try:
+        age = datetime.now().timestamp() - float(cached.get("saved_at") or 0)
+    except (TypeError, ValueError):
+        return True
+    return age > WARM_MAX_AGE
+
+
+def _warm_motto_async(store, profile: dict, day: date, day_iso: str,
+                      lessons: List[dict], avoid: Optional[List[str]] = None) -> bool:
+    """Start (or join) the background generation of the day's three lines.
+
+    ``avoid`` are the lines the teacher has already seen today: the
+    saved set leads with a different one, otherwise the page would swap a line
+    for itself and the click would look broken again.
+
+    Returns True when a worker is running for this day, i.e. the caller should
+    tell the client "a new line is on its way". Returns False when the work is
+    on cooldown or was just started by another request.
     """
+    with _warm_lock:
+        if day_iso in _warm_running:
+            return True
+        now = datetime.now().timestamp()
+        if now - float(_warm_last.get(day_iso) or 0) < WARM_COOLDOWN:
+            return False
+        _warm_last[day_iso] = now
+        _warm_running.add(day_iso)
+
     def work() -> None:
         try:
             lines = _split_motives(motto_from_model(profile, day, lessons))
@@ -256,11 +300,23 @@ def _warm_motto_async(store, profile: dict, day: date, day_iso: str,
                     break
                 if candidate not in lines:
                     lines.append(candidate)
-            store.save_daily_motto(day_iso, lines[0], motives=lines)
+            if avoid:
+                # Lead with a line the teacher has not just been looking at.
+                unseen = [item for item in lines if item not in avoid]
+                if unseen:
+                    lines = unseen + [item for item in lines if item in avoid]
+            # A model set replaces the rotation, and its first line becomes the
+            # one on screen: the teacher pressed "换一句" precisely because the
+            # current line was not good enough.
+            store.save_daily_motto(day_iso, lines[0], motives=lines, source="model")
         except Exception as exc:  # a background flourish must never raise
             logger.warning(f"[Teaching] motto worker failed: {exc}")
+        finally:
+            with _warm_lock:
+                _warm_running.discard(day_iso)
 
     threading.Thread(target=work, name="teaching-motto-bg", daemon=True).start()
+    return True
 
 
 def motto_from_model(profile: dict, day: date, lessons: List[dict]) -> str:
@@ -328,6 +384,9 @@ def greeting(store, *, day: Optional[str] = None, now: Optional[datetime] = None
     cached = store.get_daily_motto()
     text = ""
     from_cache = False
+    # True while a model generation for today is running, so the home page can
+    # keep the button spinning and refresh when the new lines land.
+    warming = False
     # Self-heal a cache written before the lines were split: a stored "motto"
     # that is really three sentences glued together shows as one wall of text.
     stored = (cached.get("text") or "").strip()
@@ -359,13 +418,24 @@ def greeting(store, *, day: Optional[str] = None, now: Optional[datetime] = None
             # bounce between the same two lines.
             lines = lines[at + 1:] + lines[:at + 1]
             text = lines[0]
-            store.save_daily_motto(day_iso, text, motives=lines)
+            store.save_daily_motto(day_iso, text, motives=lines,
+                                   source=cached.get("source", ""),
+                                   spins=int(cached.get("spins") or 0) + 1)
+            # Rotating alone is not what the button promises: if these are the
+            # offline pool (or a set from hours ago), also ask the model for a
+            # fresh set in the background and tell the client to watch for it.
+            warming = False
+            if _motto_needs_model(cached, day_iso):
+                warming = _warm_motto_async(store, profile, target, day_iso,
+                                            store.today(day_iso).get("slots", []),
+                                            avoid=lines)
             return {
                 "greeting": f"{_period_greeting(when.hour)}，{_address(profile['name'])}。",
                 "motto": text,
                 "motives": lines,
                 "date": day_iso,
                 "cached": False,
+                "warming": warming,
             }
     if not refresh and cached["date"] == day_iso and cached["text"]:
         text = cached["text"]
@@ -376,7 +446,7 @@ def greeting(store, *, day: Optional[str] = None, now: Optional[datetime] = None
         # for it. Serve the day's classical lines now and let a worker upgrade
         # them, so 换一句 has something to rotate through immediately.
         lines = []
-        _warm_motto_async(store, profile, target, day_iso, lessons)
+        warming = _warm_motto_async(store, profile, target, day_iso, lessons)
         for candidate in _fallback_motives(target):
             if len(lines) >= 3:
                 break
@@ -389,7 +459,7 @@ def greeting(store, *, day: Optional[str] = None, now: Optional[datetime] = None
         if refresh and cached["text"] and lines[0] == cached["text"]:
             rotation = lines[1:] + [m for m in _fallback_motives(target) if m not in lines]
             lines = rotation or lines
-        store.save_daily_motto(day_iso, lines[0], motives=lines)
+        store.save_daily_motto(day_iso, lines[0], motives=lines, source="fallback")
         text = lines[0]
 
     motives = [item for item in (cached.get("motives") or []) if item]
@@ -405,4 +475,5 @@ def greeting(store, *, day: Optional[str] = None, now: Optional[datetime] = None
         "motives": motives,
         "date": day_iso,
         "cached": from_cache,
+        "warming": warming,
     }

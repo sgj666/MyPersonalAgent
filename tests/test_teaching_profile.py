@@ -196,6 +196,51 @@ def test_greeting_uses_the_model_free_fallback_and_caches_per_day(tmp_path):
     assert "老师老师" not in answer["greeting"]
 
 
+def test_a_generated_set_never_leads_with_the_line_on_screen(tmp_path, monkeypatch):
+    """If the model happens to repeat the line the teacher is looking at, the
+    click must still visibly change something -- so the set is rotated."""
+    import time
+    from datetime import date
+    from agent.teaching.store import TeachingStore
+
+    store = TeachingStore(str(tmp_path / "teaching"))
+    store.save_profile(**PROFILE)
+    current = "随风潜入夜，润物细无声。（杜甫《春夜喜雨》）"
+    store.save_daily_motto("2026-11-22", current, motives=[current], source="fallback")
+
+    monkeypatch.setattr(profile_mod, "motto_from_model",
+                        lambda *a, **k: current + "\n相见时难别亦难，东风无力百花残。（李商隐《无题》）")
+    profile_mod._warm_last.clear()
+    assert profile_mod._warm_motto_async(
+        store, store.get_profile(), date(2026, 11, 22), "2026-11-22", [], avoid=[current])
+
+    for _ in range(50):
+        cached = store.get_daily_motto()
+        if cached.get("source") == "model":
+            break
+        time.sleep(0.05)
+    cached = store.get_daily_motto()
+    assert cached["source"] == "model"
+    assert cached["text"] != current
+    assert cached["motives"][0] == cached["text"]
+
+
+def test_a_fully_cycled_set_asks_the_model_again():
+    """After the teacher has seen all three lines, "换一句" must generate new
+    ones instead of starting the same rotation over."""
+    from datetime import datetime
+
+    cached = {
+        "date": "2026-11-22", "text": "a", "source": "model",
+        "saved_at": datetime.now().timestamp(), "motives": ["a", "b", "c"], "spins": 2,
+    }
+    assert profile_mod._motto_needs_model(cached, "2026-11-22") is False
+    cached["spins"] = 3
+    assert profile_mod._motto_needs_model(cached, "2026-11-22") is True
+    # The offline pool is replaced as soon as anything asks for a line.
+    assert profile_mod._motto_needs_model({**cached, "source": "fallback", "spins": 0}, "2026-11-22") is True
+
+
 def test_motto_asks_the_configured_primary_model(monkeypatch):
     """The motto must run on the model set in settings, not on whatever a
     long-lived bot instance was built with (the console can change it)."""
@@ -220,6 +265,29 @@ def test_motto_asks_the_configured_primary_model(monkeypatch):
     answer = profile_mod.motto_from_model(PROFILE, date(2026, 11, 20), [])
     assert "海内存知己" in answer
     assert captured.get("model") == "deepseek-flash"
+
+
+def test_refresh_says_when_a_model_line_is_on_its_way(tmp_path):
+    """The button can only stay "alive" while waiting if the answer says so:
+    a fallback set is replaced by a model set, so the client is told."""
+    from agent.teaching.store import TeachingStore
+
+    store = TeachingStore(str(tmp_path / "teaching"))
+    store.save_profile(**PROFILE)
+    old = "海内存知己，天涯若比邻。（王勃《送杜少府之任蜀州》）"
+    store.save_daily_motto("2026-11-22", old, motives=[old, "会当凌绝顶，一览众山小。（杜甫《望岳》）"],
+                           source="fallback")
+    profile_mod._warm_last.clear()
+    profile_mod._warm_running.clear()
+
+    with patch.object(profile_mod, "motto_from_model", return_value=""):
+        answer = profile_mod.greeting(store, day="2026-11-22", refresh=True)
+
+    assert answer["warming"] is True
+    assert answer["motto"] != old
+    assert answer["motives"][0] == answer["motto"]
+    profile_mod._warm_last.clear()
+    profile_mod._warm_running.clear()
 
 
 def test_a_glued_cache_line_is_repaired_on_read(tmp_path):

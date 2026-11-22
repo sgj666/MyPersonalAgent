@@ -1953,6 +1953,7 @@ class ApiClient {
         : undefined,
       date: String(data.date || ''),
       cached: data.cached === true,
+      warming: data.warming === true,
     }
   }
 
