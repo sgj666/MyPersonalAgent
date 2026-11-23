@@ -166,9 +166,15 @@ body.kind-translation .only-dictation{display:none}
 .a-senses[hidden]{display:none}
 .a-senses .a-sense{margin:0}
 .a-senses b{margin-right:6px;font-family:var(--sans);font-size:12px;font-weight:800;color:var(--gold)}
-body.kind-translation .a-senses{font-family:var(--serif);font-size:clamp(32px,5.4vw,74px);
-  line-height:1.2;color:var(--ink);gap:10px;margin-top:0}
-body.kind-translation .a-senses b{font-size:clamp(14px,1.7vw,22px);margin-right:14px;color:var(--gold)}
+body.kind-translation .progress,
+body.kind-translation .word-card,
+body.kind-translation .controls{width:min(1400px,100%)}
+body.kind-translation .answer{width:100%}
+body.kind-translation .a-senses{display:flex;align-items:center;width:100%;font-family:var(--serif);
+  font-size:clamp(32px,5.4vw,74px);line-height:1.2;color:var(--ink);gap:8px;margin-top:0}
+body.kind-translation .a-senses .a-sense{display:flex;align-items:baseline;justify-content:center;
+  gap:14px;max-width:100%;margin:0;white-space:nowrap}
+body.kind-translation .a-senses b{flex:none;font-size:clamp(14px,1.7vw,22px);margin-right:0;color:var(--gold)}
 body.kind-translation .a-word,
 body.kind-translation .a-phon{display:none}
 .replay{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:rgba(255,255,255,.7);
@@ -363,6 +369,7 @@ PLAYER = """
       revealHint.hidden = state.answer;
       transHint.hidden = state.answer;
       document.getElementById('mode-tag').textContent = '英译汉';
+      if (state.answer) window.requestAnimationFrame(fitTranslationAnswer);
     } else {
       renderPrompt(word);
       aWord.hidden = false;
@@ -391,6 +398,55 @@ PLAYER = """
       btn.classList.toggle('on', btn.getAttribute('data-mode') === state.mode);
     });
     updateAutoButton();
+  }
+
+  /** Keep a long Chinese meaning on one line: shrink the answer type to fit. */
+  function fitTranslationAnswer() {
+    if (!TRANSLATION) return;
+    var card = document.querySelector('.word-card');
+    if (!card) return;
+    var css = window.getComputedStyle(card);
+    var available = card.clientWidth - parseFloat(css.paddingLeft) - parseFloat(css.paddingRight) - 40;
+    var lines = Array.prototype.slice.call(aSenses.querySelectorAll('.a-sense'));
+    if (available <= 0 || !lines.length) return;
+
+    aSenses.style.fontSize = '';
+    var posBases = lines.map(function (line) {
+      line.style.whiteSpace = 'nowrap';
+      line.style.fontSize = '';
+      var pos = line.querySelector('b');
+      if (pos) { pos.style.fontSize = ''; return parseFloat(window.getComputedStyle(pos).fontSize) || 22; }
+      return 0;
+    });
+    var base = parseFloat(window.getComputedStyle(aSenses).fontSize) || 56;
+    var width = function () {
+      return lines.reduce(function (max, line) { return Math.max(max, line.scrollWidth); }, 0);
+    };
+    var apply = function (size) {
+      aSenses.style.fontSize = size + 'px';
+      lines.forEach(function (line, i) {
+        var pos = line.querySelector('b');
+        if (pos && posBases[i]) {
+          pos.style.fontSize = Math.max(12, Math.round(posBases[i] * size / base)) + 'px';
+        }
+      });
+    };
+
+    var size = base;
+    if (width() > available) {
+      size = Math.max(18, Math.floor(base * available / width()));
+      // One calculation is close; a few 1px steps absorb rounding and the
+      // part-of-speech glyphs, so a long meaning stays on one line.
+      for (var i = 0; i < 10 && size > 18; i += 1) {
+        apply(size);
+        if (width() <= available) break;
+        size -= 1;
+      }
+    }
+    apply(size);
+    lines.forEach(function (line) {
+      if (size <= 18 && line.scrollWidth > available) line.style.whiteSpace = 'normal';
+    });
   }
 
   /** 中文听写 shows every sense, with its part of speech before the meaning. */
@@ -729,6 +785,7 @@ PLAYER = """
     updateAutoButton();
     tick();
   });
+  window.addEventListener('resize', fitTranslationAnswer);
   $('summary-open').addEventListener('click', openSummary);
   $('summary-back').addEventListener('click', function () {
     $('summary').hidden = true;
