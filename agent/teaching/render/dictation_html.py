@@ -294,12 +294,19 @@ PLAYER = """
 
   try {
     var saved = JSON.parse(localStorage.getItem('dictation-player') || '{}');
-    ['interval', 'repeat', 'think', 'hold'].forEach(function (key) {
+    ['interval', 'repeat'].forEach(function (key) {
       if (saved[key]) state[key] = saved[key];
     });
-    if (saved.autoRead === false) state.autoRead = false;
-    if (saved.loop === true) state.loop = true;
     if (saved.mode === 'zh' || saved.mode === 'en') state.mode = saved.mode;
+    // Translation timings live under their own key: old dictation settings
+    // (5s think / 3s answer in an earlier build) must not override the new
+    // 2s / 1s defaults for a page that has never changed them.
+    var trans = TRANSLATION ? JSON.parse(localStorage.getItem('dictation-translation') || '{}') : {};
+    ['think', 'hold'].forEach(function (key) {
+      if (trans[key]) state[key] = trans[key];
+    });
+    if (trans.autoRead === false) state.autoRead = false;
+    if (trans.loop === true) state.loop = true;
     $('interval').value = String(state.interval);
     $('repeat').value = String(state.repeat);
     $('think').value = String(state.think);
@@ -1020,13 +1027,18 @@ PLAYER = """
 
   function persist() {
     try {
+      if (TRANSLATION) {
+        localStorage.setItem('dictation-translation', JSON.stringify({
+          think: state.think,
+          hold: state.hold,
+          autoRead: state.autoRead,
+          loop: state.loop
+        }));
+        return;
+      }
       var saved = JSON.parse(localStorage.getItem('dictation-player') || '{}');
       saved.interval = state.interval;
       saved.repeat = state.repeat;
-      saved.think = state.think;
-      saved.hold = state.hold;
-      saved.autoRead = state.autoRead;
-      saved.loop = state.loop;
       saved.mode = state.mode;
       localStorage.setItem('dictation-player', JSON.stringify(saved));
     } catch (_) {}
