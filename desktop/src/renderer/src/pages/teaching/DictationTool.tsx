@@ -33,6 +33,8 @@ import ToolFrame, { BarField, sessionOf } from './ToolFrame'
 
 const EMPTY_KNOWLEDGE = { tree: [], stats: { pages: 0, size: 0 }, enabled: true }
 const PREVIEW_DEBOUNCE_MS = 450
+/** The last textbook, unit and parsed words, restored on the next visit. */
+const STORAGE_KEY = 'dictation-tool-v1'
 
 const pad2 = (n: number): string => String(n).padStart(2, '0')
 
@@ -62,6 +64,7 @@ const DictationTool: React.FC = () => {
   const [kind, setKind] = useState<DictationKind>('dictation')
   const [mode, setMode] = useState<DictationMode>('zh')
   const [words, setWords] = useState<DictationWord[]>([])
+  const [hydrated, setHydrated] = useState(false)
   const [pasting, setPasting] = useState(false)
   const [paste, setPaste] = useState('')
   const [status, setStatus] = useState<DeliverStatus>({ text: '' })
@@ -92,6 +95,57 @@ const DictationTool: React.FC = () => {
       ),
     [files, book]
   )
+
+  // Restore the last textbook/unit/word list before anything else can fill
+  // those fields; demo pages keep their fixed sample instead.
+  useEffect(() => {
+    if (source.demo) {
+      setHydrated(true)
+      return
+    }
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')
+      if (saved && typeof saved === 'object') {
+        const parsed = Array.isArray(saved.words) && saved.words.length
+          ? normalizeDictation({
+              meta: {
+                title: typeof saved.title === 'string' ? saved.title : '',
+                book: typeof saved.book === 'string' ? saved.book : '',
+                unit: typeof saved.unit === 'string' ? saved.unit : '',
+                date: '',
+                kind: saved.kind === 'translation' ? 'translation' : 'dictation',
+                mode: saved.mode === 'en' ? 'en' : 'zh',
+              },
+              words: saved.words,
+            })
+          : null
+        if (parsed) {
+          accept(parsed)
+        } else {
+          if (typeof saved.book === 'string' && saved.book) setBook(saved.book)
+          if (typeof saved.unit === 'string' && saved.unit) setUnit(saved.unit)
+          if (typeof saved.title === 'string' && saved.title) setTitle(saved.title)
+          setKind(saved.kind === 'translation' ? 'translation' : 'dictation')
+          setMode(saved.mode === 'en' ? 'en' : 'zh')
+        }
+      }
+    } catch {
+      // A malformed entry must not block the page.
+    }
+    setHydrated(true)
+    // Run once per mount; source.demo is the only switch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source.demo])
+
+  // Remember the last selection and parsed list for the next visit.
+  useEffect(() => {
+    if (source.demo || !hydrated) return
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ book, unit, title, kind, mode, words }))
+    } catch {
+      // Private mode / quota: the page still works without the memory.
+    }
+  }, [book, unit, title, kind, mode, words, hydrated, source.demo])
 
   // The teacher's own textbook fills the empty field once.
   useEffect(() => {
