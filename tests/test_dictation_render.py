@@ -84,6 +84,8 @@ def test_translation_mode_shows_english_and_reveals_chinese():
     assert 'id="loop"' in html and '循环播放' in html
     assert 'think: 2' in html and 'hold: 1' in html
     assert 'dictation-translation' in html
+    assert '<option value="10">10 秒</option>' in html
+    assert '12 秒' not in html and '15 秒' not in html and '20 秒' not in html
     assert '思考' in html and '答案 ' in html
     # The print sheet asks for English -> Chinese, not the word.
     assert '<span class="p p-en">visit</span>' in html

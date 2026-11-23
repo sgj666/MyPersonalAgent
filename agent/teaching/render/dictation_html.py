@@ -148,9 +148,6 @@ body.kind-translation .prompt-en{display:none}
 body.kind-dictation .reveal-hint,
 body.kind-dictation .prompt-trans{display:none}
 body.kind-translation .replay{display:none}
-.only-translation{display:none}
-body.kind-translation .only-translation{display:flex}
-body.kind-translation .only-dictation{display:none}
 .big-say{width:clamp(112px,15vw,170px);height:clamp(112px,15vw,170px);border-radius:999px;cursor:pointer;
   display:flex;align-items:center;justify-content:center;color:var(--accent);
   border:1px solid rgba(47,107,79,.35);background:radial-gradient(circle at 50% 34%,#fff,#e9f0e9);
@@ -202,6 +199,9 @@ body.kind-translation .a-phon{display:none}
 .settings h2{margin:0 0 6px;font-size:14px;font-weight:800;letter-spacing:.04em}
 .settings label{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;
   font-size:13px;border-bottom:1px dashed var(--line)}
+.settings label.only-translation{display:none}
+body.kind-translation .settings label.only-translation{display:flex}
+body.kind-translation .settings label.only-dictation{display:none}
 .settings select{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:#fff}
 .settings .note{margin:10px 0 0;font-size:11.5px;line-height:1.5;color:var(--ink-3)}
 .settings .close{margin-top:12px;width:100%;height:36px;border-radius:10px;border:0;background:var(--accent);color:#fff;
@@ -313,6 +313,17 @@ PLAYER = """
     });
     if (trans.autoRead === false) state.autoRead = false;
     if (trans.loop === true) state.loop = true;
+    var allowed = function (id) {
+      return Array.prototype.map.call($(id).options, function (option) { return Number(option.value); });
+    };
+    [
+      ['interval', 6],
+      ['think', 2],
+      ['hold', 1]
+    ].forEach(function (entry) {
+      var key = entry[0];
+      if (allowed(key).indexOf(Number(state[key])) === -1) state[key] = entry[1];
+    });
     $('interval').value = String(state.interval);
     $('repeat').value = String(state.repeat);
     $('think').value = String(state.think);
@@ -1204,14 +1215,10 @@ def render_dictation_html(draft, audio=None):
 
     print_rows = ''.join(print_row(number, word) for number, word in enumerate(words, 1))
 
-    settings = ''.join(f'<option value="{value}">{label}</option>'
-                       for value, label in ((4, '4 秒'), (6, '6 秒'), (8, '8 秒'), (10, '10 秒'), (15, '15 秒')))
-    repeats = ''.join(f'<option value="{value}">{label}</option>'
-                      for value, label in ((1, '1 遍'), (2, '2 遍'), (3, '3 遍')))
-    thinks = ''.join(f'<option value="{value}">{label}</option>'
-                     for value, label in ((2, '2 秒'), (5, '5 秒'), (8, '8 秒'), (12, '12 秒'), (20, '20 秒')))
-    holds = ''.join(f'<option value="{value}">{label}</option>'
-                    for value, label in ((1, '1 秒'), (2, '2 秒'), (3, '3 秒'), (5, '5 秒'), (10, '10 秒')))
+    # One-second steps up to ten; longer waits were never useful in class.
+    seconds = ''.join(f'<option value="{value}">{value} 秒</option>' for value in range(1, 11))
+    settings = thinks = holds = seconds
+    repeats = ''.join(f'<option value="{value}">{value} 遍</option>' for value in (1, 2, 3))
 
     html = f"""<!DOCTYPE html>
 <html lang="zh-CN">
