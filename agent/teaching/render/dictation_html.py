@@ -277,7 +277,7 @@ PLAYER = """
   var TRANSLATION = KIND === 'translation';
   var state = {
     i: 0, mode: 'MODE', answer: false, auto: false,
-    interval: 6, repeat: 2, think: 8, hold: 5, autoRead: true, order: []
+    interval: 6, repeat: 2, think: 2, hold: 1, autoRead: true, loop: false, order: []
   };
   var token = 0, audioEl = null, timer = null;
   var $ = function (id) { return document.getElementById(id); };
@@ -298,12 +298,14 @@ PLAYER = """
       if (saved[key]) state[key] = saved[key];
     });
     if (saved.autoRead === false) state.autoRead = false;
+    if (saved.loop === true) state.loop = true;
     if (saved.mode === 'zh' || saved.mode === 'en') state.mode = saved.mode;
     $('interval').value = String(state.interval);
     $('repeat').value = String(state.repeat);
     $('think').value = String(state.think);
     $('hold').value = String(state.hold);
     $('autoread').checked = state.autoRead;
+    $('loop').checked = state.loop;
   } catch (_) { /* private mode: keep defaults */ }
 
   function buildOrder() {
@@ -573,6 +575,13 @@ PLAYER = """
   function advance(automatic) {
     stopAudio();
     if (state.i >= state.order.length - 1) {
+      if (automatic && TRANSLATION && state.loop) {
+        state.i = 0;
+        state.answer = false;
+        render();
+        tick();
+        return;
+      }
       if (automatic) finish();
       return;
     }
@@ -585,6 +594,7 @@ PLAYER = """
   function back() {
     stopAuto();
     if (state.i > 0) state.i -= 1;
+    else if (TRANSLATION && state.loop) state.i = state.order.length - 1;
     state.answer = false;
     render();
     playOnNavigate();
@@ -638,7 +648,10 @@ PLAYER = """
   function go(delta) {
     stopAuto();
     var next = state.i + delta;
-    if (next >= state.order.length) { finish(); return; }
+    if (next >= state.order.length) {
+      if (TRANSLATION && state.loop) { state.i = 0; state.answer = false; render(); playOnNavigate(); return; }
+      finish(); return;
+    }
     if (next < 0) return;
     state.i = next;
     state.answer = false;
@@ -683,6 +696,10 @@ PLAYER = """
   });
   $('autoread').addEventListener('change', function (e) {
     state.autoRead = e.target.checked;
+    persist();
+  });
+  $('loop').addEventListener('change', function (e) {
+    state.loop = e.target.checked;
     persist();
   });
   $('shuffle').addEventListener('change', function () {
@@ -1009,6 +1026,7 @@ PLAYER = """
       saved.think = state.think;
       saved.hold = state.hold;
       saved.autoRead = state.autoRead;
+      saved.loop = state.loop;
       saved.mode = state.mode;
       localStorage.setItem('dictation-player', JSON.stringify(saved));
     } catch (_) {}
@@ -1122,9 +1140,9 @@ def render_dictation_html(draft, audio=None):
     repeats = ''.join(f'<option value="{value}">{label}</option>'
                       for value, label in ((1, '1 遍'), (2, '2 遍'), (3, '3 遍')))
     thinks = ''.join(f'<option value="{value}">{label}</option>'
-                     for value, label in ((5, '5 秒'), (8, '8 秒'), (12, '12 秒'), (20, '20 秒')))
+                     for value, label in ((2, '2 秒'), (5, '5 秒'), (8, '8 秒'), (12, '12 秒'), (20, '20 秒')))
     holds = ''.join(f'<option value="{value}">{label}</option>'
-                    for value, label in ((3, '3 秒'), (5, '5 秒'), (10, '10 秒')))
+                    for value, label in ((1, '1 秒'), (2, '2 秒'), (3, '3 秒'), (5, '5 秒'), (10, '10 秒')))
 
     html = f"""<!DOCTYPE html>
 <html lang="zh-CN">
@@ -1202,6 +1220,7 @@ def render_dictation_html(draft, audio=None):
     <label class="only-translation">思考时间 <select id="think">{thinks}</select></label>
     <label class="only-translation">答案停留 <select id="hold">{holds}</select></label>
     <label class="only-translation">自动朗读 <input type="checkbox" id="autoread" checked></label>
+    <label class="only-translation">循环播放 <input type="checkbox" id="loop"></label>
     <label>打乱顺序 <input type="checkbox" id="shuffle"></label>
     <p class="note" id="audio-note"></p>
     <button type="button" class="close" id="close-settings">完成</button>

@@ -81,6 +81,8 @@ def test_translation_mode_shows_english_and_reveals_chinese():
     assert 'id="reveal-hint"' in html and '点击显示中文答案' in html
     # Auto check has its own two phases and an audio toggle.
     assert 'id="think"' in html and 'id="hold"' in html and 'id="autoread"' in html
+    assert 'id="loop"' in html and '循环播放' in html
+    assert 'think: 2' in html and 'hold: 1' in html
     assert '思考' in html and '答案 ' in html
     # The print sheet asks for English -> Chinese, not the word.
     assert '<span class="p p-en">visit</span>' in html
