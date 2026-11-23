@@ -58,6 +58,8 @@ desktop/build/*
 !desktop/build/build-backend.sh
 !desktop/build/stamp-backend-version.sh
 !desktop/build/build-feishu-vendor.py
+# Post-build guard: fails the release when the bundle lacks yt-dlp/ffmpeg.
+!desktop/build/check-bundle.py
 !desktop/build/entitlements.mac.plist
 !desktop/build/installer.nsh
 
