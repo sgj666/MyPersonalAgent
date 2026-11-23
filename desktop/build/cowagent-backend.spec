@@ -200,8 +200,12 @@ excludes = [
     'lark_oapi',          # Feishu SDK — fetched on demand, NOT bundled (see above)
     'tests',
     'pip',
-    'wheel',
     'pytest',
+    # `wheel` is deliberately NOT excluded: PyInstaller's setuptools hook aliases
+    # `wheel` to `setuptools._vendor.wheel`, and excluding it makes that alias
+    # raise "Target module wheel already imported as ExcludedModule" — which is
+    # what failed the build once yt-dlp's imports reached setuptools. It is a
+    # few hundred KB next to a 300MB bundle.
     # NOTE: playwright is now BUNDLED (pure-Python package + Node driver, ~10-15MB)
     # so the browser tool works out of the box on desktop. The heavy Chromium
     # binary is still NOT bundled: it comes from the user's system Chrome/Edge or

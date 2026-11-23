@@ -423,6 +423,9 @@ imageio-ffmpeg>=0.6.0
 | `desktop/build/requirements-desktop.txt` | 同上两个包 | 桌面安装包的后端是 PyInstaller 冻结包，里面没有它们 |
 | `desktop/build/cowagent-backend.spec` | `collect_submodules('yt_dlp')` + `collect_data_files('imageio_ffmpeg')` | yt-dlp 的 extractor 是动态导入的，不收就只剩「Unsupported URL」；ffmpeg 二进制是包内数据文件，不收就合并不了 B 站 DASH |
 | `runner._is_frozen()` | 冻结包里**不再尝试 pip**，直接报「打包版应内置」 | 冻结包里没有 pip，自愈会打一条注定失败的日志 |
+| `desktop/build/check-bundle.py` + `release.yml` | 打包后断言包里有 yt-dlp 的 extractor 和 ffmpeg 二进制，缺了就让构建失败 | 这正是 Windows 用户收到的「缺少 ffmpeg」：包能启动、页面能开，只有粘贴链接时才炸 |
+| `app.py --ytdlp` | 冻结包里用自身二进制转跑 yt-dlp（`<backend> --ytdlp …`） | 包里没有解释器，`python -m yt_dlp` 会把后端自己再拉起一次 |
+| `ffmpeg_location()` 四级查找 | imageio-ffmpeg → `_MEIPASS`/exe 同级 → `<state>/bin` → PATH | 只认 imageio-ffmpeg 时，任何一个打包疏漏都直接表现为「缺少 ffmpeg」 |
 
 源码安装的两种情况都覆盖了：`run.sh` 的 `install_dependencies` 会装 requirements；**已有用户只 `run.sh start` 时不会重装**，所以第一次打开视频页时后端自己 `pip install`（实测 5 秒完成）。
 

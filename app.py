@@ -866,5 +866,20 @@ def run():
             os._exit(1)
 
 
+def _run_embedded_ytdlp() -> None:
+    """Run yt-dlp inside the packaged bundle.
+
+    A PyInstaller bundle ships no interpreter, so `python -m yt_dlp` is not a
+    thing there — the frozen binary is the only executable. The video tool keeps
+    calling a subprocess for isolation, and this is the entry point it calls:
+    `<backend> --ytdlp <yt-dlp arguments>`.
+    """
+    import yt_dlp
+
+    raise SystemExit(yt_dlp.main(sys.argv[2:]))
+
+
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "--ytdlp":
+        _run_embedded_ytdlp()
     run()

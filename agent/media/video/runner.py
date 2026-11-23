@@ -81,6 +81,11 @@ def find_command() -> Optional[List[str]]:
         import importlib.util
 
         if importlib.util.find_spec("yt_dlp") is not None:
+            if _is_frozen():
+                # No interpreter in the bundle: the app binary runs yt-dlp for us
+                # (see app.py's --ytdlp branch). `sys.executable -m yt_dlp` would
+                # start the backend again — which it did, once, in testing.
+                return [sys.executable, "--ytdlp"]
             return [sys.executable, "-m", "yt_dlp"]
     except Exception as e:  # pragma: no cover - import machinery only
         logger.debug(f"[video] yt_dlp import probe failed: {e}")
@@ -144,7 +149,10 @@ def ensure_engine() -> Dict:
     Returns the current install state. A second call while an install is running
     is a no-op, and a failed attempt is not retried for ten minutes.
     """
-    if find_command() is not None:
+    # yt-dlp alone is not enough: merging a Bilibili stream needs ffmpeg, and a
+    # half-installed environment (the engine present, ffmpeg missing) is exactly
+    # what produced "缺少 ffmpeg 组件" on a fresh Windows install.
+    if find_command() is not None and ffmpeg_location():
         return {"running": False, "error": "", "ready": True}
     if _is_frozen():
         # A PyInstaller bundle has no pip and no writable site-packages. The
@@ -154,7 +162,8 @@ def ensure_engine() -> Dict:
         return {
             "running": False,
             "ready": False,
-            "error": "打包版应内置下载引擎；若缺失请重新安装工作台。",
+            "error": ("打包版应内置 yt-dlp 与 ffmpeg；若缺失请重新安装最新版工作台，"
+                      "或把 ffmpeg 放到程序目录下。"),
         }
     if os.environ.get("COW_SKIP_AUTO_INSTALL"):
         return {"running": False, "error": "auto install disabled", "ready": False}
@@ -175,7 +184,11 @@ def _is_frozen() -> bool:
 
 
 def _install_engine() -> None:
-    """`pip install yt-dlp imageio-ffmpeg` into this interpreter, in the background."""
+    """`pip install yt-dlp imageio-ffmpeg` into this interpreter, in the background.
+
+    ``imageio-ffmpeg`` carries the static ffmpeg binary, so one install covers
+    both halves of "the engine is ready".
+    """
     command = [sys.executable, "-m", "pip", "install", *_INSTALL_PACKAGES, "--quiet"]
     logger.info(f"[video] installing the download engine: {' '.join(command)}")
     error = ""
@@ -193,8 +206,9 @@ def _install_engine() -> None:
     # pip can exit 0 while the import still fails (a half-removed install, a
     # stale dist-info). Verifying the import is the only way to know, and it
     # stops the retry loop that would otherwise reinstall forever.
-    if not error and find_command() is None:
-        error = "pip 报告已安装，但后端仍无法导入 yt-dlp；执行 pip install --force-reinstall yt-dlp 重装。"
+    if not error and (find_command() is None or not ffmpeg_location()):
+        error = ("pip 报告已安装，但后端仍找不到 yt-dlp 或 ffmpeg；"
+                 "执行 pip install --force-reinstall yt-dlp imageio-ffmpeg 重装。")
 
     with _install_lock:
         _install_state["running"] = False
@@ -220,18 +234,41 @@ def version() -> Optional[str]:
 
 
 def ffmpeg_location() -> Optional[str]:
-    """A working ffmpeg, preferring the one pip ships.
+    """A working ffmpeg, in the order that actually holds on a fresh install.
 
-    A Homebrew/user ffmpeg may be half-broken (missing dylibs) while still
-    sitting on PATH, so the bundled static build wins when both exist; yt-dlp
-    is told exactly which one to use.
+    1. ``imageio-ffmpeg``'s own copy — pip installs it, and the packaged build
+       freezes it in. This is the only one a teacher's machine is guaranteed to
+       have; a PATH ffmpeg may be missing entirely or half-broken (a Homebrew
+       build whose dylibs went away still answers ``which``).
+    2. Next to the executable / in PyInstaller's ``_MEIPASS``, for a bundle that
+       ships one as an extra resource instead of a package.
+    3. ``<state root>/bin`` — where a self-install or a user drops one.
+    4. ``PATH``.
     """
     try:
         import imageio_ffmpeg
 
-        return imageio_ffmpeg.get_ffmpeg_exe()
+        path = imageio_ffmpeg.get_ffmpeg_exe()
+        if path and os.path.isfile(path):
+            return path
     except Exception as e:
         logger.debug(f"[video] imageio-ffmpeg unavailable: {e}")
+
+    names = ("ffmpeg.exe", "ffmpeg") if os.name == "nt" else ("ffmpeg", "ffmpeg.exe")
+    roots = []
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        roots.append(meipass)
+    try:
+        roots.append(os.path.dirname(os.path.abspath(sys.executable)))
+    except Exception:
+        pass
+    roots.append(_bin_dir())
+    for root in roots:
+        for name in names:
+            candidate = os.path.join(root, name)
+            if os.path.isfile(candidate):
+                return candidate
     return shutil.which("ffmpeg")
 
 
@@ -255,11 +292,14 @@ def probe(url: str, timeout: int = 60) -> Dict:
         out = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired:
         raise RunnerError("timeout", "解析超时（平台没有响应）。") from None
-    if out.returncode != 0 or not (out.stdout or "").strip():
-        raise RunnerError(*_failure(out.stderr or ""))
+    # `-J` writes the JSON even when yt-dlp exits non-zero on a warning (a
+    # missing ffmpeg only warns during a probe: nothing gets merged). Trust the
+    # JSON first and only report a failure when there is none to read.
     try:
-        info = json.loads(out.stdout)
+        info = json.loads(out.stdout or "")
     except ValueError:
+        if out.returncode != 0:
+            raise RunnerError(*_failure(out.stderr or "")) from None
         raise RunnerError("unknown", "解析结果无法识别。", out.stdout[:400]) from None
     return _info_summary(info)
 
@@ -521,7 +561,8 @@ def _failure(stderr: str) -> Tuple[str, str, str]:
         "unsupported_url": "这个链接不是可下载的视频页。",
         "quality": "这个清晰度拿不到（可能需要登录或大会员）。",
         "network": "网络连接中断（平台 CDN 超时），再试一次。",
-        "dep": "缺少 ffmpeg 组件，无法合并音视频。",
+        "dep": ("缺少 ffmpeg，B 站这类音视频分开的视频无法合并。"
+                "重装最新版工作台即可；或执行 pip install imageio-ffmpeg。"),
         "unknown": "下载失败。",
     }.get(reason, "下载失败。")
     return reason, message, detail or "（yt-dlp 没有输出就退出了）"

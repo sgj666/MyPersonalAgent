@@ -111,6 +111,13 @@ jobs:
             --distpath desktop/build/dist \
             --workpath desktop/build/build-work
 
+      - name: Verify the bundle can download videos
+        # A bundle without yt-dlp's extractors or without ffmpeg still boots and
+        # renders; the failure only shows up on a user's machine when they paste
+        # a link. Fail here instead of shipping it.
+        shell: bash
+        run: python desktop/build/check-bundle.py desktop/build/dist/cowagent-backend
+
       - name: Verify bundled backend version
         shell: bash
         env:
