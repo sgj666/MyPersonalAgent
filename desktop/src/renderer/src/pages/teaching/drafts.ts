@@ -166,6 +166,9 @@ export interface DictationWord {
   phonetic?: string
   /** One word can be several parts of speech, each with its own meaning. */
   senses: DictationSense[]
+  /** A sentence showing the word in use, embedded for offline review. */
+  example?: string
+  exampleZh?: string
   /** The page's checkbox; false means it is not printed. */
   on?: boolean
 }
@@ -365,6 +368,9 @@ export function normalizeDictation(raw: unknown): DictationDraft | null {
         : [{ pos: str(row.pos).trim(), meaning: str(row.meaning).trim() }].filter((sense) => sense.pos || sense.meaning)
       const out: DictationWord = { word: str(row.word).trim(), senses, on: row.on !== false }
       if (str(row.phonetic).trim()) out.phonetic = str(row.phonetic).trim()
+      if (str(row.example).trim()) out.example = str(row.example).trim()
+      const exampleZh = str(row.exampleZh ?? row.example_zh).trim()
+      if (exampleZh) out.exampleZh = exampleZh
       return out
     })
     .filter((row) => row.word)

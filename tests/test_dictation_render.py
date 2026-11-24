@@ -82,6 +82,7 @@ def test_translation_mode_shows_english_and_reveals_chinese():
     # Auto check has its own two phases and an audio toggle.
     assert 'id="think"' in html and 'id="hold"' in html and 'id="autoread"' in html
     assert 'id="loop"' in html and '循环播放' in html
+    assert '答案停留' in html
     assert 'think: 2' in html and 'hold: 1' in html
     assert 'dictation-translation' in html
     assert '<option value="10">10 秒</option>' in html
@@ -150,6 +151,22 @@ def test_translation_render_only_synthesizes_the_english_voice(tmp_path, monkeyp
     result = render_draft('dictation', draft, workspace=str(tmp_path), tts=True)
     assert result['files'][0]['format'] == 'html'
     assert voices and all('Aria' in voice for voice in voices)
+
+
+def test_single_answer_review_embeds_examples_and_has_a_size_control():
+    draft = spec()
+    draft['words'][0]['example'] = 'We will visit the museum this weekend.'
+    draft['words'][0]['example_zh'] = '这个周末我们要去参观博物馆。'
+    html = render_dictation_html(draft)['html']
+    words = payload(html)
+    assert words[0]['example'] == 'We will visit the museum this weekend.'
+    assert words[0]['exampleZh'] == '这个周末我们要去参观博物馆。'
+    assert 'id="answers-open"' in html and '单个看答案' in html
+    assert 'id="answers-example"' in html and 'fillExample' in html
+    assert 'summary-size' in html and 'data-scale="1.2"' in html
+    # Dictation settings have no answer-hold row.
+    assert '答案停留' not in html
+    assert 'id="interval"' in html
 
 
 def test_render_draft_writes_one_html_file(tmp_path):

@@ -57,6 +57,8 @@ def validate_dictation(draft):
             'word': word,
             'phonetic': _text(row.get('phonetic'), 60),
             'senses': clean_senses,
+            'example': _text(row.get('example'), 300),
+            'exampleZh': _text(row.get('exampleZh') or row.get('example_zh'), 300),
             'on': row.get('on') is not False,
         })
     meta = draft.get('meta') if isinstance(draft.get('meta'), dict) else {}
@@ -199,9 +201,6 @@ body.kind-translation .a-phon{display:none}
 .settings h2{margin:0 0 6px;font-size:14px;font-weight:800;letter-spacing:.04em}
 .settings label{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;
   font-size:13px;border-bottom:1px dashed var(--line)}
-.settings label.only-translation{display:none}
-body.kind-translation .settings label.only-translation{display:flex}
-body.kind-translation .settings label.only-dictation{display:none}
 .settings select{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:#fff}
 .settings .note{margin:10px 0 0;font-size:11.5px;line-height:1.5;color:var(--ink-3)}
 .settings .close{margin-top:12px;width:100%;height:36px;border-radius:10px;border:0;background:var(--accent);color:#fff;
@@ -212,6 +211,31 @@ body.kind-translation .settings label.only-dictation{display:none}
 .done .eyebrow{color:var(--accent)}
 .done h2{margin:0;font-family:var(--serif);font-size:clamp(38px,5.4vw,66px);font-weight:700}
 .done p{margin:0;font-size:14px;color:var(--ink-2)}
+.answers{position:fixed;inset:0;z-index:25;display:flex;flex-direction:column;
+  background:rgba(247,242,232,.97);backdrop-filter:blur(8px)}
+.answers[hidden]{display:none}
+.answers-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  padding:18px 28px;border-bottom:1px solid var(--line)}
+.answers-head h2{margin:6px 0 0;font-family:var(--serif);font-size:24px;font-weight:700}
+.answers-head p{margin:4px 0 0;font-size:12.5px;color:var(--ink-2)}
+.answers-stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;gap:14px;padding:16px 22px}
+.answers-card{width:min(1100px,100%);max-height:100%;overflow:auto;text-align:center;
+  padding:clamp(20px,3vh,40px) clamp(24px,4vw,56px);background:#fffdf7;border:1px solid var(--line);
+  border-radius:24px;box-shadow:0 24px 60px -32px rgba(32,36,42,.45)}
+.answers-count{margin:0;font-size:12px;font-weight:700;letter-spacing:.16em;color:var(--ink-3)}
+.answers-word{margin:8px 0 0;font-family:var(--serif);font-size:clamp(46px,6.4vw,92px);
+  font-weight:700;color:var(--accent);overflow-wrap:anywhere}
+.answers-phon{margin:4px 0 0;font-size:16px;color:var(--ink-2)}
+.answers-senses{display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:18px;
+  font-family:var(--serif);font-size:clamp(22px,2.6vw,34px);color:var(--ink)}
+.answers-senses .answers-sense{margin:0}
+.answers-senses b{font-family:var(--sans);font-size:14px;font-weight:800;color:var(--gold);margin-right:10px}
+.answers-example{max-width:900px;margin:22px auto 0;padding-top:18px;border-top:1px dashed var(--line);
+  font-family:var(--serif);font-size:clamp(20px,2.2vw,28px);line-height:1.7;color:var(--ink)}
+.answers-example mark{background:rgba(47,107,79,.14);color:var(--accent);border-radius:4px;padding:0 2px}
+.answers-example.is-empty{font-family:var(--sans);font-size:14px;color:var(--ink-3)}
+.answers-example-zh{margin:8px 0 0;font-size:15px;color:var(--ink-2)}
+.answers-example-zh[hidden]{display:none}
 .summary{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;
   background:rgba(247,242,232,.985);backdrop-filter:blur(8px)}
 .summary[hidden]{display:none}
@@ -219,7 +243,13 @@ body.kind-translation .settings label.only-dictation{display:none}
   padding:18px 28px;border-bottom:1px solid var(--line)}
 .summary-head h2{margin:6px 0 0;font-family:var(--serif);font-size:24px;font-weight:700}
 .summary-head p{margin:4px 0 0;font-size:12.5px;color:var(--ink-2)}
-.summary-actions{display:flex;gap:8px;flex-wrap:wrap}
+.summary-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.summary-size{display:inline-flex;align-items:center;gap:2px;padding:3px;font-size:12px;color:var(--ink-2);
+  border:1px solid var(--line);border-radius:999px}
+.summary-size span{padding:0 6px}
+.summary-size button{border:0;background:none;font:inherit;font-size:12px;font-weight:700;color:var(--ink-2);
+  padding:5px 9px;border-radius:999px;cursor:pointer}
+.summary-size button.is-on{background:var(--accent);color:#fff}
 .summary-view{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;gap:14px;padding:14px 22px}
 .summary-img{max-width:100%;max-height:100%;width:auto;height:auto;border-radius:14px;background:#fffdf7;
   box-shadow:0 24px 60px -32px rgba(32,36,42,.5)}
@@ -247,7 +277,7 @@ body.kind-translation .settings label.only-dictation{display:none}
 @page{size:A4;margin:14mm}
 @media print{
   body{overflow:visible;background:#fff}
-  .app,.done,.settings,.summary{display:none!important}
+  .app,.done,.settings,.answers,.summary{display:none!important}
   .print-sheet{display:block;color:#111;font-family:var(--sans)}
   .print-sheet .head h1{margin:0;font-size:22px}
   .print-sheet .head p{margin:4px 0 0;font-size:12px;color:#555}
@@ -282,7 +312,7 @@ PLAYER = """
   var KIND = META.kind || 'dictation';
   var TRANSLATION = KIND === 'translation';
   var state = {
-    i: 0, mode: 'MODE', answer: false, auto: false,
+    i: 0, review: 0, mode: 'MODE', answer: false, auto: false,
     interval: 6, repeat: 2, think: 2, hold: 1, autoRead: true, loop: false, order: []
   };
   var token = 0, audioEl = null, timer = null;
@@ -297,6 +327,9 @@ PLAYER = """
   var keyHint = $('key-hint'), settingsTitle = $('settings-title');
   var doneTitle = $('done-title'), doneEyebrow = $('done-eyebrow'), doneQuestion = $('done-question');
   var summaryTitle = $('summary-title'), summaryEyebrow = $('summary-eyebrow'), summaryBack = $('summary-back');
+  var answersCount = $('answers-count'), answersWord = $('answers-word'), answersPhon = $('answers-phon');
+  var answersSenses = $('answers-senses'), answersExample = $('answers-example');
+  var answersExampleZh = $('answers-example-zh'), answersPrev = $('answers-prev'), answersNext = $('answers-next');
 
   try {
     var saved = JSON.parse(localStorage.getItem('dictation-player') || '{}');
@@ -313,23 +346,16 @@ PLAYER = """
     });
     if (trans.autoRead === false) state.autoRead = false;
     if (trans.loop === true) state.loop = true;
-    var allowed = function (id) {
-      return Array.prototype.map.call($(id).options, function (option) { return Number(option.value); });
-    };
-    [
-      ['interval', 6],
-      ['think', 2],
-      ['hold', 1]
-    ].forEach(function (entry) {
-      var key = entry[0];
-      if (allowed(key).indexOf(Number(state[key])) === -1) state[key] = entry[1];
+    [['interval', 6], ['think', 2], ['hold', 1]].forEach(function (entry) {
+      var el = $(entry[0]);
+      if (!el) return;
+      var values = Array.prototype.map.call(el.options, function (option) { return Number(option.value); });
+      if (values.indexOf(Number(state[entry[0]])) === -1) state[entry[0]] = entry[1];
+      el.value = String(state[entry[0]]);
     });
-    $('interval').value = String(state.interval);
-    $('repeat').value = String(state.repeat);
-    $('think').value = String(state.think);
-    $('hold').value = String(state.hold);
-    $('autoread').checked = state.autoRead;
-    $('loop').checked = state.loop;
+    if ($('repeat')) $('repeat').value = String(state.repeat);
+    if ($('autoread')) $('autoread').checked = state.autoRead;
+    if ($('loop')) $('loop').checked = state.loop;
   } catch (_) { /* private mode: keep defaults */ }
 
   function buildOrder() {
@@ -752,30 +778,16 @@ PLAYER = """
   });
   $('settings-btn').addEventListener('click', function () { $('settings').hidden = !$('settings').hidden; });
   $('close-settings').addEventListener('click', function () { $('settings').hidden = true; });
-  $('interval').addEventListener('change', function (e) {
-    state.interval = Number(e.target.value) || 6;
-    persist();
-  });
-  $('repeat').addEventListener('change', function (e) {
-    state.repeat = Number(e.target.value) || 1;
-    persist();
-  });
-  $('think').addEventListener('change', function (e) {
-    state.think = Number(e.target.value) || 8;
-    persist();
-  });
-  $('hold').addEventListener('change', function (e) {
-    state.hold = Number(e.target.value) || 5;
-    persist();
-  });
-  $('autoread').addEventListener('change', function (e) {
-    state.autoRead = e.target.checked;
-    persist();
-  });
-  $('loop').addEventListener('change', function (e) {
-    state.loop = e.target.checked;
-    persist();
-  });
+  function onChange(id, handler) {
+    var el = $(id);
+    if (el) el.addEventListener('change', handler);
+  }
+  onChange('interval', function (e) { state.interval = Number(e.target.value) || 6; persist(); });
+  onChange('repeat', function (e) { state.repeat = Number(e.target.value) || 1; persist(); });
+  onChange('think', function (e) { state.think = Number(e.target.value) || 2; persist(); });
+  onChange('hold', function (e) { state.hold = Number(e.target.value) || 1; persist(); });
+  onChange('autoread', function (e) { state.autoRead = e.target.checked; persist(); });
+  onChange('loop', function (e) { state.loop = e.target.checked; persist(); });
   $('shuffle').addEventListener('change', function () {
     stopAuto(); buildOrder(); render();
   });
@@ -797,11 +809,18 @@ PLAYER = """
     tick();
   });
   window.addEventListener('resize', fitTranslationAnswer);
+  $('answers-open').addEventListener('click', openAnswers);
+  $('answers-close').addEventListener('click', function () { $('answers').hidden = true; });
+  answersPrev.addEventListener('click', function () { showAnswerAt(state.review - 1); });
+  answersNext.addEventListener('click', function () { showAnswerAt(state.review + 1); });
   $('summary-open').addEventListener('click', openSummary);
   $('summary-back').addEventListener('click', function () {
     $('summary').hidden = true;
   });
   $('summary-save').addEventListener('click', saveAllImages);
+  document.querySelectorAll('.summary-size button').forEach(function (button) {
+    button.addEventListener('click', function () { setSummaryScale(Number(button.dataset.scale)); });
+  });
   $('summary-save-one').addEventListener('click', saveCurrentImage);
   $('summary-prev').addEventListener('click', function () { showSummaryPage(state.summaryPage - 1); });
   $('summary-next').addEventListener('click', function () { showSummaryPage(state.summaryPage + 1); });
@@ -812,6 +831,70 @@ PLAYER = """
       document.exitFullscreen();
     }
   });
+
+  function fillExample(sentence, target) {
+    answersExample.innerHTML = '';
+    answersExample.classList.remove('is-empty');
+    if (!sentence) {
+      answersExample.textContent = '暂无例句；重新生成词表时可以补充。';
+      answersExample.classList.add('is-empty');
+      return;
+    }
+    var text = String(sentence);
+    var needle = String(target);
+    var lower = text.toLowerCase();
+    var at = lower.indexOf(needle.toLowerCase());
+    if (at < 0) {
+      answersExample.textContent = text;
+      return;
+    }
+    var pos = 0;
+    while (at >= 0) {
+      if (at > pos) answersExample.appendChild(document.createTextNode(text.slice(pos, at)));
+      var mark = document.createElement('mark');
+      mark.textContent = text.slice(at, at + needle.length);
+      answersExample.appendChild(mark);
+      pos = at + needle.length;
+      at = lower.indexOf(needle.toLowerCase(), pos);
+    }
+    if (pos < text.length) answersExample.appendChild(document.createTextNode(text.slice(pos)));
+  }
+
+  function showAnswerAt(index) {
+    var total = state.order.length;
+    if (!total) return;
+    state.review = Math.max(0, Math.min(total - 1, index));
+    var word = DATA[state.order[state.review]];
+    answersCount.textContent = (state.review + 1) + ' / ' + total;
+    answersWord.textContent = word.word;
+    answersPhon.textContent = word.phonetic || '';
+    answersPhon.hidden = !word.phonetic;
+    answersSenses.innerHTML = '';
+    word.senses.forEach(function (sense) {
+      var line = document.createElement('p');
+      line.className = 'answers-sense';
+      if (sense.pos) {
+        var pos = document.createElement('b');
+        pos.textContent = sense.pos;
+        line.appendChild(pos);
+      }
+      line.appendChild(document.createTextNode(sense.meaning || '—'));
+      answersSenses.appendChild(line);
+    });
+    fillExample(word.example, word.word);
+    answersExampleZh.textContent = word.exampleZh || '';
+    answersExampleZh.hidden = !word.exampleZh;
+    answersPrev.disabled = state.review === 0;
+    answersNext.disabled = state.review === total - 1;
+    document.querySelector('.answers-card').scrollTop = 0;
+  }
+
+  function openAnswers() {
+    stopAudio();
+    $('answers-title').textContent = '单个看答案 · 共 ' + state.order.length + ' 词';
+    $('answers').hidden = false;
+    showAnswerAt(0);
+  }
 
   function summaryName(index) {
     var safe = (document.title || '单词听写').replace(/[\\/:*?"<>|]/g, '-');
@@ -840,17 +923,29 @@ PLAYER = """
     $('summary-note').textContent = '已生成 ' + state.summaryUrls.length + ' 张图片；若浏览器拦截多文件下载，请允许后重试，或用「保存本页」。';
   }
 
-  function openSummary() {
-    stopAudio();
+  function renderSummary() {
     var pages = buildSummaryPages();
     state.summaryUrls = pages.map(function (canvas) { return canvas.toDataURL('image/png'); });
     state.summaryPage = 0;
+    showSummaryPage(0);
+  }
+
+  function setSummaryScale(scale) {
+    SUMMARY_SCALE = scale;
+    document.querySelectorAll('.summary-size button').forEach(function (button) {
+      button.classList.toggle('is-on', Number(button.dataset.scale) === scale);
+    });
+    if (!$('summary').hidden) renderSummary();
+  }
+
+  function openSummary() {
+    stopAudio();
     $('summary-title').textContent = (TRANSLATION ? '英译汉汇总' : '听写汇总') + ' · 共 ' + state.order.length + ' 词';
     $('summary-eyebrow').textContent = TRANSLATION ? '英译汉汇总' : '听写汇总';
     $('summary-back').textContent = TRANSLATION ? '返回检查' : '返回听写';
     $('summary-note').textContent = (TRANSLATION ? '按检查顺序排列' : '按听写顺序排列') + '；内容超出一页会自动分页。';
     $('summary').hidden = false;
-    showSummaryPage(0);
+    renderSummary();
     // This runs from the teacher's click, so the browser lets the summary take
     // the whole screen — it is a projection surface, not a dialog.
     if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
@@ -876,6 +971,8 @@ PLAYER = """
   var SERIF = '"Songti SC","Noto Serif SC",Georgia,serif';
   var SANS = '-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif';
   var BUDGET = 800, ROWS_PER_PAGE = 8;
+  var SUMMARY_SCALE = 1;
+  function ss(n) { return Math.max(8, Math.round(n * SUMMARY_SCALE)); }
 
   function summaryFont(ctx, size, weight, family) {
     ctx.font = (weight || 400) + ' ' + size + 'px ' + (family || SANS);
@@ -910,17 +1007,17 @@ PLAYER = """
     return state.order.map(function (dataIndex, index) {
       var word = DATA[dataIndex];
       if (TRANSLATION) {
-        summaryFont(ctx, 60, 700, SERIF);
-        var prompt = [{ pos: '', lines: wrapText(ctx, word.word, 760) }];
-        summaryFont(ctx, 60, 600, SERIF);
+        summaryFont(ctx, ss(60), 700, SERIF);
+        var prompt = [{ pos: '', lines: wrapText(ctx, word.word, 800) }];
+        summaryFont(ctx, ss(60), 600, SERIF);
         var answer = [];
         word.senses.forEach(function (sense) {
           answer.push({ pos: sense.pos || '', lines: wrapText(ctx, sense.meaning || '—', 700) });
         });
         if (!answer.length) answer = [{ pos: '', lines: ['（未填中文释义）'] }];
-        var promptHeight = prompt[0].lines.length * 70 + (word.phonetic ? 38 : 0) + 6;
+        var promptHeight = prompt[0].lines.length * ss(70) + (word.phonetic ? ss(38) : 0) + 6;
         var answerHeight = answer.reduce(function (sum, sense) {
-          return sum + Math.max(1, sense.lines.length) * 70 + 6;
+          return sum + Math.max(1, sense.lines.length) * ss(70) + 6;
         }, 0);
         return {
           no: index + 1,
@@ -935,26 +1032,26 @@ PLAYER = """
       if (state.mode === 'zh') {
         if (!word.senses.length) prompt = [{ pos: '', lines: ['（未填中文释义）'] }];
         word.senses.forEach(function (sense) {
-          summaryFont(ctx, 60, 600, SERIF);
-          prompt.push({ pos: sense.pos || '', lines: wrapText(ctx, sense.meaning || '—', 760) });
+          summaryFont(ctx, ss(60), 600, SERIF);
+          prompt.push({ pos: sense.pos || '', lines: wrapText(ctx, sense.meaning || '—', 800) });
         });
       } else {
         prompt = [{ pos: '', lines: ['（听写发音）'] }];
       }
-      summaryFont(ctx, 60, 700, SERIF);
+      summaryFont(ctx, ss(60), 700, SERIF);
       var answer = wrapText(ctx, word.word, 450);
       var senses = [];
       if (state.mode === 'en') {
-        summaryFont(ctx, 32, 400, SANS);
+        summaryFont(ctx, ss(32), 400, SANS);
         word.senses.forEach(function (sense) {
           var text = (sense.pos ? sense.pos + '　' : '') + (sense.meaning || '');
           senses = senses.concat(wrapText(ctx, text, 740));
         });
       }
       var promptHeight = prompt.reduce(function (sum, sense) {
-        return sum + Math.max(1, sense.lines.length) * 70 + 6;
+        return sum + Math.max(1, sense.lines.length) * ss(70) + 6;
       }, 0);
-      var answerHeight = answer.length * 70 + senses.length * 36 + 6;
+      var answerHeight = answer.length * ss(70) + senses.length * ss(36) + 6;
       return {
         no: index + 1,
         prompt: prompt,
@@ -986,33 +1083,33 @@ PLAYER = """
   function drawRow(ctx, row, y) {
     var x = PAGE_PAD;
     ctx.fillStyle = '#9aa0a6';
-    summaryFont(ctx, 34, 700, SANS);
+    summaryFont(ctx, ss(34), 700, SANS);
     ctx.fillText(String(row.no).padStart(2, '0'), x, y + 6);
 
     if (TRANSLATION) {
       ctx.fillStyle = '#20242a';
-      summaryFont(ctx, 60, 700, SERIF);
+      summaryFont(ctx, ss(60), 700, SERIF);
       row.prompt[0].lines.forEach(function (line, i) {
-        ctx.fillText(line, x + 186, y + i * 70);
+        ctx.fillText(line, x + 186, y + i * ss(70));
       });
       if (row.phonetic) {
         ctx.fillStyle = '#6b7078';
-        summaryFont(ctx, 32, 400, SANS);
-        ctx.fillText(row.phonetic, x + 186, y + row.prompt[0].lines.length * 70 + 6);
+        summaryFont(ctx, ss(32), 400, SANS);
+        ctx.fillText(row.phonetic, x + 186, y + row.prompt[0].lines.length * ss(70) + 6);
       }
       var ay = y;
       row.answer.forEach(function (sense) {
         if (sense.pos) {
           ctx.fillStyle = '#b08a4a';
-          summaryFont(ctx, 34, 700, SANS);
+          summaryFont(ctx, ss(34), 700, SANS);
           ctx.fillText(sense.pos, x + 990, ay + 10);
         }
         ctx.fillStyle = '#2f6b4f';
-        summaryFont(ctx, 60, 600, SERIF);
+        summaryFont(ctx, ss(60), 600, SERIF);
         sense.lines.forEach(function (line, i) {
-          ctx.fillText(line, x + 1070, ay + i * 70);
+          ctx.fillText(line, x + 1070, ay + i * ss(70));
         });
-        ay += Math.max(1, sense.lines.length) * 70 + 6;
+        ay += Math.max(1, sense.lines.length) * ss(70) + 6;
       });
       return;
     }
@@ -1021,32 +1118,32 @@ PLAYER = """
     row.prompt.forEach(function (sense) {
       if (sense.pos) {
         ctx.fillStyle = '#b08a4a';
-        summaryFont(ctx, 34, 700, SANS);
+        summaryFont(ctx, ss(34), 700, SANS);
         ctx.fillText(sense.pos, x + 90, py + 14);
       }
       ctx.fillStyle = state.mode === 'en' ? '#9aa0a6' : '#20242a';
-      summaryFont(ctx, 56, 600, SERIF);
+      summaryFont(ctx, ss(56), 600, SERIF);
       sense.lines.forEach(function (line, i) {
-        ctx.fillText(line, x + 186, py + i * 70);
+        ctx.fillText(line, x + 186, py + i * ss(70));
       });
-      py += Math.max(1, sense.lines.length) * 70 + 6;
+      py += Math.max(1, sense.lines.length) * ss(70) + 6;
     });
 
     var ax = x + 990;
     ctx.fillStyle = '#2f6b4f';
-    summaryFont(ctx, 56, 700, SERIF);
+    summaryFont(ctx, ss(56), 700, SERIF);
     row.answer.forEach(function (line, i) {
-      ctx.fillText(line, ax, y + i * 70);
+      ctx.fillText(line, ax, y + i * ss(70));
     });
     if (row.phonetic) {
       ctx.fillStyle = '#6b7078';
-      summaryFont(ctx, 32, 400, SANS);
+      summaryFont(ctx, ss(32), 400, SANS);
       ctx.fillText(row.phonetic, ax + 480, y + 4);
     }
     ctx.fillStyle = '#6b7078';
-    summaryFont(ctx, 32, 400, SANS);
+    summaryFont(ctx, ss(32), 400, SANS);
     row.senses.forEach(function (line, i) {
-      ctx.fillText(line, ax, y + row.answer.length * 70 + i * 36);
+      ctx.fillText(line, ax, y + row.answer.length * ss(70) + i * ss(36));
     });
   }
 
@@ -1062,7 +1159,7 @@ PLAYER = """
     summaryFont(ctx, 20, 700, SANS);
     ctx.fillText(TRANSLATION ? '英 译 汉 · 汇 总' : '单 词 听 写 · 汇 总', PAGE_PAD, 54);
     ctx.fillStyle = '#20242a';
-    summaryFont(ctx, 60, 700, SERIF);
+    summaryFont(ctx, ss(60), 700, SERIF);
     ctx.fillText(document.title, PAGE_PAD, 110);
     ctx.strokeStyle = '#ded7c8';
     ctx.beginPath();
@@ -1119,6 +1216,12 @@ PLAYER = """
       if (e.key === 'ArrowRight') { e.preventDefault(); showSummaryPage(state.summaryPage + 1); }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); showSummaryPage(state.summaryPage - 1); }
       else if (e.key === 'Escape') { $('summary').hidden = true; }
+      return;
+    }
+    if (!$('answers').hidden) {
+      if (e.key === 'ArrowRight') { e.preventDefault(); showAnswerAt(state.review + 1); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); showAnswerAt(state.review - 1); }
+      else if (e.key === 'Escape') { $('answers').hidden = true; }
       return;
     }
     if (TRANSLATION) {
@@ -1188,7 +1291,8 @@ def render_dictation_html(draft, audio=None):
             'zhAudio': audio.get('zh:' + read_text(sense), ''),
         } for sense in word['senses']]
         data.append({'word': word['word'], 'phonetic': word['phonetic'],
-                     'senses': senses, 'enAudio': audio.get('en:' + word['word'], '')})
+                     'senses': senses, 'example': word['example'], 'exampleZh': word['exampleZh'],
+                     'enAudio': audio.get('en:' + word['word'], '')})
     payload = json.dumps(data, ensure_ascii=False).replace('<', '\\u003c').replace('>', '\\u003e')
     meta_payload = json.dumps({'title': meta['title'], 'book': meta['book'], 'unit': meta['unit'],
                                'date': meta['date'], 'kind': kind, 'mode': mode},
@@ -1219,6 +1323,18 @@ def render_dictation_html(draft, audio=None):
     seconds = ''.join(f'<option value="{value}">{value} 秒</option>' for value in range(1, 11))
     settings = thinks = holds = seconds
     repeats = ''.join(f'<option value="{value}">{value} 遍</option>' for value in (1, 2, 3))
+    if kind == 'translation':
+        settings_block = (
+            f'<label>思考时间 <select id="think">{thinks}</select></label>'
+            f'<label>答案停留 <select id="hold">{holds}</select></label>'
+            '<label>自动朗读 <input type="checkbox" id="autoread" checked></label>'
+            '<label>循环播放 <input type="checkbox" id="loop"></label>'
+        )
+    else:
+        settings_block = (
+            f'<label>间隔 <select id="interval">{settings}</select></label>'
+            f'<label>每词朗读 <select id="repeat">{repeats}</select></label>'
+        )
 
     html = f"""<!DOCTYPE html>
 <html lang="zh-CN">
@@ -1291,12 +1407,7 @@ def render_dictation_html(draft, audio=None):
 
   <div class="settings" id="settings" hidden>
     <h2 id="settings-title">{'自动检查' if kind == 'translation' else '自动听写'}</h2>
-    <label class="only-dictation">间隔 <select id="interval">{settings}</select></label>
-    <label class="only-dictation">每词朗读 <select id="repeat">{repeats}</select></label>
-    <label class="only-translation">思考时间 <select id="think">{thinks}</select></label>
-    <label class="only-translation">答案停留 <select id="hold">{holds}</select></label>
-    <label class="only-translation">自动朗读 <input type="checkbox" id="autoread" checked></label>
-    <label class="only-translation">循环播放 <input type="checkbox" id="loop"></label>
+    {settings_block}
     <label>打乱顺序 <input type="checkbox" id="shuffle"></label>
     <p class="note" id="audio-note"></p>
     <button type="button" class="close" id="close-settings">完成</button>
@@ -1310,9 +1421,33 @@ def render_dictation_html(draft, audio=None):
     <div class="controls" style="width:auto">
       <button type="button" class="ctrl" id="restart">回到第一题</button>
       <button type="button" class="ctrl" id="done-restart">{'再检查一遍' if kind == 'translation' else '再听一遍'}</button>
+      <button type="button" class="ctrl" id="answers-open">单个看答案</button>
       <button type="button" class="ctrl primary" id="summary-open">{'查看检查汇总' if kind == 'translation' else '查看听写汇总'}</button>
     </div>
   </div>
+
+  <section class="answers" id="answers" hidden>
+    <header class="answers-head">
+      <div>
+        <span class="eyebrow">单个看答案</span>
+        <h2 id="answers-title">单个看答案</h2>
+        <p>按听写顺序，逐个看单词、释义和例句。</p>
+      </div>
+      <button type="button" class="ctrl" id="answers-close">返回</button>
+    </header>
+    <div class="answers-stage">
+      <button type="button" class="summary-nav" id="answers-prev" aria-label="上一个">‹</button>
+      <article class="answers-card">
+        <p class="answers-count" id="answers-count"></p>
+        <p class="answers-word" id="answers-word"></p>
+        <p class="answers-phon" id="answers-phon"></p>
+        <div class="answers-senses" id="answers-senses"></div>
+        <p class="answers-example" id="answers-example"></p>
+        <p class="answers-example-zh" id="answers-example-zh"></p>
+      </article>
+      <button type="button" class="summary-nav" id="answers-next" aria-label="下一个">›</button>
+    </div>
+  </section>
 
   <section class="summary" id="summary" hidden>
     <header class="summary-head">
@@ -1322,6 +1457,12 @@ def render_dictation_html(draft, audio=None):
         <p id="summary-note">{'按检查顺序排列，可保存为图片；内容超出一页会自动分页。' if kind == 'translation' else '按听写顺序排列，可保存为图片；内容超出一页会自动分页。'}</p>
       </div>
       <div class="summary-actions">
+        <div class="summary-size" role="group" aria-label="清单字号">
+          <span>字号</span>
+          <button type="button" data-scale="0.85">小</button>
+          <button type="button" data-scale="1" class="is-on">中</button>
+          <button type="button" data-scale="1.2">大</button>
+        </div>
         <button type="button" class="ctrl" id="summary-back">{'返回检查' if kind == 'translation' else '返回听写'}</button>
         <button type="button" class="ctrl" id="summary-save-one">保存本页</button>
         <button type="button" class="ctrl primary" id="summary-save">保存全部图片</button>

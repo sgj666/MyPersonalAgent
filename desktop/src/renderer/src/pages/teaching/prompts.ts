@@ -119,7 +119,7 @@ export const dictationPrompt = (p: DictationParams): string =>
   ask(
     'word-dictation',
     p,
-    '只出本单元词表：按 Dictation JSON 契约输出一个 ```json 代码块（meta + words[{word, phonetic, senses:[{pos, meaning}]}]），不要生成 HTML。'
+    '只出本单元词表：按 Dictation JSON 契约输出一个 ```json 代码块（meta + words[{word, phonetic, senses:[{pos, meaning}], example, example_zh}]），不要生成 HTML。'
   )
 
 export interface ScheduleParams {

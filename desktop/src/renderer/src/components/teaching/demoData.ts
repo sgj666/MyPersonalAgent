@@ -44,8 +44,8 @@ export const DEMO_DICTATION: DictationDraft = {
   version: 1,
   meta: { title: 'Unit 3 单词听写', book: '人教新版七上', unit: 'Unit 3 My weekend plan', date: '2026-11-12', kind: 'dictation', mode: 'zh' },
   words: [
-    { word: 'visit', phonetic: '/ˈvɪzɪt/', senses: [{ pos: 'v.', meaning: '参观；拜访' }] },
-    { word: 'see a film', phonetic: '', senses: [{ pos: 'phr.', meaning: '看电影' }] },
+    { word: 'visit', phonetic: '/ˈvɪzɪt/', senses: [{ pos: 'v.', meaning: '参观；拜访' }], example: 'We will visit the science museum this weekend.', exampleZh: '这个周末我们要去参观科学博物馆。' },
+    { word: 'see a film', phonetic: '', senses: [{ pos: 'phr.', meaning: '看电影' }], example: 'Let’s see a film after school.', exampleZh: '放学后我们去看电影吧。' },
     { word: 'picnic', phonetic: '/ˈpɪknɪk/', senses: [{ pos: 'n.', meaning: '野餐' }] },
     { word: 'cinema', phonetic: '/ˈsɪnəmə/', senses: [{ pos: 'n.', meaning: '电影院' }] },
     { word: 'tomorrow', phonetic: '/təˈmɒrəʊ/', senses: [{ pos: 'adv.', meaning: '明天' }] },
