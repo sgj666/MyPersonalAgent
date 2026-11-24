@@ -112,6 +112,47 @@ mkdir -p <outdir>/segments && mv <outdir>/seg_*.mp3 <outdir>/segments/
 
 ### Step 7 — 验证
 
+**7.1 反向校验（必做，不可跳过）**
+
+把切好的每段音频**再送回 ASR 转写一次**，和页面文本逐句比对。
+这是唯一能发现「音频里有、文本里没有」这类低级错误的手段 —— 肉眼看不出来。
+
+```bash
+# 全量校验（每句调一次 API；22 句约 1-2 分钟）
+python3 <base_dir>/scripts/verify_segments.py segments.json speakers.json segments/
+
+# 只抽查前 5 句（省时间）
+python3 <base_dir>/scripts/verify_segments.py segments.json speakers.json segments/ --sample 5
+
+# 离线自检（不调 API，只查文件是否为空/时长为 0）
+python3 <base_dir>/scripts/verify_segments.py segments.json speakers.json segments/ --offline
+
+# 已知例外白名单（人工确认过、属正常的差异，避免每次误报）
+python3 <base_dir>/scripts/verify_segments.py segments.json speakers.json segments/ --allow allow.json
+```
+
+`allow.json` 格式（只登记确实人工核对过的情况，不得用来掩盖真错误）：
+```json
+{"14": "教材写数字 120，音频读 one hundred and twenty；中文里已补读音提示，属正常"}
+```
+
+判读标准：
+- `✓ 通过`（相似度 ≥ 0.80）：音频与文本一致
+- `✗ 疑似丢词`：**文本有、音频没听到** → 严重问题，必须修
+- `✗ 疑似多词`：**音频有、文本没有** → 严重问题，必须修
+- 常见误报可忽略：`it's` → `it s`、`Ms Wang` → `Ms. Wong`（人名识别偏差）
+
+**退出码非 0 就必须处理完再交付。**
+
+**典型抓到的错误**：
+> 教材 `We have over 120 dishes to choose from.`
+> 音频读作 `We have over one hundred and twenty dishes...`
+> → 文本写 `120`、音频读 `one hundred and twenty`，学生听读对不上。
+> 处理：保留教材写法，在中文翻译里补读音提示
+> `我们有 120（one hundred and twenty）多道菜可以选。`
+
+**7.2 结构校验**
+
 ```bash
 # 结构校验：行数/头像/音频引用是否齐全
 python3 - <<'EOF'
@@ -175,3 +216,29 @@ CHROME="$HOME/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google
 
 - `DASHSCOPE_API_KEY`（阿里云百炼）。缺了就 `env_config(action="set", key="DASHSCOPE_API_KEY", value="...")`
 - Python 3（无第三方依赖）
+
+### ⚠️ 教材拆句 / 合句（防丢词）
+
+教材常把一句拆成两句（`All right.` + `So, we've done some experiments.`），
+而 ASR 按音频停顿合成一句。这时如果直接用教材"最相似的那句"替换，
+会把 `All right` 丢掉 —— 音频里明明有，文本却没有。
+
+`fix_punctuation.py` 的处理：检测到 **ASR 词序列 == 教材上一句 + 本句** 时，
+自动把两句合并回来，并打上 `note` 提示。反之（教材合、ASR 拆）不处理。
+
+清洗原文时别忘了去掉 `Section A, 2b and 2c Ms Wang:` 这种「章节号+说话人」前缀，
+否则第一句永远匹配不上。
+
+### ⚠️ 中文翻译存在哪个文件（改一处坏一处的根源）
+
+`build_html.py` **原来只读 `segments.json` 的 `zh` 字段**，
+而中文翻译通常是写在 `speakers.json` 里的。
+一旦重新切音频、重生成 `segments.json`，中文就静默全空 —— 页面照常生成，看不出问题。
+
+**现已修复**：
+- 读取顺序改为 `speakers.json` 的 `zh` → `segments.json` 的 `zh`
+- 生成时**必须**打印 `中文翻译: 22/22 句齐全`
+- 缺中文会打印 `⚠️ 警告` 并列出句子序号
+- 缺失超过一半 → 直接 `return 1` 中止，不交付半成品
+
+**交付前必看日志这一行**，没有"中文翻译 N/N 句齐全"就是有问题。

@@ -290,10 +290,15 @@ def generate(segments, speakers, title, topic, subtags):
     kind_css = build_kind_css(kinds)
 
     rows = []
+    _no_zh = []
     for s in segments:
         i = s['idx']
         sp = speakers[str(i)]
-        zh = s.get('zh', '')
+        # 中文优先取 speakers.json（翻译按句号归属，通常写在这里），
+        # 其次取 segments.json，两处都没有则留空但会在下方统一告警
+        zh = sp.get('zh') or s.get('zh') or ''
+        if not zh.strip():
+            _no_zh.append(i)
         rows.append(f"""    <div class="line w-{sp['kind']}" data-i="{i}">
       <div class="meta"><span class="idx">{i:02d}</span><span class="time">{mmss(s['begin'])}</span></div>
       <div class="bubble">
@@ -373,7 +378,7 @@ def generate(segments, speakers, title, topic, subtags):
 <script>{JS_TEMPLATE.replace('__TOTAL__', str(len(segments)))}</script>
 </body>
 </html>"""
-    return body
+    return body, _no_zh
 
 
 def main():
@@ -415,7 +420,7 @@ def main():
     if not subtags:
         subtags = [f"{len(segments)} 句", "精听"]
 
-    html_out = generate(segments, speakers, title, topic, subtags)
+    html_out, _no_zh = generate(segments, speakers, title, topic, subtags)
     os.makedirs(base, exist_ok=True)
     with open(out_path, 'w', encoding='utf-8') as f:
         f.write(html_out)
@@ -424,6 +429,16 @@ def main():
     n_kinds = len(set(speakers[str(s['idx'])]['kind'] for s in segments))
     print(f"句子: {len(segments)} | 说话人身份: {n_kinds} 种")
     print(f"大小: {os.path.getsize(out_path)/1024:.1f} KB")
+
+    # 中文缺失保护：静默留空是"改一处坏一处"的典型来源，必须显式报出来
+    if _no_zh:
+        print(f"⚠️ 警告: {len(_no_zh)}/{len(segments)} 句缺少中文翻译 -> {_no_zh}")
+        print("   请在 speakers.json 里补 zh 字段（形如 {\"12\": {..., \"zh\": \"...\"}}）")
+        if len(_no_zh) > len(segments) * 0.5:
+            print("❌ 超过一半句子没有中文，视为参数错误，中止交付")
+            return 1
+    else:
+        print(f"中文翻译: {len(segments)}/{len(segments)} 句齐全")
     return 0
 
 
