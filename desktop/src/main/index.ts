@@ -513,25 +513,47 @@ function createWindow() {
     }
   })
 
-  // Native right-click menu for images. The renderer runs from file:// (or the
-  // dev server), so Chromium's built-in "Save image as…" resolves the src
-  // against the wrong origin and does nothing. Provide our own Save / Copy that
-  // fetch the bytes ourselves — this is what makes chat images (inline and in
-  // the lightbox) downloadable on desktop, matching the browser console.
+  // Native right-click menu. Images need a custom Save/Copy because the
+  // renderer runs from file:// (or the dev server) and Chromium's built-in
+  // "Save image as…" resolves the src against the wrong origin. Editable fields
+  // get the Windows-style edit menu — without it a right-click in the chat box
+  // does nothing at all.
   mainWindow.webContents.on('context-menu', (_e, params) => {
-    if (params.mediaType !== 'image' || !params.srcURL) return
     const zh = isZhLocale()
-    const menu = Menu.buildFromTemplate([
-      {
-        label: zh ? '图片另存为…' : 'Save Image As…',
-        click: () => void saveImageFromUrl(params.srcURL),
-      },
-      {
-        label: zh ? '复制图片' : 'Copy Image',
-        click: () => void copyImageFromUrl(params.srcURL),
-      },
-    ])
-    menu.popup({ window: mainWindow ?? undefined })
+    if (params.mediaType === 'image' && params.srcURL) {
+      const menu = Menu.buildFromTemplate([
+        {
+          label: zh ? '图片另存为…' : 'Save Image As…',
+          click: () => void saveImageFromUrl(params.srcURL),
+        },
+        {
+          label: zh ? '复制图片' : 'Copy Image',
+          click: () => void copyImageFromUrl(params.srcURL),
+        },
+      ])
+      menu.popup({ window: mainWindow ?? undefined })
+      return
+    }
+    if (params.isEditable) {
+      const flags = params.editFlags
+      const menu = Menu.buildFromTemplate([
+        { role: 'undo', label: zh ? '撤销' : 'Undo', enabled: flags.canUndo },
+        { role: 'redo', label: zh ? '重做' : 'Redo', enabled: flags.canRedo },
+        { type: 'separator' },
+        { role: 'cut', label: zh ? '剪切' : 'Cut', enabled: flags.canCut },
+        { role: 'copy', label: zh ? '复制' : 'Copy', enabled: flags.canCopy },
+        { role: 'paste', label: zh ? '粘贴' : 'Paste', enabled: flags.canPaste },
+        { role: 'selectAll', label: zh ? '全选' : 'Select All', enabled: flags.canSelectAll },
+      ])
+      menu.popup({ window: mainWindow ?? undefined })
+      return
+    }
+    // Selected message text still deserves a copy action.
+    if (params.selectionText.trim()) {
+      Menu.buildFromTemplate([{ role: 'copy', label: zh ? '复制' : 'Copy' }]).popup({
+        window: mainWindow ?? undefined,
+      })
+    }
   })
 
   // Close-to-tray: hide the window instead of destroying it, so the tray's
