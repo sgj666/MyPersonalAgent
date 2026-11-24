@@ -48,6 +48,7 @@ List all available remote skills:
 | `courseware-ppt` | 教案路径或表单字段 | Deck JSON（13 种 layout，10–16 页，含讲稿）→ `artifacts/教学工具/deck/<slug>.json` |
 | `homework-card` | 班级 + 一句话作业意图 + facts/stats（薄弱项、均分） | 分层 Card JSON → `artifacts/教学工具/card/<slug>.json` |
 | `word-dictation` | 课本 + 单元（可选 `knowledge_paths[]`） | `{meta, words[{word, phonetic, senses[{pos, meaning}]}]}` JSON → `artifacts/教学工具/dictation/<slug>.json`，HTML 由页面渲染 |
+| `listening-segmenter` | 英语听力音频（mp3/m4a/wav）+ 标题 + 教材单元 | 逐句切割的 `segments/*.mp3` + `精听.html`（点播、说话人头像、中英对照）→ `artifacts/教学工具/listening/<slug>/` |
 | `homework-summary` | Card JSON + facts/stats | `{summary, grading_notes[], weak_points[3]}` JSON |
 | `teaching-advice` | 班级 + 单元 + 关注点 + `/api/teaching/facts` 的 facts/stats | `{facts[], actions[3–5]}` JSON，每条 action 可转任务 |
 | `teaching-plan` | 学期、教材、单元范围、周数、每周课时、校历 | `{weeks[]}` JSON → `artifacts/教学工具/plan/<slug>.json`，由接口 `overwrite:false` 写入进度 |
