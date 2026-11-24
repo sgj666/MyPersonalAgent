@@ -235,6 +235,18 @@ def extract(page_url) -> {"url": ..., "title": ...}   # 或抛 DouyinError
 | `Requested format is not available` | `quality` | 「该清晰度需要登录/大会员」 |
 | `ffmpeg not found` / merge 失败 | `dep` | 「缺少 ffmpeg 组件」 |
 
+**画质与编码：默认给能播的，不是给最省的**
+
+B 站在同一分辨率下同时提供 avc1 / hev1 / av01，只按分辨率挑会拿到 AV1 —— 文件能下、我们的播放器能播，但 Windows 的「电影和电视」直接报 `0xc00d5212 缺少编解码器`。实测第一批视频里 3 条是 AV1/HEVC，用户打不开。
+
+所以下载时 `-S vcodec:h264,res:N`（H.264 优先，同分辨率再比清晰度），下载后再用 `ffmpeg -i` 复核一遍编码：
+
+- 是 h264/vp8/vp9 → 原样交付
+- 是 av1/hevc/vvc → `libx264 -preset veryfast -crf 22` 转成 H.264/AAC（`-movflags +faststart`），SSE 里推 `stage=transcode` 的百分比
+- 转码失败保留原文件，不丢东西
+
+代价：AV1 源多了一次转码（2 分钟片子约 15 秒，体积约 ×2.5）。但"下载成功却打不开"变成不可能——这才是这件事的验收标准。
+
 **抖音为什么绕过 yt-dlp**
 
 `DouyinIE` 打的是需要 Argus/`a_bogus` 签名的 `aweme/v1/web/aweme/detail`，实测返回 `403 Blocked by ArgusSecurityPlugin Uifid Not Found`，配了 `ttwid` 也一样。所以抖音走 `douyin.py`（§6.2）的浏览器路径，再由 `service._fetch_direct` 直接流式下载那个 CDN 地址；`runner` 只服务小红书和 B 站。

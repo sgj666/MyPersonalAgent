@@ -338,7 +338,14 @@ def download(
     # has height 1920, so a `[height<=1080]` filter would silently drop it to
     # the next size down. `res` compares the short side, which is what people
     # mean by "720p" for a phone-shot clip.
-    sort_args = ["-S", _QUALITY_SORT[quality]] if quality in _QUALITY_SORT else []
+    # H.264 first, then the resolution: Windows' built-in player (电影和电视) has
+    # no AV1 or HEVC decoder, and Bilibili offers all three codecs at the same
+    # size — picking by resolution alone gave files that downloaded fine and
+    # then answered "缺少编解码器 0xc00d5212".
+    sort = "vcodec:h264"
+    if quality in _QUALITY_SORT:
+        sort = f"{sort},{_QUALITY_SORT[quality]}"
+    sort_args = ["-S", sort]
     args = command + [
         "--no-warnings",
         "--ignore-config",
@@ -516,6 +523,30 @@ def _cookie_args() -> List[str]:
     except Exception as e:
         logger.debug(f"[video] cookie args unavailable: {e}")
         return []
+
+
+def probe_codec(path: str) -> Dict[str, str]:
+    """Video and audio codec of a finished file, read with ffmpeg.
+
+    Used after every download: a container that plays in our own <video> can
+    still be unplayable in the operating system's player, and the teacher will
+    blame the download rather than the codec.
+    """
+    ffmpeg = ffmpeg_location()
+    if not ffmpeg or not os.path.isfile(path):
+        return {}
+    try:
+        out = subprocess.run(
+            [ffmpeg, "-hide_banner", "-i", path],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30,
+        )
+    except Exception as e:
+        logger.debug(f"[video] codec probe failed: {e}")
+        return {}
+    text = (out.stderr or "")
+    video = re.search(r"Stream #\d+:\d+.*?: Video: (\w+)", text)
+    audio = re.search(r"Stream #\d+:\d+.*?: Audio: (\w+)", text)
+    return {"video": video.group(1) if video else "", "audio": audio.group(1) if audio else ""}
 
 
 def _ffmpeg_args() -> List[str]:

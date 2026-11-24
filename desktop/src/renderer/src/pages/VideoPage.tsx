@@ -87,6 +87,7 @@ const VideoPage: React.FC<{ baseUrl: string }> = ({ baseUrl }) => {
   const [recent, setRecent] = useState<VideoItem[]>([])
   const [progress, setProgress] = useState<ProgressState>({ percent: 0, downloaded: 0, total: 0, speed: '', eta: '' })
   const [result, setResult] = useState<{ path: string; size: number; title: string } | null>(null)
+  const [transcodeNote, setTranscodeNote] = useState('')
   const [error, setError] = useState<{ code: string; message: string; detail?: string } | null>(null)
   const [loginPlatform, setLoginPlatform] = useState('')
   const [loginState, setLoginState] = useState<{ qr?: string; key?: string; text: string; tone: 'muted' | 'ok' | 'warn' } | null>(null)
@@ -178,6 +179,7 @@ const VideoPage: React.FC<{ baseUrl: string }> = ({ baseUrl }) => {
     const text = link.trim()
     if (!text || streamRef.current) return
     setProgress({ percent: 0, downloaded: 0, total: 0, speed: '', eta: '' })
+    setTranscodeNote('')
     setStage('downloading')
 
     const stream = apiClient.createVideoStream({
@@ -193,6 +195,11 @@ const VideoPage: React.FC<{ baseUrl: string }> = ({ baseUrl }) => {
       try {
         payload = JSON.parse(event.data)
       } catch {
+        return
+      }
+      if (payload.stage === 'transcode') {
+        setTranscodeNote(String(payload.message || t('tw_video_transcoding')))
+        if (payload.percent != null) setProgress((prev) => ({ ...prev, percent: Number(payload.percent) }))
         return
       }
       if (payload.stage === 'download') {
@@ -465,6 +472,11 @@ const VideoPage: React.FC<{ baseUrl: string }> = ({ baseUrl }) => {
 
                   {busy ? (
                     <div>
+                      {transcodeNote && (
+                        <p className="mb-2 text-[11.5px] font-bold text-[#8A6A1F] dark:text-[#DFC070]">
+                          {transcodeNote}
+                        </p>
+                      )}
                       <div className="h-2.5 overflow-hidden rounded-full bg-[#F6F1EC] dark:bg-[#1D2329]">
                         <div
                           className="h-full rounded-full bg-[#2C6B4F] transition-[width] duration-300 dark:bg-[#58C08C]"

@@ -347,6 +347,14 @@ function vdDownload() {
     stream.onmessage = event => {
         let payload = null;
         try { payload = JSON.parse(event.data); } catch (_) { return; }
+        if (payload.stage === 'transcode') {
+            // The file downloaded fine but its codec would not open on Windows;
+            // the backend re-encodes it before handing it over.
+            vdRenderProgress(payload);
+            const note = vdEl('vd-busy-note');
+            if (note) note.textContent = payload.message || t('tw_video_transcoding');
+            return;
+        }
         if (payload.stage === 'download') {
             vdRenderProgress(payload);
         } else if (payload.stage === 'done') {

@@ -168,3 +168,43 @@ def test_poster_is_skipped_without_ffmpeg(tmp_path, monkeypatch):
     video.write_bytes(b"x")
     monkeypatch.setattr(service.runner, "ffmpeg_location", lambda: None)
     assert service.poster(str(video)) is None
+
+
+def test_a_playable_file_is_left_alone(monkeypatch):
+    calls = []
+    monkeypatch.setattr(service.runner, "probe_codec", lambda path: {"video": "h264", "audio": "aac"})
+    monkeypatch.setattr(service, "_run_transcode", lambda *a, **k: calls.append(1))
+    out = service._ensure_playable({"path": "/tmp/x.mp4", "size": 1}, None)
+    assert out["size"] == 1 and calls == []
+
+
+def test_av1_is_transcoded_before_the_user_sees_it(monkeypatch, tmp_path):
+    """Windows 电影和电视 answers 0xc00d5212 for AV1 and HEVC."""
+    video = tmp_path / "a.mp4"
+    video.write_bytes(b"av1")
+    events = []
+    monkeypatch.setattr(service.runner, "probe_codec", lambda path: {"video": "av1", "audio": "aac"})
+    monkeypatch.setattr(service.runner, "ffmpeg_location", lambda: "/ffmpeg")
+
+    def fake_transcode(ffmpeg, src, dst, on_event):
+        open(dst, "wb").write(b"h264-h264")
+        on_event({"stage": "transcode", "percent": 50.0, "message": "converting"})
+
+    monkeypatch.setattr(service, "_run_transcode", fake_transcode)
+    out = service._ensure_playable({"path": str(video), "size": 3}, events.append)
+
+    assert video.read_bytes() == b"h264-h264"
+    assert out["size"] == len(b"h264-h264")
+    # start, the progress frame the fake sends, and the final 100%
+    assert [e["stage"] for e in events] == ["transcode", "transcode", "transcode"]
+    assert events[-1]["percent"] == 100.0
+
+
+def test_a_failed_transcode_keeps_the_original(monkeypatch, tmp_path):
+    video = tmp_path / "a.mp4"
+    video.write_bytes(b"av1")
+    monkeypatch.setattr(service.runner, "probe_codec", lambda path: {"video": "hevc", "audio": "aac"})
+    monkeypatch.setattr(service.runner, "ffmpeg_location", lambda: "/ffmpeg")
+    monkeypatch.setattr(service, "_run_transcode", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+    out = service._ensure_playable({"path": str(video), "size": 3}, None)
+    assert video.read_bytes() == b"av1" and out["size"] == 3

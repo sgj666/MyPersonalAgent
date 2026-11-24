@@ -164,6 +164,7 @@ def download(
                 should_stop=_cancel.is_set,
             )
 
+        result = _ensure_playable(result, on_event)
         result.update({"platform": link.platform, "url": link.url, "video_id": link.video_id})
         # No "done" event here: the caller builds it from the returned dict, and
         # emitting our own too produced two identical frames on the SSE stream.
@@ -180,6 +181,103 @@ def download(
         raise VideoError(e.reason, str(e), e.detail) from e
     finally:
         _lock.release()
+
+
+# Codecs every Windows 10/11 install can play without an extra extension from
+# the Microsoft Store. AV1 and HEVC both fail with 0xc00d5212 in 电影和电视.
+PLAYABLE_VIDEO = ("h264", "vp8", "vp9")
+
+
+def _ensure_playable(result: Dict, on_event) -> Dict:
+    """Transcode to H.264 when the platform only offered AV1/HEVC.
+
+    Downloading succeeded either way — the file just does not open on the
+    teacher's machine. Doing this here rather than at the player means the file
+    in 产出文件 is the one that plays, wherever it is opened from.
+    """
+    path = result.get("path") or ""
+    codecs = runner.probe_codec(path)
+    video = codecs.get("video") or ""
+    if not video or video in PLAYABLE_VIDEO:
+        return result
+
+    ffmpeg = runner.ffmpeg_location()
+    if not ffmpeg:
+        logger.info(f"[video] {video} source and no ffmpeg to transcode with")
+        return result
+
+    logger.info(f"[video] transcoding {video} -> h264: {os.path.basename(path)}")
+    _emit(on_event, {"stage": "transcode", "percent": 0.0,
+                     "message": f"正在转换为通用格式（{video}）"})
+    tmp = path + ".h264.mp4"
+    try:
+        _run_transcode(ffmpeg, path, tmp, on_event)
+    except Exception as e:
+        logger.warning(f"[video] transcode failed, keeping the original: {e}")
+        _discard(tmp)
+        return result
+
+    try:
+        os.replace(tmp, path)
+    except OSError as e:
+        logger.warning(f"[video] transcode replace failed: {e}")
+        _discard(tmp)
+        return result
+    _emit(on_event, {"stage": "transcode", "percent": 100.0, "message": "已转换为通用格式"})
+    result["size"] = os.path.getsize(path)
+    return result
+
+
+def _run_transcode(ffmpeg: str, src: str, dst: str, on_event) -> None:
+    """Re-encode video to H.264/AAC, reporting progress from ffmpeg's own output."""
+    import subprocess
+
+    duration = _duration_of(ffmpeg, src)
+    command = [
+        ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
+        "-i", src,
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "128k",
+        "-movflags", "+faststart",
+        "-progress", "pipe:1", "-nostats",
+        dst,
+    ]
+    process = subprocess.Popen(command, stdin=subprocess.DEVNULL,
+                               stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+    last = -1.0
+    for line in process.stdout or []:
+        key, _, value = line.strip().partition("=")
+        if key != "out_time_ms" or not duration:
+            continue
+        try:
+            done = int(value) / 1_000_000
+        except ValueError:
+            continue
+        percent = max(0.0, min(99.0, done * 100.0 / duration))
+        if percent - last >= 2:
+            last = percent
+            _emit(on_event, {"stage": "transcode", "percent": round(percent, 1),
+                             "message": "正在转换为通用格式（H.264）"})
+    if process.wait() != 0:
+        raise RuntimeError("ffmpeg 转码失败")
+
+
+def _duration_of(ffmpeg: str, path: str) -> float:
+    """Seconds, from ffmpeg's banner; 0 when it cannot be read."""
+    import re
+    import subprocess
+
+    try:
+        out = subprocess.run([ffmpeg, "-hide_banner", "-i", path],
+                             stdin=subprocess.DEVNULL, capture_output=True,
+                             text=True, timeout=30).stderr or ""
+    except Exception:
+        return 0.0
+    match = re.search(r"Duration: (\d+):(\d+):(\d+\.?\d*)", out)
+    if not match:
+        return 0.0
+    hours, minutes, seconds = match.groups()
+    return int(hours) * 3600 + int(minutes) * 60 + float(seconds)
 
 
 def _download_douyin(link, out_dir, max_mb, on_event, source, title) -> Dict:
