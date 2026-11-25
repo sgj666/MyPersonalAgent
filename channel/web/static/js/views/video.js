@@ -37,6 +37,7 @@ const VD_ERROR_COPY = {
     disk: { title: 'tw_video_err_disk_title', message: 'tw_video_err_disk_body' },
     busy: { title: 'tw_video_err_busy_title', message: 'tw_video_err_busy_body' },
     network: { title: 'tw_video_err_network_title', message: 'tw_video_err_network_body' },
+    timeout: { title: 'tw_video_err_timeout_title', message: 'tw_video_err_timeout_body' },
     dep: { title: 'tw_video_err_dep_title', message: 'tw_video_err_dep_body' },
     default: { title: 'tw_video_err_default_title', message: 'tw_video_err_default_body' },
 };

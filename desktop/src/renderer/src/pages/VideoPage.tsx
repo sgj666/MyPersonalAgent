@@ -75,6 +75,7 @@ const ERROR_COPY: Record<string, [string, string]> = {
   not_video: ['tw_video_err_notvideo_title', 'tw_video_err_notvideo_body'],
   unsupported: ['tw_video_err_unsupported_title', 'tw_video_err_unsupported_body'],
   unsupported_url: ['tw_video_err_unsupported_title', 'tw_video_err_unsupported_body'],
+  timeout: ['tw_video_err_timeout_title', 'tw_video_err_timeout_body'],
   no_link: ['tw_video_err_unsupported_title', 'tw_video_err_unsupported_body'],
 }
 
